@@ -96,8 +96,9 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
     <script>
-        const API_URL = 'http://127.0.0.1:5000/api/generate';
+        // Use config.API_URL instead of API_URL
         
         document.getElementById('mcqForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -124,7 +125,7 @@
                     custom_prompt: ''
                 };
                 
-                const response = await fetch(API_URL, {
+                const response = await fetch(config.API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -177,7 +178,9 @@
             explanation.textContent = data.explanation || 'No explanation provided';
             
             if (data.diagram_image_url) {
-                diagramImage.src = `http://127.0.0.1:5000${data.diagram_image_url}`;
+                // Use the base URL from config.API_URL (remove /api/generate if present)
+                const baseUrl = config.API_URL.replace(/\/api\/generate$/, '');
+                diagramImage.src = `${baseUrl}${data.diagram_image_url}`;
                 diagramImage.classList.remove('hidden');
                 
                 // Show library information
