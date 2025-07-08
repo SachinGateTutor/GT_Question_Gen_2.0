@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI MCQ Generator</title>
+    <title>AI MCQ Generator powered by PragyaAI</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -26,7 +26,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 AI MCQ Generator</h1>
+            <h1>🤖 AI MCQ Generator🤖</h1>
+            <h2>Powered by PragyaAI</h2>
             <p>Generate intelligent multiple choice questions with diagrams</p>
         </div>
 
@@ -87,6 +88,7 @@
                     </div>
                     
                     <div id="diagramContainer" style="text-align: center; margin-top: 15px;">
+                        <div id="libraryInfo" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;"></div>
                         <img id="diagramImage" class="diagram-image hidden" alt="Generated Diagram">
                     </div>
                 </div>
@@ -152,6 +154,7 @@
             const options = document.getElementById('options');
             const explanation = document.getElementById('explanation');
             const diagramImage = document.getElementById('diagramImage');
+            const libraryInfo = document.getElementById('libraryInfo');
             
             questionText.textContent = data.question_text || 'No question generated';
             
@@ -176,8 +179,17 @@
             if (data.diagram_image_url) {
                 diagramImage.src = `http://127.0.0.1:5000${data.diagram_image_url}`;
                 diagramImage.classList.remove('hidden');
+                
+                // Show library information
+                if (data.library_used) {
+                    libraryInfo.textContent = `📊 Diagram generated using: ${data.library_used}`;
+                    libraryInfo.classList.remove('hidden');
+                } else {
+                    libraryInfo.classList.add('hidden');
+                }
             } else {
                 diagramImage.classList.add('hidden');
+                libraryInfo.classList.add('hidden');
             }
             
             result.classList.remove('hidden');

@@ -1,15 +1,47 @@
 import os
 import uuid
 from PIL import Image
+import io
+import sys
+import traceback
 
-def render_schemdraw_diagram(code, output_folder):
-    import io
-    import sys
-    import traceback
-
+def render_diagram(code, library_name, output_folder):
+    """Render diagram using the specified library"""
+    
     # Ensure the output directory exists
     os.makedirs(output_folder, exist_ok=True)
+    
+    filename = f"{library_name}_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        if library_name == 'schemdraw':
+            return render_schemdraw_diagram(code, output_folder)
+        elif library_name == 'matplotlib':
+            return render_matplotlib_diagram(code, output_folder)
+        elif library_name == 'networkx':
+            return render_networkx_diagram(code, output_folder)
+        elif library_name == 'graphviz':
+            return render_graphviz_diagram(code, output_folder)
+        elif library_name == 'plotly':
+            return render_plotly_diagram(code, output_folder)
+        elif library_name == 'seaborn':
+            return render_seaborn_diagram(code, output_folder)
+        elif library_name == 'pillow':
+            return render_pillow_diagram(code, output_folder)
+        elif library_name == 'turtle':
+            return render_turtle_diagram(code, output_folder)
+        else:
+            print(f"❌ Unknown library: {library_name}, falling back to schemdraw")
+            return render_schemdraw_diagram(code, output_folder)
+            
+    except Exception as e:
+        print(f'❌ Diagram generation error for {library_name}: {e}')
+        traceback.print_exc()
+        return None
 
+def render_schemdraw_diagram(code, output_folder):
+    """Original schemdraw rendering logic"""
     filename = f"schemdraw_{uuid.uuid4().hex[:8]}.png"
     filepath = os.path.join(output_folder, filename)
     
@@ -82,7 +114,7 @@ def render_schemdraw_diagram(code, output_folder):
         }
         
         # Execute the diagram code
-        print(f"🔍 Executing processed code:\n{code}")
+        print(f"🔍 Executing processed schemdraw code:\n{code}")
         exec(code, exec_globals)
         
         # Get the drawing object and save to buffer
@@ -92,18 +124,318 @@ def render_schemdraw_diagram(code, output_folder):
                 d.save(buffer)
                 buffer.seek(0)
                 img = Image.open(buffer)
-                print(f"Saving image to absolute path: {os.path.abspath(filepath)}")
+                print(f"Saving schemdraw image to: {os.path.abspath(filepath)}")
                 img.save(filepath)
-                print(f"✅ Diagram saved as: {filename}")
+                print(f"✅ Schemdraw diagram saved as: {filename}")
                 return filename
             except Exception as save_error:
-                print(f"❌ Error saving diagram: {save_error}")
+                print(f"❌ Error saving schemdraw diagram: {save_error}")
                 return None
         else:
-            print("❌ No drawing object 'd' found in code")
+            print("❌ No drawing object 'd' found in schemdraw code")
             return None
             
     except Exception as e:
-        print(f'❌ Diagram generation error: {e}')
+        print(f'❌ Schemdraw diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_matplotlib_diagram(code, output_folder):
+    """Render matplotlib diagram"""
+    filename = f"matplotlib_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        
+        # Post-process code for common AI mistakes
+        # Add missing imports if needed
+        if 'np.' in code and 'import numpy' not in code:
+            code = 'import numpy as np\n' + code
+        if 'pd.' in code and 'import pandas' not in code:
+            code = 'import pandas as pd\n' + code
+            
+        # Fix common matplotlib issues
+        if 'plt.show()' in code:
+            code = code.replace('plt.show()', '# plt.show()  # Not needed for saving')
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'plt': plt,
+            'np': np,
+            'pd': pd,
+            'buffer': buffer
+        }
+        
+        print(f"🔍 Executing matplotlib code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Save image
+        img = Image.open(buffer)
+        img.save(filepath)
+        print(f"✅ Matplotlib diagram saved as: {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f'❌ Matplotlib diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_networkx_diagram(code, output_folder):
+    """Render networkx diagram"""
+    filename = f"networkx_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        import networkx as nx
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'nx': nx,
+            'plt': plt,
+            'buffer': buffer
+        }
+        
+        print(f"🔍 Executing networkx code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Save image
+        img = Image.open(buffer)
+        img.save(filepath)
+        print(f"✅ Networkx diagram saved as: {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f'❌ Networkx diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_graphviz_diagram(code, output_folder):
+    """Render graphviz diagram"""
+    filename = f"graphviz_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        import graphviz
+        import tempfile
+        import glob
+        
+        # Post-process code for common AI mistakes
+        # Fix the render method call - graphviz doesn't accept BytesIO directly
+        if 'dot.render(buffer, format=' in code:
+            code = code.replace('dot.render(buffer, format=\'png\', cleanup=True)', 
+                              'dot.render(tempfile.mktemp(), format=\'png\', cleanup=True)')
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'graphviz': graphviz,
+            'buffer': buffer,
+            'tempfile': tempfile,
+            'os': os
+        }
+        
+        print(f"🔍 Executing graphviz code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Graphviz saves to a file, so we need to read it back
+        # The dot object should have been created in the code
+        dot = exec_globals.get('dot')
+        if dot:
+            # Save to a temporary file
+            temp_path = tempfile.mktemp(suffix='')
+            dot.render(temp_path, format='png', cleanup=True)
+            
+            # Graphviz creates files with .png extension
+            actual_file = temp_path + '.png'
+            
+            # Read the generated file into buffer
+            if os.path.exists(actual_file):
+                with open(actual_file, 'rb') as f:
+                    buffer.write(f.read())
+                
+                # Clean up temp file
+                os.remove(actual_file)
+                
+                # Save to our output location
+                buffer.seek(0)
+                img = Image.open(buffer)
+                img.save(filepath)
+                print(f"✅ Graphviz diagram saved as: {filename}")
+                return filename
+            else:
+                print(f"❌ Generated file not found: {actual_file}")
+                return None
+        else:
+            print("❌ No graphviz object 'dot' found in code")
+            return None
+        
+    except Exception as e:
+        print(f'❌ Graphviz diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_plotly_diagram(code, output_folder):
+    """Render plotly diagram"""
+    filename = f"plotly_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        import plotly.graph_objects as go
+        import plotly.io as pio
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'go': go,
+            'pio': pio,
+            'buffer': buffer
+        }
+        
+        print(f"🔍 Executing plotly code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Save image
+        img = Image.open(buffer)
+        img.save(filepath)
+        print(f"✅ Plotly diagram saved as: {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f'❌ Plotly diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_seaborn_diagram(code, output_folder):
+    """Render seaborn diagram"""
+    filename = f"seaborn_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        import seaborn as sns
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import pandas as pd
+        import numpy as np
+        
+        # Post-process code for common AI mistakes
+        code = code.replace('sns.venn2', '# sns.venn2  # Invalid function, using alternative')
+        code = code.replace('sns.venn3', '# sns.venn3  # Invalid function, using alternative')
+        
+        # Add pandas import if missing
+        if 'pd.DataFrame' in code and 'import pandas' not in code:
+            code = 'import pandas as pd\n' + code
+        
+        # Fix common seaborn issues
+        if 'sns.venn2(' in code:
+            # Replace venn2 with a simple bar plot
+            code = code.replace('sns.venn2(', '# sns.venn2(')
+            code += '\n# Creating alternative visualization since venn2 is not available'
+            code += '\nsns.barplot(data=df, x="Category", y="Value")'
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'sns': sns,
+            'plt': plt,
+            'pd': pd,
+            'np': np,
+            'buffer': buffer
+        }
+        
+        print(f"🔍 Executing seaborn code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Save image
+        img = Image.open(buffer)
+        img.save(filepath)
+        print(f"✅ Seaborn diagram saved as: {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f'❌ Seaborn diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_pillow_diagram(code, output_folder):
+    """Render pillow diagram"""
+    filename = f"pillow_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        from PIL import Image, ImageDraw
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'Image': Image,
+            'ImageDraw': ImageDraw,
+            'buffer': buffer
+        }
+        
+        print(f"🔍 Executing pillow code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Save image
+        img = Image.open(buffer)
+        img.save(filepath)
+        print(f"✅ Pillow diagram saved as: {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f'❌ Pillow diagram generation error: {e}')
+        traceback.print_exc()
+        return None
+
+def render_turtle_diagram(code, output_folder):
+    """Render turtle diagram"""
+    filename = f"turtle_{uuid.uuid4().hex[:8]}.png"
+    filepath = os.path.join(output_folder, filename)
+    
+    try:
+        import turtle
+        
+        # Create buffer
+        buffer = io.BytesIO()
+        
+        # Prepare execution environment
+        exec_globals = {
+            'turtle': turtle,
+            'buffer': buffer
+        }
+        
+        print(f"🔍 Executing turtle code:\n{code}")
+        exec(code, exec_globals)
+        
+        # Save image
+        img = Image.open(buffer)
+        img.save(filepath)
+        print(f"✅ Turtle diagram saved as: {filename}")
+        return filename
+        
+    except Exception as e:
+        print(f'❌ Turtle diagram generation error: {e}')
         traceback.print_exc()
         return None 
