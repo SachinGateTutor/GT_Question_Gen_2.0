@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MCQ Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: #667eea; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+        .form-section, .result-section { background: #f8f9fa; padding: 20px; border-radius: 8px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn { background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .question-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #667eea; }
+        .option { padding: 8px; margin: 5px 0; background: white; border: 1px solid #ddd; border-radius: 4px; }
+        .correct-answer { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .diagram-image { max-width: 100%; max-height: 250px; border-radius: 4px; }
+        .hidden { display: none; }
+        @media (max-width: 768px) { .content { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI MCQ Generator</h1>
+            <p>Generate intelligent multiple choice questions with diagrams</p>
+        </div>
+
+        <div class="content">
+            <div class="form-section">
+                <h2>📝 Generate Question</h2>
+                <form id="mcqForm">
+                    <div class="form-group">
+                        <label for="stream">Stream:</label>
+                        <select id="stream" name="stream" required>
+                            <option value="CS">Computer Science</option>
+                            <option value="IT">Information Technology</option>
+                            <option value="ECE">Electronics & Communication</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subject">Subject:</label>
+                        <input type="text" id="subject" name="subject" value="Digital Logic" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="topic">Topic:</label>
+                        <input type="text" id="topic" name="topic" value="Logic Gates" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="questionType">Question Type:</label>
+                        <select id="questionType" name="questionType" required>
+                            <option value="MCQ">Multiple Choice Question</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="requiresDiagram" name="requiresDiagram">
+                            Include Diagram
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn" id="generateBtn">🚀 Generate Question</button>
+                </form>
+            </div>
+
+            <div class="result-section">
+                <h2>📋 Generated Question</h2>
+                <div id="loading" class="hidden">
+                    <p>🔄 Generating question...</p>
+                </div>
+                
+                <div id="error" class="hidden" style="color: red; padding: 10px;"></div>
+                
+                <div id="result" class="hidden">
+                    <div class="question-card">
+                        <div id="questionText" style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px;"></div>
+                        <div id="options" style="margin-bottom: 15px;"></div>
+                        <div id="explanation" style="background: #e2e3e5; padding: 10px; border-radius: 4px; font-style: italic;"></div>
+                    </div>
+                    
+                    <div id="diagramContainer" style="text-align: center; margin-top: 15px;">
+                        <img id="diagramImage" class="diagram-image hidden" alt="Generated Diagram">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:5000/api/generate';
+        
+        document.getElementById('mcqForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const generateBtn = document.getElementById('generateBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+            
+            loading.classList.remove('hidden');
+            result.classList.add('hidden');
+            error.classList.add('hidden');
+            generateBtn.disabled = true;
+            generateBtn.textContent = '🔄 Generating...';
+            
+            try {
+                const formData = new FormData(e.target);
+                const data = {
+                    stream: formData.get('stream'),
+                    subject: formData.get('subject'),
+                    topic: formData.get('topic'),
+                    question_type: formData.get('questionType'),
+                    requires_diagram: formData.get('requiresDiagram') === 'on',
+                    custom_prompt: ''
+                };
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const resultData = await response.json();
+                displayResult(resultData);
+                
+            } catch (err) {
+                console.error('Error:', err);
+                error.textContent = `Error: ${err.message}`;
+                error.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🚀 Generate Question';
+            }
+        });
+        
+        function displayResult(data) {
+            const result = document.getElementById('result');
+            const questionText = document.getElementById('questionText');
+            const options = document.getElementById('options');
+            const explanation = document.getElementById('explanation');
+            const diagramImage = document.getElementById('diagramImage');
+            
+            questionText.textContent = data.question_text || 'No question generated';
+            
+            options.innerHTML = '';
+            if (data.options && data.options.length > 0) {
+                data.options.forEach((option, index) => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'option';
+                    const isCorrect = data.correct_answer && 
+                                   (data.correct_answer === String.fromCharCode(65 + index) || 
+                                    data.correct_answer === option);
+                    if (isCorrect) {
+                        optionDiv.classList.add('correct-answer');
+                    }
+                    optionDiv.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+                    options.appendChild(optionDiv);
+                });
+            }
+            
+            explanation.textContent = data.explanation || 'No explanation provided';
+            
+            if (data.diagram_image_url) {
+                diagramImage.src = `http://127.0.0.1:5000${data.diagram_image_url}`;
+                diagramImage.classList.remove('hidden');
+            } else {
+                diagramImage.classList.add('hidden');
+            }
+            
+            result.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
