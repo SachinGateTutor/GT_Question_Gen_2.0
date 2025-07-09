@@ -163,6 +163,10 @@ def render_matplotlib_diagram(code, output_folder):
         if 'plt.show()' in code:
             code = code.replace('plt.show()', '# plt.show()  # Not needed for saving')
         
+        # Fix BytesIO references
+        code = code.replace('BytesIO()', 'io.BytesIO()')
+        code = code.replace('from io import BytesIO', '')
+        
         # Create buffer
         buffer = io.BytesIO()
         
@@ -171,7 +175,8 @@ def render_matplotlib_diagram(code, output_folder):
             'plt': plt,
             'np': np,
             'pd': pd,
-            'buffer': buffer
+            'buffer': buffer,
+            'io': io
         }
         
         print(f"🔍 Executing matplotlib code:\n{code}")

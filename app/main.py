@@ -26,6 +26,7 @@ def serve_static(filename):
 @app.route('/api/generate', methods=['POST'])
 def generate():
     data = request.get_json()
+    num_questions = data.get('num_questions', 1)
     
     # Look up subject and topic names from IDs
     subject_id = data.get('subject_id')
@@ -47,50 +48,84 @@ def generate():
     # Fallback to IDs if names not found
     subject_for_prompt = subject_name if subject_name else subject_id
     topic_for_prompt = topic_name if topic_name else topic_id
-    # Prepare data for OpenAI
-    data_for_openai = data.copy()
-    data_for_openai['subject'] = subject_for_prompt
-    data_for_openai['topic'] = topic_for_prompt
-    # Call OpenAI to get question and diagram code with library selection
-    result = generate_mcq_and_diagram(data_for_openai)
     
-    image_url = None
-    if result.get('diagram_code'):
-        library_used = result.get('library_used', 'schemdraw')
-        image_filename = render_diagram(
-            result['diagram_code'], 
-            library_used, 
-            app.config['UPLOAD_FOLDER']
-        )
-        if image_filename:
-            image_url = f"/static/images/{image_filename}"
-    
-    response = {
-        'question_text': result.get('question_text'),
-        'options': result.get('options'),
-        'correct_answer': result.get('correct_answer'),
-        'explanation': result.get('explanation'),
-        'diagram_code': result.get('diagram_code'),
-        'diagram_image_url': image_url,
-        'library_used': result.get('library_used', 'schemdraw')
-    }
-    
-    # Store the generated question in database
-    if result.get('question_text'):
-        db_data = {
-            'subject_id': data.get('subject_id'),
-            'topic_id': data.get('topic_id'),
-            'question_type_id': data.get('question_type_id', 1),  # Default to MCQ
-            'bloom_level_id': data.get('bloom_level_id'),
-            'difficulty_level_id': data.get('difficulty_level_id'),
+    # Generate multiple questions
+    all_questions = []
+    for i in range(num_questions):
+        # Prepare data for OpenAI
+        data_for_openai = data.copy()
+        data_for_openai['subject'] = subject_for_prompt
+        data_for_openai['topic'] = topic_for_prompt
+        
+        # Call OpenAI to get question and diagram code with library selection
+        result = generate_mcq_and_diagram(data_for_openai)
+        
+        image_url = None
+        if result.get('diagram_code'):
+            library_used = result.get('library_used', 'schemdraw')
+            image_filename = render_diagram(
+                result['diagram_code'], 
+                library_used, 
+                app.config['UPLOAD_FOLDER']
+            )
+            if image_filename:
+                image_url = f"/static/images/{image_filename}"
+        
+        question_data = {
             'question_text': result.get('question_text'),
-            'options': result.get('options', []),
+            'options': result.get('options'),
             'correct_answer': result.get('correct_answer'),
             'explanation': result.get('explanation'),
+            'diagram_code': result.get('diagram_code'),
             'diagram_image_url': image_url,
             'library_used': result.get('library_used', 'schemdraw')
         }
-        store_generated_question(db_data)
+        
+        # Store the generated question in database
+        if result.get('question_text'):
+            db_data = {
+                'subject_id': data.get('subject_id'),
+                'topic_id': data.get('topic_id'),
+                'question_type_id': data.get('question_type_id', 1),  # Default to MCQ
+                'bloom_level_id': data.get('bloom_level_id'),
+                'difficulty_level_id': data.get('difficulty_level_id'),
+                'question_text': result.get('question_text'),
+                'options': result.get('options', []),
+                'correct_answer': result.get('correct_answer'),
+                'explanation': result.get('explanation'),
+                'diagram_image_url': image_url,
+                'library_used': result.get('library_used', 'schemdraw')
+            }
+            store_generated_question(db_data)
+        
+        all_questions.append(question_data)
+    
+    # Return the first question for backward compatibility, but also include all questions
+    if all_questions:
+        first_question = all_questions[0].copy()
+        response = {
+            'question_text': first_question.get('question_text'),
+            'options': first_question.get('options'),
+            'correct_answer': first_question.get('correct_answer'),
+            'explanation': first_question.get('explanation'),
+            'diagram_code': first_question.get('diagram_code'),
+            'diagram_image_url': first_question.get('diagram_image_url'),
+            'library_used': first_question.get('library_used', 'schemdraw'),
+            'all_questions': all_questions,
+            'total_generated': len(all_questions)
+        }
+    else:
+        response = {
+            'question_text': 'No questions generated',
+            'options': [],
+            'correct_answer': '',
+            'explanation': '',
+            'diagram_code': None,
+            'diagram_image_url': None,
+            'library_used': 'schemdraw',
+            'all_questions': [],
+            'total_generated': 0
+        }
     
     return jsonify(response)
 
@@ -133,9 +168,16 @@ def get_reference_api(table_name):
 # API endpoints for question management
 @app.route('/api/questions', methods=['GET'])
 def get_questions_api():
-    """Get all questions with optional status filter"""
+    """Get all questions with optional filters"""
     status = request.args.get('status', 'all')
-    questions = get_questions_by_status(status)
+    course = request.args.get('course', '')
+    stream = request.args.get('stream', '')
+    subject = request.args.get('subject', '')
+    topic = request.args.get('topic', '')
+    difficulty = request.args.get('difficulty', '')
+    bloom = request.args.get('bloom', '')
+    
+    questions = get_questions_by_status(status, course, stream, subject, topic, difficulty, bloom)
     return jsonify(questions)
 
 @app.route('/api/questions/<int:question_id>/status', methods=['POST'])
