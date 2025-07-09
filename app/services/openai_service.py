@@ -220,6 +220,12 @@ CRITICAL RULES for the PythonCode:
         if code_lines:
             diagram_code = '\n'.join(code_lines)
 
+        # Debug prints for parsed values
+        print("Parsed question_text:", question_text)
+        print("Parsed options:", options)
+        print("Parsed correct_answer:", correct_answer)
+        print("Parsed explanation:", explanation)
+
         return {
             'question_text': question_text,
             'options': options,
