@@ -416,10 +416,14 @@
         async function loadStreamsForCourse() {
             const courseFilter = document.getElementById('courseFilter');
             const streamFilter = document.getElementById('streamFilter');
+            const subjectFilter = document.getElementById('subjectFilter');
+            const topicFilter = document.getElementById('topicFilter');
             const selectedCourse = courseFilter.value;
             
-            // Reset stream filter
+            // Reset dependent filters
             streamFilter.innerHTML = '<option value="">All Streams</option>';
+            subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+            topicFilter.innerHTML = '<option value="">All Topics</option>';
             
             if (!selectedCourse) return;
             
@@ -429,9 +433,9 @@
                 if (!course) return;
                 
                 const streamsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/streams/${course.CourseID}`)}`);
-                const streams = await streamsResponse.json();
+                allStreams = await streamsResponse.json();
                 
-                streams.forEach(stream => {
+                allStreams.forEach(stream => {
                     const option = document.createElement('option');
                     option.value = stream.StreamName;
                     option.textContent = stream.StreamName;
@@ -447,10 +451,12 @@
         async function loadSubjectsForStream() {
             const streamFilter = document.getElementById('streamFilter');
             const subjectFilter = document.getElementById('subjectFilter');
+            const topicFilter = document.getElementById('topicFilter');
             const selectedStream = streamFilter.value;
             
-            // Reset subject filter
+            // Reset dependent filters
             subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+            topicFilter.innerHTML = '<option value="">All Topics</option>';
             
             if (!selectedStream) return;
             
@@ -459,10 +465,10 @@
                 const stream = allStreams.find(s => s.StreamName === selectedStream);
                 if (!stream) return;
                 
-                const subjectsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/subjects/${stream.StreamID}`)}`);
-                const subjects = await subjectsResponse.json();
+                const subjectsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/subjects?stream_id=${stream.StreamID}`)}`);
+                allSubjects = await subjectsResponse.json();
                 
-                subjects.forEach(subject => {
+                allSubjects.forEach(subject => {
                     const option = document.createElement('option');
                     option.value = subject.SubjectName;
                     option.textContent = subject.SubjectName;
@@ -491,9 +497,9 @@
                 if (!subject) return;
                 
                 const topicsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/topics/${subject.SubjectID}`)}`);
-                const topics = await topicsResponse.json();
+                allTopics = await topicsResponse.json();
                 
-                topics.forEach(topic => {
+                allTopics.forEach(topic => {
                     const option = document.createElement('option');
                     option.value = topic.TopicName;
                     option.textContent = topic.TopicName;
