@@ -77,7 +77,7 @@ IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Qu
 BEGIN
     CREATE TABLE QuestionType (
         QuestionTypeID INT IDENTITY(1,1) PRIMARY KEY,
-        QuestionTypeName NVARCHAR(50) NOT NULL,
+        TypeName NVARCHAR(50) NOT NULL,
         IsActive BIT DEFAULT 1
     );
     PRINT 'QuestionType table created successfully.';

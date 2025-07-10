@@ -1,11 +1,15 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, abort
 from services.openai_service import generate_mcq_and_diagram
 from services.diagram_service import render_diagram
 from services.db_service import (
     get_subjects, get_topics_by_subject, get_reference_data,
     store_generated_question, get_questions_by_status, update_question_status,
-    get_courses, get_streams_by_course, get_subjects_by_stream
+    get_courses, get_streams_by_course, get_subjects_by_stream,
+    add_course, update_course, delete_course, get_all_courses,
+    add_stream, update_stream, delete_stream, get_all_streams,
+    add_subject, update_subject, delete_subject, get_all_subjects,
+    add_topic, update_topic, delete_topic, get_all_topics
 )
 from flask_cors import CORS
 
@@ -191,6 +195,97 @@ def update_question_status_api(question_id):
     
     success = update_question_status(question_id, status)
     return jsonify({'success': success})
+
+# --- Admin API Endpoints ---
+# Course
+@app.route('/api/admin/courses', methods=['GET', 'POST'])
+def admin_courses():
+    if request.method == 'GET':
+        return jsonify(get_all_courses())
+    elif request.method == 'POST':
+        data = request.get_json()
+        success = add_course(data['CourseName'])
+        return jsonify({'success': success, 'message': 'Course added successfully' if success else 'Failed to add course'})
+    return abort(405)
+
+@app.route('/api/admin/courses/<int:course_id>', methods=['PUT', 'DELETE'])
+def admin_course_modify(course_id):
+    data = request.get_json()
+    if request.method == 'PUT':
+        success = update_course(course_id, data['CourseName'])
+        return jsonify({'success': success, 'message': 'Course updated successfully' if success else 'Failed to update course'})
+    elif request.method == 'DELETE':
+        success = delete_course(course_id)
+        return jsonify({'success': success, 'message': 'Course deleted successfully' if success else 'Failed to delete course'})
+    return abort(405)
+
+# Stream
+@app.route('/api/admin/streams', methods=['GET', 'POST'])
+def admin_streams():
+    if request.method == 'GET':
+        return jsonify(get_all_streams())
+    elif request.method == 'POST':
+        data = request.get_json()
+        success = add_stream(data['CourseID'], data['StreamName'])
+        return jsonify({'success': success, 'message': 'Stream added successfully' if success else 'Failed to add stream'})
+    return abort(405)
+
+@app.route('/api/admin/streams/<int:stream_id>', methods=['PUT', 'DELETE'])
+def admin_stream_modify(stream_id):
+    data = request.get_json()
+    if request.method == 'PUT':
+        success = update_stream(stream_id, data['StreamName'])
+        return jsonify({'success': success, 'message': 'Stream updated successfully' if success else 'Failed to update stream'})
+    elif request.method == 'DELETE':
+        success = delete_stream(stream_id)
+        return jsonify({'success': success, 'message': 'Stream deleted successfully' if success else 'Failed to delete stream'})
+    return abort(405)
+
+# Subject
+@app.route('/api/admin/subjects', methods=['GET', 'POST'])
+def admin_subjects():
+    if request.method == 'GET':
+        return jsonify(get_all_subjects())
+    elif request.method == 'POST':
+        data = request.get_json()
+        success = add_subject(data['StreamID'], data['SubjectName'])
+        return jsonify({'success': success, 'message': 'Subject added successfully' if success else 'Failed to add subject'})
+    return abort(405)
+
+@app.route('/api/admin/subjects/<int:subject_id>', methods=['PUT', 'DELETE'])
+def admin_subject_modify(subject_id):
+    data = request.get_json()
+    if request.method == 'PUT':
+        success = update_subject(subject_id, data['SubjectName'])
+        return jsonify({'success': success, 'message': 'Subject updated successfully' if success else 'Failed to update subject'})
+    elif request.method == 'DELETE':
+        success = delete_subject(subject_id)
+        return jsonify({'success': success, 'message': 'Subject deleted successfully' if success else 'Failed to delete subject'})
+    return abort(405)
+
+# Topic
+@app.route('/api/admin/topics', methods=['GET', 'POST'])
+def admin_topics():
+    if request.method == 'GET':
+        return jsonify(get_all_topics())
+    elif request.method == 'POST':
+        data = request.get_json()
+        bloom_level_id = data.get('BloomLevelID', 1)
+        success = add_topic(data['SubjectID'], data['TopicName'], bloom_level_id)
+        return jsonify({'success': success, 'message': 'Topic added successfully' if success else 'Failed to add topic'})
+    return abort(405)
+
+@app.route('/api/admin/topics/<int:topic_id>', methods=['PUT', 'DELETE'])
+def admin_topic_modify(topic_id):
+    data = request.get_json()
+    if request.method == 'PUT':
+        bloom_level_id = data.get('BloomLevelID', 1)
+        success = update_topic(topic_id, data['TopicName'], bloom_level_id)
+        return jsonify({'success': success, 'message': 'Topic updated successfully' if success else 'Failed to update topic'})
+    elif request.method == 'DELETE':
+        success = delete_topic(topic_id)
+        return jsonify({'success': success, 'message': 'Topic deleted successfully' if success else 'Failed to delete topic'})
+    return abort(405)
 
 if __name__ == '__main__':
     # Get host and port from environment variables or use defaults

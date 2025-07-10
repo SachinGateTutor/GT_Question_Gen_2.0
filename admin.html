@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Master Data Management</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f6fb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(60,60,120,0.08);
+            padding: 32px 40px 40px 40px;
+        }
+        h1 {
+            text-align: center;
+            color: #4a4a8a;
+            margin-bottom: 32px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 32px;
+        }
+        .tab {
+            padding: 14px 32px;
+            cursor: pointer;
+            color: #4a4a8a;
+            font-weight: 600;
+            border: none;
+            background: none;
+            outline: none;
+            transition: background 0.2s;
+        }
+        .tab.active {
+            border-bottom: 3px solid #667eea;
+            color: #667eea;
+            background: #f4f6fb;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .form-row input, .form-row select {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .form-row button {
+            padding: 10px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .form-row button:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: left;
+        }
+        th {
+            background: #f4f6fb;
+            color: #4a4a8a;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .action-btn {
+            background: #e0e7ff;
+            color: #4a4a8a;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            margin-right: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+        .action-btn:hover {
+            background: #c7d2fe;
+        }
+        .msg {
+            margin: 10px 0 0 0;
+            color: #256029;
+            font-weight: 500;
+        }
+        @media (max-width: 700px) {
+            .container { padding: 10px; }
+            .form-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Panel - Master Data Management</h1>
+        <div class="tabs">
+            <button class="tab active" data-tab="courses">Courses</button>
+            <button class="tab" data-tab="streams">Streams</button>
+            <button class="tab" data-tab="subjects">Subjects</button>
+            <button class="tab" data-tab="topics">Topics</button>
+        </div>
+        <div id="courses" class="tab-content active">
+            <form id="course-form">
+                <div class="form-row">
+                    <input type="text" id="course-name" placeholder="Course Name" required />
+                    <button type="submit">Add Course</button>
+                </div>
+                <div class="msg" id="course-msg"></div>
+            </form>
+            <table id="course-table">
+                <thead>
+                    <tr><th>ID</th><th>Name</th><th>Active</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="streams" class="tab-content">
+            <form id="stream-form">
+                <div class="form-row">
+                    <select id="stream-course" required></select>
+                    <input type="text" id="stream-name" placeholder="Stream Name" required />
+                    <button type="submit">Add Stream</button>
+                </div>
+                <div class="msg" id="stream-msg"></div>
+            </form>
+            <table id="stream-table">
+                <thead>
+                    <tr><th>ID</th><th>Name</th><th>Course</th><th>Active</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="subjects" class="tab-content">
+            <form id="subject-form">
+                <div class="form-row">
+                    <select id="subject-stream" required></select>
+                    <input type="text" id="subject-name" placeholder="Subject Name" required />
+                    <button type="submit">Add Subject</button>
+                </div>
+                <div class="msg" id="subject-msg"></div>
+            </form>
+            <table id="subject-table">
+                <thead>
+                    <tr><th>ID</th><th>Name</th><th>Stream</th><th>Active</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="topics" class="tab-content">
+            <form id="topic-form">
+                <div class="form-row">
+                    <select id="topic-subject" required></select>
+                    <input type="text" id="topic-name" placeholder="Topic Name" required />
+                    <input type="number" id="topic-bloom" placeholder="Bloom Level ID (default 1)" min="1" />
+                    <button type="submit">Add Topic</button>
+                </div>
+                <div class="msg" id="topic-msg"></div>
+            </form>
+            <table id="topic-table">
+                <thead>
+                    <tr><th>ID</th><th>Name</th><th>Subject</th><th>Bloom Level</th><th>Active</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab).classList.add('active');
+            });
+        });
+
+        // API base
+        const API = '/api/admin';
+
+        // --- Courses ---
+        async function loadCourses() {
+            const res = await fetch(`${API}/courses`);
+            const data = await res.json();
+            const tbody = document.querySelector('#course-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${row.CourseID}</td><td>${row.CourseName}</td><td>${row.IsActive ? 'Yes' : 'No'}</td>
+                    <td>
+                        <button class="action-btn" onclick="editCourse(${row.CourseID}, '${row.CourseName}')">Edit</button>
+                        <button class="action-btn" onclick="deleteCourse(${row.CourseID})">Delete</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+            // Populate course dropdown for streams
+            const courseSel = document.getElementById('stream-course');
+            courseSel.innerHTML = '<option value="">Select Course</option>';
+            data.filter(c => c.IsActive).forEach(row => {
+                courseSel.innerHTML += `<option value="${row.CourseID}">${row.CourseName}</option>`;
+            });
+        }
+        loadCourses();
+
+        document.getElementById('course-form').onsubmit = async e => {
+            e.preventDefault();
+            const name = document.getElementById('course-name').value.trim();
+            if (!name) return;
+            const res = await fetch(`${API}/courses`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ CourseName: name })
+            });
+            const data = await res.json();
+            document.getElementById('course-msg').textContent = data.message;
+            loadCourses();
+            e.target.reset();
+        };
+        window.editCourse = function(id, name) {
+            const newName = prompt('Edit Course Name:', name);
+            if (newName && newName !== name) {
+                fetch(`${API}/courses/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ CourseName: newName })
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    loadCourses();
+                });
+            }
+        };
+        window.deleteCourse = function(id) {
+            if (confirm('Delete this course?')) {
+                fetch(`${API}/courses/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    loadCourses();
+                });
+            }
+        };
+
+        // --- Streams ---
+        async function loadStreams() {
+            const res = await fetch(`${API}/streams`);
+            const data = await res.json();
+            const tbody = document.querySelector('#stream-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${row.StreamID}</td><td>${row.StreamName}</td><td>${getCourseName(row.CourseID)}</td><td>${row.IsActive ? 'Yes' : 'No'}</td>
+                    <td>
+                        <button class="action-btn" onclick="editStream(${row.StreamID}, '${row.StreamName}', ${row.CourseID})">Edit</button>
+                        <button class="action-btn" onclick="deleteStream(${row.StreamID})">Delete</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+            // Populate stream dropdown for subjects
+            const streamSel = document.getElementById('subject-stream');
+            streamSel.innerHTML = '<option value="">Select Stream</option>';
+            data.filter(s => s.IsActive).forEach(row => {
+                streamSel.innerHTML += `<option value="${row.StreamID}">${row.StreamName} (${getCourseName(row.CourseID)})</option>`;
+            });
+        }
+        let courseCache = [];
+        function getCourseName(id) {
+            const c = courseCache.find(c => c.CourseID === id);
+            return c ? c.CourseName : id;
+        }
+        async function refreshCoursesAndStreams() {
+            const res = await fetch(`${API}/courses`);
+            courseCache = await res.json();
+            await loadStreams();
+        }
+        document.getElementById('stream-form').onsubmit = async e => {
+            e.preventDefault();
+            const courseId = document.getElementById('stream-course').value;
+            const name = document.getElementById('stream-name').value.trim();
+            if (!courseId || !name) return;
+            const res = await fetch(`${API}/streams`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ CourseID: parseInt(courseId), StreamName: name })
+            });
+            const data = await res.json();
+            document.getElementById('stream-msg').textContent = data.message;
+            refreshCoursesAndStreams();
+            e.target.reset();
+        };
+        window.editStream = function(id, name, courseId) {
+            const newName = prompt('Edit Stream Name:', name);
+            if (newName && newName !== name) {
+                fetch(`${API}/streams/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ StreamName: newName })
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    refreshCoursesAndStreams();
+                });
+            }
+        };
+        window.deleteStream = function(id) {
+            if (confirm('Delete this stream?')) {
+                fetch(`${API}/streams/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    refreshCoursesAndStreams();
+                });
+            }
+        };
+
+        // --- Subjects ---
+        async function loadSubjects() {
+            const res = await fetch(`${API}/subjects`);
+            const data = await res.json();
+            const tbody = document.querySelector('#subject-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${row.SubjectID}</td><td>${row.SubjectName}</td><td>${getStreamName(row.StreamID)}</td><td>${row.IsActive ? 'Yes' : 'No'}</td>
+                    <td>
+                        <button class="action-btn" onclick="editSubject(${row.SubjectID}, '${row.SubjectName}', ${row.StreamID})">Edit</button>
+                        <button class="action-btn" onclick="deleteSubject(${row.SubjectID})">Delete</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+            // Populate subject dropdown for topics
+            const subjectSel = document.getElementById('topic-subject');
+            subjectSel.innerHTML = '<option value="">Select Subject</option>';
+            data.filter(s => s.IsActive).forEach(row => {
+                subjectSel.innerHTML += `<option value="${row.SubjectID}">${row.SubjectName} (${getStreamName(row.StreamID)})</option>`;
+            });
+        }
+        let streamCache = [];
+        function getStreamName(id) {
+            const s = streamCache.find(s => s.StreamID === id);
+            return s ? s.StreamName : id;
+        }
+        async function refreshStreamsAndSubjects() {
+            const res = await fetch(`${API}/streams`);
+            streamCache = await res.json();
+            await loadSubjects();
+        }
+        document.getElementById('subject-form').onsubmit = async e => {
+            e.preventDefault();
+            const streamId = document.getElementById('subject-stream').value;
+            const name = document.getElementById('subject-name').value.trim();
+            if (!streamId || !name) return;
+            const res = await fetch(`${API}/subjects`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ StreamID: parseInt(streamId), SubjectName: name })
+            });
+            const data = await res.json();
+            document.getElementById('subject-msg').textContent = data.message;
+            refreshStreamsAndSubjects();
+            e.target.reset();
+        };
+        window.editSubject = function(id, name, streamId) {
+            const newName = prompt('Edit Subject Name:', name);
+            if (newName && newName !== name) {
+                fetch(`${API}/subjects/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ SubjectName: newName })
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    refreshStreamsAndSubjects();
+                });
+            }
+        };
+        window.deleteSubject = function(id) {
+            if (confirm('Delete this subject?')) {
+                fetch(`${API}/subjects/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    refreshStreamsAndSubjects();
+                });
+            }
+        };
+
+        // --- Topics ---
+        async function loadTopics() {
+            const res = await fetch(`${API}/topics`);
+            const data = await res.json();
+            const tbody = document.querySelector('#topic-table tbody');
+            tbody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${row.TopicID}</td><td>${row.TopicName}</td><td>${getSubjectName(row.SubjectID)}</td><td>${row.BloomLevelID ?? ''}</td><td>${row.IsActive ? 'Yes' : 'No'}</td>
+                    <td>
+                        <button class="action-btn" onclick="editTopic(${row.TopicID}, '${row.TopicName}', ${row.SubjectID}, ${row.BloomLevelID ?? 1})">Edit</button>
+                        <button class="action-btn" onclick="deleteTopic(${row.TopicID})">Delete</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        let subjectCache = [];
+        function getSubjectName(id) {
+            const s = subjectCache.find(s => s.SubjectID === id);
+            return s ? s.SubjectName : id;
+        }
+        async function refreshSubjectsAndTopics() {
+            const res = await fetch(`${API}/subjects`);
+            subjectCache = await res.json();
+            await loadTopics();
+        }
+        document.getElementById('topic-form').onsubmit = async e => {
+            e.preventDefault();
+            const subjectId = document.getElementById('topic-subject').value;
+            const name = document.getElementById('topic-name').value.trim();
+            const bloom = document.getElementById('topic-bloom').value;
+            if (!subjectId || !name) return;
+            const res = await fetch(`${API}/topics`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ SubjectID: parseInt(subjectId), TopicName: name, BloomLevelID: bloom ? parseInt(bloom) : 1 })
+            });
+            const data = await res.json();
+            document.getElementById('topic-msg').textContent = data.message;
+            refreshSubjectsAndTopics();
+            e.target.reset();
+        };
+        window.editTopic = function(id, name, subjectId, bloom) {
+            const newName = prompt('Edit Topic Name:', name);
+            const newBloom = prompt('Edit Bloom Level ID:', bloom);
+            if (newName && newName !== name) {
+                fetch(`${API}/topics/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ TopicName: newName, BloomLevelID: newBloom ? parseInt(newBloom) : 1 })
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    refreshSubjectsAndTopics();
+                });
+            }
+        };
+        window.deleteTopic = function(id) {
+            if (confirm('Delete this topic?')) {
+                fetch(`${API}/topics/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                }).then(r => r.json()).then(data => {
+                    alert(data.message);
+                    refreshSubjectsAndTopics();
+                });
+            }
+        };
+
+        // Initial load
+        (async function() {
+            await loadCourses();
+            await refreshCoursesAndStreams();
+            await refreshStreamsAndSubjects();
+            await refreshSubjectsAndTopics();
+        })();
+    </script>
+</body>
+</html> 

@@ -7,15 +7,11 @@ import re
 def get_db_connection():
     """Get SQL Server database connection"""
     try:
-        # Update these connection details with your actual SQL Server info
         conn = pyodbc.connect(
             'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=localhost;'  # Change to your server name
-            'DATABASE=MCQGen;'   # Your database name
-            'Trusted_Connection=yes;'  # Windows Authentication
-            # Or use SQL Authentication:
-            # 'UID=your_username;'
-            # 'PWD=your_password;'
+            'SERVER=localhost;'
+            'DATABASE=MCQGen;'
+            'Trusted_Connection=yes;'
         )
         return conn
     except Exception as e:
@@ -395,4 +391,304 @@ def get_subjects_by_stream(stream_id):
         return result
     except Exception as e:
         print(f"Error getting subjects by stream: {e}")
+        return [] 
+
+def add_course(course_name):
+    """Add a new course"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO CourseMaster (CourseName, IsActive)
+            VALUES (?, 1)
+        """, (course_name,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error adding course: {e}")
+        return False
+
+def update_course(course_id, course_name):
+    """Update an existing course"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE CourseMaster 
+            SET CourseName = ?
+            WHERE CourseID = ?
+        """, (course_name, course_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error updating course: {e}")
+        return False
+
+def delete_course(course_id):
+    """Soft delete a course"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE CourseMaster 
+            SET IsActive = 0
+            WHERE CourseID = ?
+        """, (course_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error deleting course: {e}")
+        return False
+
+def get_all_courses():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT CourseID, CourseName, IsActive FROM CourseMaster ORDER BY CourseName")
+        rows = cursor.fetchall()
+        result = [{'CourseID': row[0], 'CourseName': row[1], 'IsActive': row[2]} for row in rows]
+        cursor.close()
+        conn.close()
+        return result
+    except Exception as e:
+        print(f"Error getting all courses: {e}")
+        return []
+
+def add_stream(course_id, stream_name):
+    """Add a new stream"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO StreamMaster (CourseID, StreamName, IsActive)
+            VALUES (?, ?, 1)
+        """, (course_id, stream_name))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error adding stream: {e}")
+        return False
+
+def update_stream(stream_id, stream_name):
+    """Update an existing stream"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE StreamMaster 
+            SET StreamName = ?
+            WHERE StreamID = ?
+        """, (stream_name, stream_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error updating stream: {e}")
+        return False
+
+def delete_stream(stream_id):
+    """Soft delete a stream"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE StreamMaster 
+            SET IsActive = 0
+            WHERE StreamID = ?
+        """, (stream_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error deleting stream: {e}")
+        return False
+
+def get_all_streams():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT StreamID, StreamName, CourseID, IsActive FROM StreamMaster ORDER BY StreamName")
+        rows = cursor.fetchall()
+        result = [{'StreamID': row[0], 'StreamName': row[1], 'CourseID': row[2], 'IsActive': row[3]} for row in rows]
+        cursor.close()
+        conn.close()
+        return result
+    except Exception as e:
+        print(f"Error getting all streams: {e}")
+        return []
+
+def add_subject(stream_id, subject_name):
+    """Add a new subject"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO SubjectMaster (StreamID, SubjectName, IsActive)
+            VALUES (?, ?, 1)
+        """, (stream_id, subject_name))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error adding subject: {e}")
+        return False
+
+def update_subject(subject_id, subject_name):
+    """Update an existing subject"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE SubjectMaster 
+            SET SubjectName = ?
+            WHERE SubjectID = ?
+        """, (subject_name, subject_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error updating subject: {e}")
+        return False
+
+def delete_subject(subject_id):
+    """Soft delete a subject"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE SubjectMaster 
+            SET IsActive = 0
+            WHERE SubjectID = ?
+        """, (subject_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error deleting subject: {e}")
+        return False
+
+def get_all_subjects():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT SubjectID, SubjectName, StreamID, IsActive FROM SubjectMaster ORDER BY SubjectName")
+        rows = cursor.fetchall()
+        result = [{'SubjectID': row[0], 'SubjectName': row[1], 'StreamID': row[2], 'IsActive': row[3]} for row in rows]
+        cursor.close()
+        conn.close()
+        return result
+    except Exception as e:
+        print(f"Error getting all subjects: {e}")
+        return []
+
+def add_topic(subject_id, topic_name, bloom_level_id=1):
+    """Add a new topic"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO TopicMaster (SubjectID, TopicName, BloomLevelID, IsActive)
+            VALUES (?, ?, ?, 1)
+        """, (subject_id, topic_name, bloom_level_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error adding topic: {e}")
+        return False
+
+def update_topic(topic_id, topic_name, bloom_level_id=1):
+    """Update an existing topic"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE TopicMaster 
+            SET TopicName = ?, BloomLevelID = ?
+            WHERE TopicID = ?
+        """, (topic_name, bloom_level_id, topic_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error updating topic: {e}")
+        return False
+
+def delete_topic(topic_id):
+    """Soft delete a topic"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE TopicMaster 
+            SET IsActive = 0
+            WHERE TopicID = ?
+        """, (topic_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error deleting topic: {e}")
+        return False
+
+def get_all_topics():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT TopicID, TopicName, SubjectID, BloomLevelID, IsActive FROM TopicMaster ORDER BY TopicName")
+        rows = cursor.fetchall()
+        result = [{'TopicID': row[0], 'TopicName': row[1], 'SubjectID': row[2], 'BloomLevelID': row[3], 'IsActive': row[4]} for row in rows]
+        cursor.close()
+        conn.close()
+        return result
+    except Exception as e:
+        print(f"Error getting all topics: {e}")
         return [] 
