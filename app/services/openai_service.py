@@ -1,6 +1,7 @@
 import os
 import openai
 import traceback
+import re
 
 def get_openai_client():
     # Hardcoded API key for limited use
@@ -60,6 +61,9 @@ Reason: <brief reason why this library is best for this subject/topic>
 
 def generate_mcq_and_diagram(data):
     try:
+        print("🔍 Debug: Starting generate_mcq_and_diagram")
+        print(f"🔍 Debug: Input data: {data}")
+        
         stream = data.get('stream', 'CS')
         subject = data.get('subject', 'Data Structures')
         topic = data.get('topic', 'Binary Trees')
@@ -67,9 +71,13 @@ def generate_mcq_and_diagram(data):
         requires_diagram = data.get('requires_diagram', False)
         custom_prompt = data.get('custom_prompt', '')
 
+        print(f"🔍 Debug: Parsed values - stream: {stream}, subject: {subject}, topic: {topic}")
+        print(f"🔍 Debug: question_type: {question_type}, requires_diagram: {requires_diagram}")
+
         # Get OpenAI client
         client = get_openai_client()
         if not client:
+            print("❌ Debug: OpenAI client creation failed")
             return {
                 'error': 'OpenAI API key not set. Please add your API key to the .env file.',
                 'question_text': 'Sample question for testing',
@@ -79,6 +87,8 @@ def generate_mcq_and_diagram(data):
                 'diagram_code': None,
                 'library_used': None
             }
+        
+        print("✅ Debug: OpenAI client created successfully")
 
         # Stage 1: Determine best library
         library_name, library_reason = determine_best_library(subject, topic, requires_diagram)
@@ -90,15 +100,25 @@ Generate a {question_type} question for the topic '{topic}' in the subject '{sub
 
 The question MUST include a relevant diagram using the {library_name} library.
 
+IMPORTANT: For mathematical equations, use proper LaTeX notation:
+- Use $f(x) = x^2$ for inline equations
+- Use $\frac{{a}}{{b}}$ for fractions
+- Use $\sqrt{{x}}$ for square roots
+- Use $\pi$, $\theta$, $\alpha$, etc. for Greek letters
+- Use $\leq$, $\geq$, $\neq$ for comparison operators
+- **Always use $...$ for inline math in explanations.**
+- **Do not use $$...$$ unless you want a centered block equation.**
+- **Keep explanations as full sentences, not as a list of equations.**
+
 Format your response exactly as follows:
 
-Question: <question text>
-A. <option A>
-B. <option B>
-C. <option C>
-D. <option D>
+Question: <question text with proper LaTeX notation>
+A. <option A with proper LaTeX notation>
+B. <option B with proper LaTeX notation>
+C. <option C with proper LaTeX notation>
+D. <option D with proper LaTeX notation>
 Answer: <correct option letter>
-Explanation: <brief explanation>
+Explanation: <brief explanation with proper LaTeX notation>
 Library: {library_name}
 PythonCode:
 ```python
@@ -114,15 +134,25 @@ CRITICAL RULES for the PythonCode:
             prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
 
+IMPORTANT: For mathematical equations, use proper LaTeX notation:
+- Use $f(x) = x^2$ for inline equations
+- Use $\frac{{a}}{{b}}$ for fractions
+- Use $\sqrt{{x}}$ for square roots
+- Use $\pi$, $\theta$, $\alpha$, etc. for Greek letters
+- Use $\leq$, $\geq$, $\neq$ for comparison operators
+- **Always use $...$ for inline math in explanations.**
+- **Do not use $$...$$ unless you want a centered block equation.**
+- **Keep explanations as full sentences, not as a list of equations.**
+
 Format your response exactly as follows:
 
-Question: <question text>
-A. <option A>
-B. <option B>
-C. <option C>
-D. <option D>
+Question: <question text with proper LaTeX notation>
+A. <option A with proper LaTeX notation>
+B. <option B with proper LaTeX notation>
+C. <option C with proper LaTeX notation>
+D. <option D with proper LaTeX notation>
 Answer: <correct option letter>
-Explanation: <brief explanation>
+Explanation: <brief explanation with proper LaTeX notation>
 PythonCode:
 ```python
 import schemdraw
@@ -150,11 +180,13 @@ CRITICAL RULES for the PythonCode:
         if custom_prompt:
             prompt += f"\nSpecial instructions: {custom_prompt}"
 
+        print("🔄 Debug: Sending request to OpenAI...")
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content
+        print("✅ Debug: Got response from OpenAI")
         print("=== RAW OPENAI RESPONSE ===")
         print(content)
         print("===========================")
@@ -177,36 +209,36 @@ CRITICAL RULES for the PythonCode:
             line = line.strip()
             if not line:
                 continue
-                
-            if line.lower().startswith('question:'):
+            # Only call split if line contains ':' or '.' as needed
+            if line.lower().startswith('question:') and ':' in line:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     question_text = parts[1].strip()
-            elif line.startswith('A.'):
+            elif line.startswith('A.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
-            elif line.startswith('B.'):
+            elif line.startswith('B.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
-            elif line.startswith('C.'):
+            elif line.startswith('C.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
-            elif line.startswith('D.'):
+            elif line.startswith('D.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
-            elif line.lower().startswith('answer:'):
+            elif line.lower().startswith('answer:') and ':' in line:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     correct_answer = parts[1].strip()
-            elif line.lower().startswith('explanation:'):
+            elif line.lower().startswith('explanation:') and ':' in line:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     explanation = parts[1].strip()
-            elif line.lower().startswith('library:'):
+            elif line.lower().startswith('library:') and ':' in line:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     detected_library = parts[1].strip()
@@ -226,6 +258,13 @@ CRITICAL RULES for the PythonCode:
         print("Parsed correct_answer:", correct_answer)
         print("Parsed explanation:", explanation)
 
+        # After parsing
+        # (Revert: do not wrap math, just return as parsed)
+        # question_text = wrap_math_latex(question_text)
+        # options = [wrap_math_latex(opt) for opt in options if opt]
+        # if explanation:
+        #     explanation = wrap_math_latex(explanation)
+
         return {
             'question_text': question_text,
             'options': options,
@@ -235,7 +274,8 @@ CRITICAL RULES for the PythonCode:
             'library_used': detected_library
         }
     except Exception as e:
-        print(f"Error in OpenAI service: {e}")
+        print(f"❌ Error in OpenAI service: {e}")
+        print("🔍 Debug: Full exception details:")
         traceback.print_exc()
         return {
             'error': f'OpenAI API error: {str(e)}',
@@ -246,6 +286,39 @@ CRITICAL RULES for the PythonCode:
             'diagram_code': None,
             'library_used': 'schemdraw'
         }
+
+def wrap_math_latex(text):
+    if not text:
+        return text
+    # Only wrap if not already inside $...$
+    # This regex matches math-like expressions not already inside $...$
+    def replacer(match):
+        expr = match.group(0)
+        if expr.startswith('$') and expr.endswith('$'):
+            return expr
+        return f'${expr}$'
+    # Match common math patterns: numbers, variables, operators, exponents, fractions, sqrt, Greek letters
+    math_patterns = [
+        r'\b\d+\s*[+\-*/^]\s*\d+\b',  # 2 + 2, 3*4, etc.
+        r'\b\d+x\b',                     # 2x
+        r'\b[a-zA-Z]\^\d+\b',           # x^2
+        r'\b\d+\^\d+\b',               # 2^3
+        r'\\frac\{[^}]+\}\{[^}]+\}',  # \frac{a}{b}
+        r'\\sqrt\{[^}]+\}',             # \sqrt{x}
+        r'\\[a-zA-Z]+',                   # \pi, \theta, etc.
+        r'\b[a-zA-Z]\b',                  # single variable
+    ]
+    pattern = re.compile('|'.join(math_patterns))
+    # Only wrap if not already inside $...$
+    def wrap_if_needed(match):
+        expr = match.group(0)
+        # Don't double-wrap
+        if expr.startswith('$') and expr.endswith('$'):
+            return expr
+        return f'${expr}$'
+    # Only wrap if not already inside $...$
+    # But don't wrap inside words
+    return pattern.sub(wrap_if_needed, text)
 
 def get_library_specific_prompt(library_name):
     """Get library-specific prompt instructions"""

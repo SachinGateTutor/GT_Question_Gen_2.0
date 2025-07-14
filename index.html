@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI MCQ Generator powered by PragyaAI</title>
+    
+    <!-- MathJax for mathematical equation rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -473,9 +491,9 @@
                                 <option value="">Select Course</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                    <div class="form-group">
                             <label for="stream">📚 Stream:</label>
-                            <select id="stream" name="stream" required>
+                        <select id="stream" name="stream" required>
                                 <option value="">Select Stream</option>
                             </select>
                         </div>
@@ -491,7 +509,7 @@
                             <label for="topic">📋 Topic:</label>
                             <select id="topic" name="topic" required>
                                 <option value="">Select Topic</option>
-                            </select>
+                        </select>
                         </div>
                     </div>
 
@@ -502,7 +520,7 @@
                                 <option value="">Select Type</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                    <div class="form-group">
                             <label for="difficultyLevel">🎯 Difficulty Level:</label>
                             <select id="difficultyLevel" name="difficultyLevel">
                                 <option value="">Select Difficulty</option>
@@ -517,7 +535,7 @@
                                 <option value="">Auto-detect</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                    <div class="form-group">
                             <label for="numQuestions">📊 Number of Questions:</label>
                             <input type="number" id="numQuestions" name="numQuestions" min="1" max="10" value="1" required>
                         </div>
@@ -837,15 +855,18 @@
                 // Add question number if multiple questions
                 const questionNumber = totalGenerated > 1 ? `Question ${index + 1}: ` : '';
                 
+                // Process mathematical equations in question text
+                const processedQuestionText = processMathEquations(question.question_text || 'No question generated');
+                
                 questionCard.innerHTML = `
                     <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: #212529; line-height: 1.5;">
-                        ${questionNumber}${question.question_text || 'No question generated'}
+                        ${questionNumber}${processedQuestionText}
                     </div>
                     <div style="margin-bottom: 20px;" class="options-container">
                         ${generateOptionsHTML(question.options, question.correct_answer)}
                     </div>
                     <div class="explanation">
-                        ${question.explanation || 'No explanation provided'}
+                        ${processMathEquations(question.explanation || 'No explanation provided')}
                     </div>
                     ${question.diagram_image_url ? `
                         <div style="text-align: center; margin-top: 20px;">
@@ -875,6 +896,11 @@
             });
             
             result.classList.remove('hidden');
+            
+            // Trigger MathJax to render equations (robust check)
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
         }
         
         function generateOptionsHTML(options, correctAnswer) {
@@ -886,10 +912,128 @@
                                 correctAnswer === option);
                 const optionClass = isCorrect ? 'option correct-answer' : 'option';
                 
+                // Process mathematical equations in options
+                const processedOption = processMathEquations(option);
+                
                 return `<div class="${optionClass}">
-                    <strong>${String.fromCharCode(65 + index)}.</strong> ${option}
+                    <strong>${String.fromCharCode(65 + index)}.</strong> ${processedOption}
                 </div>`;
             }).join('');
+        }
+        
+        function cleanLatex(text) {
+            if (!text) return '';
+            // 1. Replace x^{d} with x^d for single digits/letters
+            text = text.replace(/([a-zA-Z])\^\{([a-zA-Z0-9])\}/g, '$1^$2');
+            text = text.replace(/([a-zA-Z])_\{([a-zA-Z0-9])\}/g, '$1_$2');
+            // 2. Replace all $$...$$ with $...$ unless it's a block (line only)
+            text = text.replace(/\$\$([^$\n]+)\$\$/g, function(match, p1) {
+                if (match.trim() === `$$${p1}$$`) return `$$${p1}$$`;
+                return `$${p1}$`;
+            });
+            // 3. Remove extra spaces inside math
+            text = text.replace(/\$\s+/g, '$');
+            text = text.replace(/\s+\$/g, '$');
+            // 4. Remove duplicate newlines
+            text = text.replace(/\n{2,}/g, '\n');
+            // 5. Remove any malformed LaTeX (e.g., missing arguments for \frac, \sqrt)
+            text = text.replace(/\frac\{\}/g, '');
+            text = text.replace(/\sqrt\{\}/g, '');
+            text = text.replace(/\sqrt(?!\{)/g, '');
+            text = text.replace(/\frac(?!\{)/g, '');
+            // 6. Remove any remaining lone $$ (unmatched)
+            text = text.replace(/\${2,}/g, '$');
+            // 7. Add spaces around inline math if missing
+            text = text.replace(/([^\s])\$([^\$]+)\$([^\s.,;:!?)])/g, '$1 $${2}$ $3');
+            // 8. Remove any highlighted MathJax error messages
+            text = text.replace(/Missing argument for \\sqrt\{[^}]*\}\$\$/g, '');
+            // 9. Remove any trailing or leading $ if not paired
+            text = text.replace(/(^|\s)\$([^$]+)($|\s)/g, function(match, p1, p2, p3) {
+                if (p2.trim().length === 0) return '';
+                // Remove trailing $ if not paired
+                let cleaned = p2;
+                if (cleaned.endsWith('$')) cleaned = cleaned.slice(0, -1);
+                if (cleaned.startsWith('$')) cleaned = cleaned.slice(1);
+                return p1 + '$' + cleaned + '$' + p3;
+            });
+            // 10. Remove repeated numbers/expressions outside math (e.g., '2 x^2 2 f(x)' -> '2 x^2 f(x)')
+            text = text.replace(/(\b\d+\b)(\s+\1\b)+/g, '$1');
+            // 11. Remove double-wrapped $...$ (e.g., '$$x^2$$' -> '$x^2$')
+            text = text.replace(/\$\$([^$]+)\$\$/g, '$$$1$');
+            // 12. Remove any $ at the end of a line if not paired
+            text = text.replace(/([^$])\$(\s|$)/g, '$1$2');
+            // 13. Remove any $ at the start of a line if not paired
+            text = text.replace(/(^|\s)\$([^$])/g, '$1$2');
+            return text;
+        }
+
+        function processMathEquations(text) {
+            if (!text) return '';
+            let processedText = text;
+            processedText = processedText.replace(/f\s*\(\s*x\s*\)\s*=\s*([^,\s]+)/g, 'f(x) = $1');
+            processedText = processedText.replace(/x\^(\d+)/g, 'x^{$1}');
+            processedText = processedText.replace(/y\^(\d+)/g, 'y^{$1}');
+            processedText = processedText.replace(/z\^(\d+)/g, 'z^{$1}');
+            processedText = processedText.replace(/(\d+)\^(\d+)/g, '$1^{$2}');
+            processedText = processedText.replace(/(\w+)\^(\d+)/g, '$1^{$2}');
+            processedText = processedText.replace(/(\w+)\/(\w+)/g, '\\frac{$1}{$2}');
+            processedText = processedText.replace(/(\d+)\/(\d+)/g, '\\frac{$1}{$2}');
+            processedText = processedText.replace(/sqrt\s*\(\s*([^)]+)\s*\)/g, '\\sqrt{$1}');
+            processedText = processedText.replace(/√\s*\(\s*([^)]+)\s*\)/g, '\\sqrt{$1}');
+            processedText = processedText.replace(/pi/g, '\\pi');
+            processedText = processedText.replace(/theta/g, '\\theta');
+            processedText = processedText.replace(/alpha/g, '\\alpha');
+            processedText = processedText.replace(/beta/g, '\\beta');
+            processedText = processedText.replace(/gamma/g, '\\gamma');
+            processedText = processedText.replace(/delta/g, '\\delta');
+            processedText = processedText.replace(/sigma/g, '\\sigma');
+            processedText = processedText.replace(/mu/g, '\\mu');
+            processedText = processedText.replace(/lambda/g, '\\lambda');
+            processedText = processedText.replace(/infinity/g, '\\infty');
+            processedText = processedText.replace(/∞/g, '\\infty');
+            processedText = processedText.replace(/<=/g, '\\leq');
+            processedText = processedText.replace(/>=/g, '\\geq');
+            processedText = processedText.replace(/!=/g, '\\neq');
+            processedText = processedText.replace(/±/g, '\\pm');
+            processedText = processedText.replace(/×/g, '\\times');
+            processedText = processedText.replace(/÷/g, '\\div');
+            processedText = processedText.replace(/(\w+)_(\w+)/g, '$1_{$2}');
+            processedText = processedText.replace(/(\w+)_(\d+)/g, '$1_{$2}');
+            const mathPatterns = [
+                /\\frac\{[^}]+\}\{[^}]+\}/g,
+                /\\sqrt\{[^}]+\}/g,
+                /[a-zA-Z]+\^\{[^}]+\}/g,
+                /[a-zA-Z]+\^[a-zA-Z0-9]+/g,
+                /[a-zA-Z]+_[a-zA-Z0-9]+/g,
+                /\\[a-zA-Z]+/g
+            ];
+            mathPatterns.forEach(pattern => {
+                processedText = processedText.replace(pattern, (match) => {
+                    if (match.startsWith('$') && match.endsWith('$')) {
+                        return match;
+                    }
+                    return `$${match}$`;
+                });
+            });
+            processedText = processedText.replace(/\$([^$]+)\$(?![\s.,;:!?)])/g, '$$$1$ ');
+            processedText = processedText.replace(/([^\s(])\$([^$]+)\$/g, '$1 $$$2$');
+            // Remove repeated numbers/expressions outside math (e.g., '2 x^2 2 f(x)' -> '2 x^2 f(x)')
+            processedText = processedText.replace(/(\b\d+\b)(\s+\1\b)+/g, '$1');
+            // Remove double-wrapped $...$ (e.g., '$$x^2$$' -> '$x^2$')
+            processedText = processedText.replace(/\$\$([^$]+)\$\$/g, '$$$1$');
+            // Remove any $ at the end of a line if not paired
+            processedText = processedText.replace(/([^$])\$(\s|$)/g, '$1$2');
+            // Remove any $ at the start of a line if not paired
+            processedText = processedText.replace(/(^|\s)\$([^$])/g, '$1$2');
+            return cleanLatex(processedText);
+        }
+
+        function triggerMathJax() {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            } else {
+                setTimeout(triggerMathJax, 100);
+            }
         }
 
         // Navigation functions
