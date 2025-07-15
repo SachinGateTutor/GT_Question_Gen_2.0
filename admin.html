@@ -28,6 +28,7 @@
             display: flex;
             border-bottom: 2px solid #e0e0e0;
             margin-bottom: 32px;
+            flex-wrap: wrap;
         }
         .tab {
             padding: 14px 32px;
@@ -38,6 +39,9 @@
             background: none;
             outline: none;
             transition: background 0.2s;
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
         }
         .tab.active {
             border-bottom: 3px solid #667eea;
@@ -54,6 +58,7 @@
             display: flex;
             gap: 16px;
             margin-bottom: 16px;
+            flex-wrap: wrap;
         }
         .form-row input, .form-row select {
             flex: 1;
@@ -75,10 +80,16 @@
         .form-row button:hover {
             background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
         }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 16px;
+            min-width: 600px;
         }
         th, td {
             padding: 10px 12px;
@@ -102,6 +113,8 @@
             cursor: pointer;
             font-size: 0.95rem;
             transition: background 0.2s;
+            min-width: 60px;
+            min-height: 32px;
         }
         .action-btn:hover {
             background: #c7d2fe;
@@ -111,9 +124,82 @@
             color: #256029;
             font-weight: 500;
         }
-        @media (max-width: 700px) {
-            .container { padding: 10px; }
-            .form-row { flex-direction: column; }
+        @media (max-width: 768px) {
+            .container { 
+                padding: 20px; 
+                margin: 20px 10px;
+                border-radius: 12px;
+            }
+            .form-row { 
+                flex-direction: column; 
+                gap: 12px;
+            }
+            .tabs {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            .tab {
+                padding: 12px 20px;
+                font-size: 0.9rem;
+                flex: 1;
+                min-width: 120px;
+            }
+            table {
+                font-size: 0.9rem;
+            }
+            th, td {
+                padding: 8px 6px;
+                font-size: 0.85rem;
+            }
+            .action-btn {
+                padding: 4px 8px;
+                font-size: 0.8rem;
+                margin-right: 4px;
+            }
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container { 
+                padding: 15px; 
+                margin: 10px 5px;
+            }
+            .tabs {
+                flex-direction: column;
+                gap: 2px;
+            }
+            .tab {
+                padding: 10px 15px;
+                font-size: 0.85rem;
+                text-align: center;
+            }
+            .form-row input, .form-row select {
+                padding: 12px 10px;
+                font-size: 0.9rem;
+            }
+            .form-row button {
+                padding: 12px 20px;
+                font-size: 0.9rem;
+            }
+            table {
+                font-size: 0.8rem;
+            }
+            th, td {
+                padding: 6px 4px;
+                font-size: 0.75rem;
+            }
+            .action-btn {
+                padding: 3px 6px;
+                font-size: 0.75rem;
+                margin-right: 2px;
+            }
+            h1 {
+                font-size: 1.3rem;
+                margin-bottom: 15px;
+            }
         }
     </style>
 </head>
@@ -134,12 +220,14 @@
                 </div>
                 <div class="msg" id="course-msg"></div>
             </form>
-            <table id="course-table">
-                <thead>
-                    <tr><th>ID</th><th>Name</th><th>Active</th><th>Actions</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="table-container">
+                <table id="course-table">
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Active</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
         <div id="streams" class="tab-content">
             <form id="stream-form">
@@ -150,12 +238,14 @@
                 </div>
                 <div class="msg" id="stream-msg"></div>
             </form>
-            <table id="stream-table">
-                <thead>
-                    <tr><th>ID</th><th>Name</th><th>Course</th><th>Active</th><th>Actions</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="table-container">
+                <table id="stream-table">
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Course</th><th>Active</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
         <div id="subjects" class="tab-content">
             <form id="subject-form">
@@ -166,12 +256,14 @@
                 </div>
                 <div class="msg" id="subject-msg"></div>
             </form>
-            <table id="subject-table">
-                <thead>
-                    <tr><th>ID</th><th>Name</th><th>Stream</th><th>Active</th><th>Actions</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="table-container">
+                <table id="subject-table">
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Stream</th><th>Active</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
         <div id="topics" class="tab-content">
             <form id="topic-form">
@@ -183,12 +275,14 @@
                 </div>
                 <div class="msg" id="topic-msg"></div>
             </form>
-            <table id="topic-table">
-                <thead>
-                    <tr><th>ID</th><th>Name</th><th>Subject</th><th>Bloom Level</th><th>Active</th><th>Actions</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="table-container">
+                <table id="topic-table">
+                    <thead>
+                        <tr><th>ID</th><th>Name</th><th>Subject</th><th>Bloom Level</th><th>Active</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
     <script>

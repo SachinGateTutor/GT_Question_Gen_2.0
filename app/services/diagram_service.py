@@ -55,8 +55,18 @@ def render_schemdraw_diagram(code, output_folder):
         
         # Post-process code for common AI mistakes
         code = code.replace('SchemDraw', 'schemdraw')
-        code = code.replace('import schemdraw.elements as e', 'import schemdraw.logic as logic')
-        code = code.replace('import SchemDraw.elements as e', 'import schemdraw.logic as logic')
+        
+        # Check if code uses 'e.' elements before replacing the import
+        uses_elements = re.search(r'\be\.\w+', code)
+        
+        # Only replace elements import if code doesn't use 'e.' elements
+        if not uses_elements:
+            code = code.replace('import schemdraw.elements as e', 'import schemdraw.logic as logic')
+            code = code.replace('import SchemDraw.elements as e', 'import schemdraw.logic as logic')
+        # Otherwise, keep the elements import but fix the library name
+        else:
+            code = code.replace('import SchemDraw.elements as e', 'import schemdraw.elements as e')
+        
         code = code.replace('import schemdraw as schem', 'import schemdraw')
         code = code.replace('import SchemDraw as schem', 'import schemdraw')
         
@@ -93,6 +103,16 @@ def render_schemdraw_diagram(code, output_folder):
         # Ensure we have proper imports
         if 'import schemdraw' not in code:
             code = 'import schemdraw\nimport schemdraw.logic as logic\nfrom schemdraw import Drawing\n' + code
+        
+        # Add elements import if code uses 'e.' but doesn't have it
+        if re.search(r'\be\.\w+', code) and 'import schemdraw.elements as e' not in code:
+            # Insert after the first import line
+            lines = code.split('\n')
+            for i, line in enumerate(lines):
+                if line.strip().startswith('import '):
+                    lines.insert(i + 1, 'import schemdraw.elements as e')
+                    break
+            code = '\n'.join(lines)
             
         # Ensure we have a Drawing() call
         if 'd = Drawing()' not in code and 'd = schemdraw.Drawing()' not in code:

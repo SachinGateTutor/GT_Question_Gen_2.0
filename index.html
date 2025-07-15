@@ -361,6 +361,7 @@
             transition: all 0.3s ease;
             background: white;
             border: 2px solid #e9ecef;
+            display: inline-block;
         }
 
         .nav-links a:hover { 
@@ -457,6 +458,21 @@
                 margin: 10px;
                 border-radius: 15px;
             }
+            
+            /* Footer responsiveness */
+            .nav-links {
+                padding: 20px;
+            }
+            .nav-links a {
+                display: block;
+                margin: 10px 0;
+                padding: 15px 20px;
+                text-align: center;
+                width: 100%;
+                max-width: 300px;
+                margin-left: auto;
+                margin-right: auto;
+            }
         }
 
         @media (max-width: 480px) {
@@ -469,7 +485,37 @@
             .form-section, .result-section {
                 padding: 20px;
             }
+            
+            /* Footer responsiveness for small screens */
+            .nav-links {
+                padding: 15px;
+            }
+            .nav-links a {
+                font-size: 0.9rem;
+                padding: 12px 16px;
+                margin: 8px 0;
+            }
         }
+    </style>
+    <!-- Explanation Popup Modal -->
+    <div id="explanation-popup" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeExplanationPopup()">&times;</span>
+        <div id="explanation-popup-content"></div>
+      </div>
+    </div>
+    <style>
+    .modal {
+      display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+      overflow: auto; background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; position: relative;
+    }
+    .close {
+      color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer;
+    }
+    .close:hover { color: #000; }
     </style>
 </head>
 <body>
@@ -865,20 +911,30 @@
                     <div style="margin-bottom: 20px;" class="options-container">
                         ${generateOptionsHTML(question.options, question.correct_answer)}
                     </div>
-                    <div class="explanation">
-                        ${processMathEquations(question.explanation || 'No explanation provided')}
-                    </div>
-                    ${question.diagram_image_url ? `
-                        <div style="text-align: center; margin-top: 20px;">
-                            <div class="library-info">
-                                📊 Diagram generated using: ${question.library_used || 'schemdraw'}
-                            </div>
-                            <img src="${config.API_URL.replace(/\/api\/generate$/, '')}${question.diagram_image_url}" 
-                                 class="diagram-image" alt="Generated Diagram">
-                        </div>
-                    ` : ''}
                 `;
-                
+                // Add Explanation button
+                const explanationBtn = document.createElement('button');
+                explanationBtn.className = 'explanation-btn btn';
+                explanationBtn.textContent = 'View Explanation';
+                explanationBtn.style.marginBottom = '20px';
+                explanationBtn.onclick = function() {
+                  showExplanationPopup(processMathEquations(question.explanation || 'No explanation provided'));
+                };
+                questionCard.appendChild(explanationBtn);
+                // Add diagram if present
+                if (question.diagram_image_url) {
+                  const diagramDiv = document.createElement('div');
+                  diagramDiv.style.textAlign = 'center';
+                  diagramDiv.style.marginTop = '20px';
+                  diagramDiv.innerHTML = `
+                    <div class="library-info">
+                        📊 Diagram generated using: ${question.library_used || 'schemdraw'}
+                    </div>
+                    <img src="${config.API_URL.replace(/\/api\/generate$/, '')}${question.diagram_image_url}" 
+                         class="diagram-image" alt="Generated Diagram">
+                  `;
+                  questionCard.appendChild(diagramDiv);
+                }
                 result.appendChild(questionCard);
                 
                 // Add separator between questions
@@ -1043,6 +1099,17 @@
 
         function showStats() {
             alert('Statistics page will be implemented next!');
+        }
+
+        function showExplanationPopup(explanation) {
+          document.getElementById('explanation-popup-content').innerHTML = explanation || '<em>No explanation provided</em>';
+          document.getElementById('explanation-popup').style.display = 'block';
+          if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('explanation-popup-content')]);
+          }
+        }
+        function closeExplanationPopup() {
+          document.getElementById('explanation-popup').style.display = 'none';
         }
     </script>
 </body>

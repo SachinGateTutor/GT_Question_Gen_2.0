@@ -7,12 +7,26 @@ import re
 def get_db_connection():
     """Get SQL Server database connection"""
     try:
+
+        # for local system
+
         conn = pyodbc.connect(
             'DRIVER={ODBC Driver 17 for SQL Server};'
             'SERVER=localhost;'
             'DATABASE=MCQGen;'
             'Trusted_Connection=yes;'
         )
+
+        # for main system
+        
+        # conn = pyodbc.connect(
+        #     'DRIVER={ODBC Driver 17 for SQL Server};'
+        #     'SERVER=DESKTOP-2SUICFV;'
+        #     'DATABASE=GTQuestionDB;'
+        #     'Trusted_Connection=yes;'
+        #     'UID=sa;'
+        #     'PWD=Pass@123;'
+        # )
         return conn
     except Exception as e:
         print(f"Database connection error: {e}")

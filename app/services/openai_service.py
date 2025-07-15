@@ -118,7 +118,7 @@ B. <option B with proper LaTeX notation>
 C. <option C with proper LaTeX notation>
 D. <option D with proper LaTeX notation>
 Answer: <correct option letter>
-Explanation: <brief explanation with proper LaTeX notation>
+Explanation: <detailed, step-by-step explanation showing all intermediate steps, formulas, and reasoning, using LaTeX for all math. The explanation should be easy to understand, similar to a worked-out solution in a textbook.>
 Library: {library_name}
 PythonCode:
 ```python
@@ -130,7 +130,7 @@ CRITICAL RULES for the PythonCode:
 {get_library_rules(library_name)}
 """
         else:
-            # Original prompt for no diagram or fallback
+            # Prompt for no diagram - NO PythonCode section
             prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
 
@@ -152,29 +152,7 @@ B. <option B with proper LaTeX notation>
 C. <option C with proper LaTeX notation>
 D. <option D with proper LaTeX notation>
 Answer: <correct option letter>
-Explanation: <brief explanation with proper LaTeX notation>
-PythonCode:
-```python
-import schemdraw
-import schemdraw.elements as e
-import schemdraw.flow as flow
-import schemdraw.logic as logic
-from schemdraw import Drawing
-
-# Create a simple valid schemdraw diagram
-d = Drawing()
-# Add elements using proper schemdraw syntax
-# Example: d += e.Resistor2()
-# Example: d += logic.And()
-# Example: d += flow.Start()
-# Always end with: d.save(buffer)
-```
-CRITICAL RULES for the PythonCode:
-1. Use ONLY valid schemdraw elements: e.Resistor2(), e.Capacitor2(), e.Inductor2(), logic.And(), logic.Or(), logic.Not(), flow.Start(), flow.Process(), flow.Decision(), flow.End()
-2. NEVER use: e.AND2, e.OR2, e.LINE, or any non-existent elements
-3. Use proper syntax: d += element_name()
-4. Always end with: d.save(buffer)
-5. If unsure, create a simple label: d += e.Dot().label("Diagram")
+Explanation: <detailed, step-by-step explanation showing all intermediate steps, formulas, and reasoning, using LaTeX for all math. The explanation should be easy to understand, similar to a worked-out solution in a textbook.>
 """
 
         if custom_prompt:
@@ -202,6 +180,7 @@ CRITICAL RULES for the PythonCode:
         lines = content.split('\n')
         code_lines = []
         in_code = False
+        collecting_explanation = False
         
         for line in lines:
             if line is None:
@@ -214,42 +193,56 @@ CRITICAL RULES for the PythonCode:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     question_text = parts[1].strip()
+                collecting_explanation = False
             elif line.startswith('A.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
+                collecting_explanation = False
             elif line.startswith('B.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
+                collecting_explanation = False
             elif line.startswith('C.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
+                collecting_explanation = False
             elif line.startswith('D.') and '.' in line:
                 parts = line.split('.', 1)
                 if len(parts) > 1:
                     options.append(parts[1].strip())
+                collecting_explanation = False
             elif line.lower().startswith('answer:') and ':' in line:
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     correct_answer = parts[1].strip()
+                collecting_explanation = False
             elif line.lower().startswith('explanation:') and ':' in line:
                 parts = line.split(':', 1)
-                if len(parts) > 1:
-                    explanation = parts[1].strip()
-            elif line.lower().startswith('library:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    detected_library = parts[1].strip()
-            elif '```python' in line:
+                explanation = parts[1].strip() if len(parts) > 1 else ''
+                collecting_explanation = True
+            elif line.lower().startswith(('library:', 'pythoncode:')):
+                collecting_explanation = False
+            elif requires_diagram and '```python' in line:
                 in_code = True
-            elif '```' in line and in_code:
+                collecting_explanation = False
+            elif requires_diagram and '```' in line and in_code:
                 in_code = False
-            elif in_code:
+            elif requires_diagram and in_code:
                 code_lines.append(line)
+            elif collecting_explanation:
+                # Stop collecting if we hit another field
+                if line.lower().startswith(('library:', 'pythoncode:', 'answer:', 'question:', 'a.', 'b.', 'c.', 'd.')):
+                    collecting_explanation = False
+                else:
+                    if explanation:
+                        explanation += '\n' + line
+                    else:
+                        explanation = line
                 
-        if code_lines:
+        if code_lines and requires_diagram:
             diagram_code = '\n'.join(code_lines)
 
         # Debug prints for parsed values

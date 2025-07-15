@@ -4,6 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Question Review - AI MCQ Generator</title>
+    <!-- MathJax for mathematical equation rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -230,23 +246,42 @@
             margin: 0 15px; 
             font-weight: 600;
             transition: color 0.3s ease;
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
         }
         .nav-links a:hover { 
             color: #764ba2; 
             text-decoration: underline; 
+            background: rgba(102, 126, 234, 0.1);
         }
         .pagination { 
             text-align: center; 
             margin-top: 30px; 
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .pagination button { 
-            margin: 0 8px; 
+            margin: 0 4px; 
+            min-width: 100px;
         }
         .pagination span { 
             font-weight: 600; 
             color: #495057;
-            margin: 0 15px;
+            margin: 0 10px;
+            text-align: center;
+            line-height: 1.4;
         }
         .hidden { display: none !important; }
         .stats-card {
@@ -282,6 +317,58 @@
             .question-header { flex-direction: column; align-items: flex-start; } 
             .header h1 { font-size: 2rem; }
             .content { padding: 20px; }
+            
+            /* Footer responsiveness */
+            .nav-links {
+                padding: 15px;
+            }
+            .nav-links a {
+                display: block;
+                margin: 8px 0;
+                padding: 12px 15px;
+                text-align: center;
+                background: rgba(102, 126, 234, 0.05);
+                border-radius: 8px;
+            }
+            .nav-links a:hover {
+                background: rgba(102, 126, 234, 0.1);
+            }
+            .pagination {
+                padding: 15px;
+            }
+            .pagination-controls {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .pagination button {
+                width: 100%;
+                max-width: 200px;
+                margin: 2px 0;
+            }
+            .pagination span {
+                font-size: 0.9rem;
+                margin: 10px 0;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header h1 { font-size: 1.8rem; }
+            .header h2 { font-size: 1rem; }
+            .content { padding: 15px; }
+            .filters { padding: 20px; }
+            .question-card { padding: 20px; }
+            
+            .nav-links a {
+                font-size: 0.9rem;
+                padding: 10px 12px;
+            }
+            .pagination button {
+                font-size: 0.9rem;
+                padding: 10px 16px;
+            }
+            .pagination span {
+                font-size: 0.8rem;
+            }
         }
     </style>
 </head>
@@ -360,9 +447,11 @@
             </div>
 
             <div class="pagination">
-                <button class="btn btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
-                <span id="pageInfo">Page 1</span>
-                <button class="btn btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
+                <div class="pagination-controls">
+                    <button class="btn btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
+                    <span id="pageInfo">Page 1</span>
+                    <button class="btn btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
+                </div>
             </div>
         </div>
 
@@ -372,6 +461,26 @@
         </div>
     </div>
 
+    <!-- Explanation Popup Modal -->
+    <div id="explanation-popup" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeExplanationPopup()">&times;</span>
+        <div id="explanation-popup-content"></div>
+      </div>
+    </div>
+    <style>
+    .modal {
+      display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+      overflow: auto; background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; position: relative;
+    }
+    .close {
+      color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer;
+    }
+    .close:hover { color: #000; }
+    </style>
     <script src="config.js"></script>
     <script>
         let currentPage = 1;
@@ -598,6 +707,9 @@
                         <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
                     </div>
                 `;
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    MathJax.typesetPromise();
+                }
                 return;
             }
 
@@ -607,6 +719,10 @@
             });
 
             updatePagination();
+            // Trigger MathJax after DOM update
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
         }
 
         // Create a question card
@@ -675,6 +791,15 @@
                     </div>
                 ` : ''}
             `;
+
+            const explanationBtn = document.createElement('button');
+            explanationBtn.className = 'explanation-btn btn';
+            explanationBtn.textContent = 'View Explanation';
+            explanationBtn.style.marginBottom = '20px';
+            explanationBtn.onclick = function() {
+              showExplanationPopup(question.ExplanationText);
+            };
+            card.appendChild(explanationBtn);
 
             return card;
         }
@@ -817,6 +942,9 @@
                     </div>
                 </div>
             `;
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
         }
 
         function calculateStats() {
@@ -827,6 +955,17 @@
                 discarded: questions.filter(q => q.IsDeleted).length
             };
             return stats;
+        }
+
+        function showExplanationPopup(explanation) {
+          document.getElementById('explanation-popup-content').innerHTML = explanation || '<em>No explanation provided</em>';
+          document.getElementById('explanation-popup').style.display = 'block';
+          if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('explanation-popup-content')]);
+          }
+        }
+        function closeExplanationPopup() {
+          document.getElementById('explanation-popup').style.display = 'none';
         }
     </script>
     <style>
