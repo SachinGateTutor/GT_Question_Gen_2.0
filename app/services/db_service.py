@@ -139,23 +139,46 @@ def insert_mcq_question(question_id, data):
     print(f"options: {data.get('options')}")
     print(f"correct_answer: {data.get('correct_answer')}")
     print(f"diagram_image_url: {data.get('diagram_image_url')}")
+    print(f"option_images: {data.get('option_images')}")
     options = data.get('options') or []
     
     # Clean the correct answer to extract just the letter (A, B, C, D)
     correct_answer = data.get('correct_answer', '')
     if correct_answer:
-        # Extract just the letter from answers like "B. 80%" or "B"
+        # First try to extract just the letter from answers like "A. Option A" or "A"
         match = re.search(r'^([A-D])', correct_answer.strip())
         if match:
             correct_answer = match.group(1)
         else:
             # If no letter found, try to find the correct option by matching
             for i, option in enumerate(options):
-                if option in correct_answer:
+                if option and option in correct_answer:
                     correct_answer = chr(65 + i)  # Convert to A, B, C, D
                     break
             else:
-                correct_answer = 'A'  # Default fallback
+                # If still no match, try to extract any letter from the answer
+                letter_match = re.search(r'([A-D])', correct_answer.upper())
+                if letter_match:
+                    correct_answer = letter_match.group(1)
+                else:
+                    correct_answer = 'A'  # Default fallback
+    else:
+        correct_answer = 'A'  # Default if no correct answer provided
+    
+    # Ensure correct_answer is always A, B, C, or D
+    if correct_answer not in ['A', 'B', 'C', 'D']:
+        correct_answer = 'A'
+    
+    print(f"🔍 Debug: Final correct_answer: {correct_answer}")
+    
+    # Get option images
+    option_images = data.get('option_images') or []
+    img_option_a = option_images[0] if len(option_images) > 0 else None
+    img_option_b = option_images[1] if len(option_images) > 1 else None
+    img_option_c = option_images[2] if len(option_images) > 2 else None
+    img_option_d = option_images[3] if len(option_images) > 3 else None
+    
+    print(f"🔍 Debug: Option images - A: {img_option_a}, B: {img_option_b}, C: {img_option_c}, D: {img_option_d}")
     
     conn = get_db_connection()
     if not conn:
@@ -166,8 +189,8 @@ def insert_mcq_question(question_id, data):
         cursor.execute("""
             INSERT INTO MCQ_Questions 
             (QuestionID, QuestionText, OptionA, OptionB, OptionC, OptionD, 
-             CorrectOption, HasImage, ImgQuestion)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             CorrectOption, HasImage, ImgQuestion, ImgOptionA, ImgOptionB, ImgOptionC, ImgOptionD)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             question_id,
             data.get('question_text'),
@@ -176,8 +199,12 @@ def insert_mcq_question(question_id, data):
             options[2] if len(options) > 2 else None,
             options[3] if len(options) > 3 else None,
             correct_answer,
-            1 if data.get('diagram_image_url') else 0,
-            data.get('diagram_image_url')
+            1 if data.get('diagram_image_url') or any([img_option_a, img_option_b, img_option_c, img_option_d]) else 0,
+            data.get('diagram_image_url'),
+            img_option_a,
+            img_option_b,
+            img_option_c,
+            img_option_d
         ))
         
         conn.commit()
@@ -270,6 +297,10 @@ def get_questions_by_status(status='pending', course='', stream='', subject='', 
                 mcq.OptionD,
                 mcq.CorrectOption,
                 mcq.ImgQuestion,
+                mcq.ImgOptionA,
+                mcq.ImgOptionB,
+                mcq.ImgOptionC,
+                mcq.ImgOptionD,
                 qe.ExplanationText
             FROM QuestionMaster qm
             LEFT JOIN SubjectMaster sm ON qm.SubjectID = sm.SubjectID

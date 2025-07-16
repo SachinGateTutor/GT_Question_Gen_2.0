@@ -60,11 +60,14 @@ def generate():
         data_for_openai = data.copy()
         data_for_openai['subject'] = subject_for_prompt
         data_for_openai['topic'] = topic_for_prompt
-        
+    
         # Call OpenAI to get question and diagram code with library selection
         result = generate_mcq_and_diagram(data_for_openai)
-        
+    
         image_url = None
+        option_images = []
+        
+        # Handle main question diagram
         if result.get('diagram_code'):
             library_used = result.get('library_used', 'schemdraw')
             image_filename = render_diagram(
@@ -75,6 +78,26 @@ def generate():
             if image_filename:
                 image_url = f"/static/images/{image_filename}"
         
+        # Handle option diagrams
+        if result.get('option_diagram_codes'):
+            library_used = result.get('library_used', 'schemdraw')
+            option_diagram_codes = result.get('option_diagram_codes', {})
+            
+            for option in ['A', 'B', 'C', 'D']:
+                option_code = option_diagram_codes.get(option)
+                if option_code:
+                    option_image_filename = render_diagram(
+                        option_code,
+                        library_used,
+                        app.config['UPLOAD_FOLDER']
+                    )
+                    if option_image_filename:
+                        option_images.append(f"/static/images/{option_image_filename}")
+                    else:
+                        option_images.append(None)
+                else:
+                    option_images.append(None)
+        
         question_data = {
             'question_text': result.get('question_text'),
             'options': result.get('options'),
@@ -82,7 +105,8 @@ def generate():
             'explanation': result.get('explanation'),
             'diagram_code': result.get('diagram_code'),
             'diagram_image_url': image_url,
-            'library_used': result.get('library_used', 'schemdraw')
+            'library_used': result.get('library_used', 'schemdraw'),
+            'option_images': option_images if option_images else None
         }
         
         # Store the generated question in database
@@ -98,7 +122,8 @@ def generate():
                 'correct_answer': result.get('correct_answer'),
                 'explanation': result.get('explanation'),
                 'diagram_image_url': image_url,
-                'library_used': result.get('library_used', 'schemdraw')
+                'library_used': result.get('library_used', 'schemdraw'),
+                'option_images': option_images
             }
             store_generated_question(db_data)
         
@@ -115,6 +140,7 @@ def generate():
             'diagram_code': first_question.get('diagram_code'),
             'diagram_image_url': first_question.get('diagram_image_url'),
             'library_used': first_question.get('library_used', 'schemdraw'),
+            'option_images': first_question.get('option_images'),
             'all_questions': all_questions,
             'total_generated': len(all_questions)
         }
@@ -127,6 +153,7 @@ def generate():
             'diagram_code': None,
             'diagram_image_url': None,
             'library_used': 'schemdraw',
+            'option_images': None,
             'all_questions': [],
             'total_generated': 0
         }
