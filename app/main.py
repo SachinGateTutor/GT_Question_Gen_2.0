@@ -288,7 +288,7 @@ for temp_file in os.listdir('.'):
 
 app = Flask(__name__)
 CORS(app)
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'images')
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(app.root_path), 'static', 'images')
 
 # Serve the main HTML file
 @app.route('/')
