@@ -20,6 +20,8 @@ def generate_fallback_diagram_code(library_name, option):
         if option == 'A':
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -28,11 +30,22 @@ dot.node('B', 'Feature 1', shape='box', style='filled', fillcolor="lightgreen")
 dot.node('C', 'Feature 2', shape='box', style='filled', fillcolor="lightyellow")
 dot.edge('A', 'B', label='connects', color="blue", style='dashed')
 dot.edge('A', 'C', label='connects', color="red", style='solid')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
         elif option == 'B':
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -41,11 +54,22 @@ dot.node('B', 'Process 1', shape='ellipse', style='filled', fillcolor="lightcyan
 dot.node('C', 'Process 2', shape='ellipse', style='filled', fillcolor="lightpink")
 dot.edge('A', 'B', label='flows', color="green", style='bold')
 dot.edge('A', 'C', label='flows', color="purple", style='dotted')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
         elif option == 'C':
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -54,11 +78,22 @@ dot.node('B', 'Module 1', shape='hexagon', style='filled', fillcolor="lightsteel
 dot.node('C', 'Module 2', shape='hexagon', style='filled', fillcolor="lightseagreen")
 dot.edge('A', 'B', label='calls', color="orange", style='bold')
 dot.edge('A', 'C', label='calls', color="brown", style='solid')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
         else:  # Option D
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -67,7 +102,16 @@ dot.node('B', 'Service 1', shape='parallelogram', style='filled', fillcolor="lig
 dot.node('C', 'Service 2', shape='parallelogram', style='filled', fillcolor="lightgreen")
 dot.edge('A', 'B', label='requests', color="navy", style='bold')
 dot.edge('A', 'C', label='requests', color="maroon", style='dashed')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
     elif library_name == 'matplotlib':
         # Create different matplotlib diagrams for each option
@@ -148,6 +192,8 @@ plt.close()
         if option == 'A':
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -156,11 +202,22 @@ dot.node('B', 'Feature 1', shape='box', style='filled', fillcolor="lightgreen")
 dot.node('C', 'Feature 2', shape='box', style='filled', fillcolor="lightyellow")
 dot.edge('A', 'B', label='connects', color="blue", style='dashed')
 dot.edge('A', 'C', label='connects', color="red", style='solid')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
         elif option == 'B':
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -169,11 +226,22 @@ dot.node('B', 'Process 1', shape='ellipse', style='filled', fillcolor="lightcyan
 dot.node('C', 'Process 2', shape='ellipse', style='filled', fillcolor="lightpink")
 dot.edge('A', 'B', label='flows', color="green", style='bold')
 dot.edge('A', 'C', label='flows', color="purple", style='dotted')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
         elif option == 'C':
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -182,11 +250,22 @@ dot.node('B', 'Module 1', shape='hexagon', style='filled', fillcolor="lightsteel
 dot.node('C', 'Module 2', shape='hexagon', style='filled', fillcolor="lightseagreen")
 dot.edge('A', 'B', label='calls', color="orange", style='bold')
 dot.edge('A', 'C', label='calls', color="brown", style='solid')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
         else:  # Option D
             return f"""
 import graphviz
+import tempfile
+import os
 from io import BytesIO
 # Create fallback diagram for Option {option}
 dot = graphviz.Digraph()
@@ -195,7 +274,16 @@ dot.node('B', 'Service 1', shape='parallelogram', style='filled', fillcolor="lig
 dot.node('C', 'Service 2', shape='parallelogram', style='filled', fillcolor="lightgreen")
 dot.edge('A', 'B', label='requests', color="navy", style='bold')
 dot.edge('A', 'C', label='requests', color="maroon", style='dashed')
-dot.render('temp', format='png', cleanup=True)
+# Use temporary file to avoid cluttering main directory
+temp_path = tempfile.mktemp()
+dot.render(temp_path, format='png', cleanup=True)
+# Clean up any remaining temp files
+for temp_file in os.listdir('.'):
+    if temp_file.startswith('temp') and temp_file.endswith('.png'):
+        try:
+            os.remove(temp_file)
+        except:
+            pass
 """
 
 app = Flask(__name__)
