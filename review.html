@@ -184,6 +184,78 @@
             border-radius: 8px; 
             margin-top: 15px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .diagram-image:hover {
+            transform: scale(1.02);
+        }
+
+        /* Diagram Popup Styles */
+        .diagram-popup {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .diagram-popup-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+            text-align: center;
+        }
+
+        .diagram-popup img {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .diagram-popup-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            background: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .diagram-popup-close:hover {
+            color: #333;
+            transform: scale(1.1);
+        }
+
+        .diagram-popup-title {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
         }
         
         .code-snippet {
@@ -497,6 +569,15 @@
         <div id="explanation-popup-content"></div>
       </div>
     </div>
+
+    <!-- Diagram Popup Modal -->
+    <div id="diagram-popup" class="diagram-popup">
+        <div class="diagram-popup-content">
+            <span class="diagram-popup-close" onclick="closeDiagramPopup()">&times;</span>
+            <div class="diagram-popup-title" id="diagram-popup-title"></div>
+            <img id="diagram-popup-image" src="" alt="Diagram">
+        </div>
+    </div>
     <style>
     .modal {
       display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
@@ -809,9 +890,10 @@
                         <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
                             📊 Diagram generated using: schemdraw
                         </div>
-                        <img src="${config.API_URL.replace('/api/generate', '')}${question.ImgQuestion}" 
+                        <img src="${question.ImgQuestion}" 
                              class="diagram-image" alt="Question Diagram"
-                             style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"
+                             style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer;"
+                             onclick="showDiagramPopup('${question.ImgQuestion}', 'Question Diagram')"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                         <p style="display: none; color: #6c757d;">Diagram not available</p>
                     </div>
@@ -831,9 +913,10 @@
                             </div>
                             ${question.ImgOptionA ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${config.API_URL.replace('/api/generate', '')}${question.ImgOptionA}" 
+                                    <img src="${question.ImgOptionA}" 
                                          alt="Option A Diagram"
-                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+                                         onclick="showDiagramPopup('${question.ImgOptionA}', 'Option A Diagram')">
                                 </div>
                             ` : ''}
                         </div>
@@ -845,9 +928,10 @@
                             </div>
                             ${question.ImgOptionB ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${config.API_URL.replace('/api/generate', '')}${question.ImgOptionB}" 
+                                    <img src="${question.ImgOptionB}" 
                                          alt="Option B Diagram"
-                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+                                         onclick="showDiagramPopup('${question.ImgOptionB}', 'Option B Diagram')">
                                 </div>
                             ` : ''}
                         </div>
@@ -859,9 +943,10 @@
                             </div>
                             ${question.ImgOptionC ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${config.API_URL.replace('/api/generate', '')}${question.ImgOptionC}" 
+                                    <img src="${question.ImgOptionC}" 
                                          alt="Option C Diagram"
-                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+                                         onclick="showDiagramPopup('${question.ImgOptionC}', 'Option C Diagram')">
                                 </div>
                             ` : ''}
                         </div>
@@ -873,9 +958,10 @@
                             </div>
                             ${question.ImgOptionD ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${config.API_URL.replace('/api/generate', '')}${question.ImgOptionD}" 
+                                    <img src="${question.ImgOptionD}" 
                                          alt="Option D Diagram"
-                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                         style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+                                         onclick="showDiagramPopup('${question.ImgOptionD}', 'Option D Diagram')">
                                 </div>
                             ` : ''}
                         </div>
@@ -1065,6 +1151,27 @@
         function closeExplanationPopup() {
           document.getElementById('explanation-popup').style.display = 'none';
         }
+
+        // Diagram popup functions
+        function showDiagramPopup(imageSrc, title = 'Diagram') {
+            document.getElementById('diagram-popup-image').src = imageSrc;
+            document.getElementById('diagram-popup-title').textContent = title;
+            document.getElementById('diagram-popup').style.display = 'block';
+        }
+
+        function closeDiagramPopup() {
+            document.getElementById('diagram-popup').style.display = 'none';
+        }
+
+        // Close popup when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const diagramPopup = document.getElementById('diagram-popup');
+            diagramPopup.addEventListener('click', function(e) {
+                if (e.target === diagramPopup) {
+                    closeDiagramPopup();
+                }
+            });
+        });
 
         // Helper function to escape HTML for code snippets
         function escapeHtml(unsafe) {

@@ -100,6 +100,15 @@ def render_schemdraw_diagram(code, output_folder):
         # Fix invalid syntax like "d += e.LINE, d='left', l=d.unit"
         code = re.sub(r'd \+= e\.LINE.*?d=\'left\'.*?l=d\.unit.*?$', '# Invalid syntax commented out', code, flags=re.MULTILINE)
         
+        # Fix color specifications for schemdraw elements
+        # Ensure colors are properly applied to elements
+        code = re.sub(r'\.color\([\'"]([^\'"]*)[\'"]\)', r'.color("\1")', code)
+        code = re.sub(r'\.fillcolor\([\'"]([^\'"]*)[\'"]\)', r'.fillcolor("\1")', code)
+        
+        # Fix common color issues - ensure colors are applied correctly
+        code = re.sub(r'\.color\(([^)]+)\)\.label\(([^)]+)\)', r'.label(\2).color(\1)', code)
+        code = re.sub(r'\.fillcolor\(([^)]+)\)\.label\(([^)]+)\)', r'.label(\2).fillcolor(\1)', code)
+        
         # Ensure we have proper imports
         if 'import schemdraw' not in code:
             code = 'import schemdraw\nimport schemdraw.logic as logic\nfrom schemdraw import Drawing\n' + code
@@ -171,6 +180,7 @@ def render_matplotlib_diagram(code, output_folder):
         import matplotlib.pyplot as plt
         import numpy as np
         import pandas as pd
+        import re
         
         # Post-process code for common AI mistakes
         # Add missing imports if needed
@@ -186,6 +196,17 @@ def render_matplotlib_diagram(code, output_folder):
         # Fix BytesIO references
         code = code.replace('BytesIO()', 'io.BytesIO()')
         code = code.replace('from io import BytesIO', '')
+        
+        # Fix color specifications for matplotlib
+        # Ensure colors are properly applied
+        code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'facecolor=[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)
+        code = re.sub(r'edgecolor=[\'"]([^\'"]*)[\'"]', r'edgecolor="\1"', code)
+        
+        # Fix common matplotlib color issues
+        code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'fc=[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)
+        code = re.sub(r'ec=[\'"]([^\'"]*)[\'"]', r'edgecolor="\1"', code)
         
         # Create buffer
         buffer = io.BytesIO()
@@ -223,6 +244,17 @@ def render_networkx_diagram(code, output_folder):
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
+        import re
+        
+        # Fix color specifications for networkx
+        # Ensure colors are properly applied to nodes and edges
+        code = re.sub(r'node_color=[\'"]([^\'"]*)[\'"]', r'node_color="\1"', code)
+        code = re.sub(r'edge_color=[\'"]([^\'"]*)[\'"]', r'edge_color="\1"', code)
+        code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        
+        # Fix common networkx color issues
+        code = re.sub(r'nc=[\'"]([^\'"]*)[\'"]', r'node_color="\1"', code)
+        code = re.sub(r'ec=[\'"]([^\'"]*)[\'"]', r'edge_color="\1"', code)
         
         # Create buffer
         buffer = io.BytesIO()
@@ -257,6 +289,18 @@ def render_graphviz_diagram(code, output_folder):
         import graphviz
         import tempfile
         import glob
+        import re
+        
+        # Fix color specifications for graphviz
+        # Ensure colors are properly applied to nodes and edges
+        code = re.sub(r'fillcolor=[\'"]([^\'"]*)[\'"]', r'fillcolor="\1"', code)
+        code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'bgcolor=[\'"]([^\'"]*)[\'"]', r'bgcolor="\1"', code)
+        
+        # Fix common graphviz color issues
+        code = re.sub(r'fc=[\'"]([^\'"]*)[\'"]', r'fillcolor="\1"', code)
+        code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'bg=[\'"]([^\'"]*)[\'"]', r'bgcolor="\1"', code)
         
         # Post-process code for common AI mistakes
         # Fix the render method call - graphviz doesn't accept BytesIO directly
@@ -282,25 +326,15 @@ def render_graphviz_diagram(code, output_folder):
         # The dot object should have been created in the code
         dot = exec_globals.get('dot')
         if dot:
-            # Save to a temporary file
-            temp_path = tempfile.mktemp(suffix='')
-            dot.render(temp_path, format='png', cleanup=True)
+            # Save directly to our output location
+            base_path = os.path.splitext(filepath)[0]  # Remove .png extension
+            dot.render(base_path, format='png', cleanup=True)
             
             # Graphviz creates files with .png extension
-            actual_file = temp_path + '.png'
+            actual_file = base_path + '.png'
             
-            # Read the generated file into buffer
+            # Check if file was created successfully
             if os.path.exists(actual_file):
-                with open(actual_file, 'rb') as f:
-                    buffer.write(f.read())
-                
-                # Clean up temp file
-                os.remove(actual_file)
-                
-                # Save to our output location
-                buffer.seek(0)
-                img = Image.open(buffer)
-                img.save(filepath)
                 print(f"✅ Graphviz diagram saved as: {filename}")
                 return filename
             else:
@@ -323,6 +357,18 @@ def render_plotly_diagram(code, output_folder):
     try:
         import plotly.graph_objects as go
         import plotly.io as pio
+        import re
+        
+        # Fix color specifications for plotly
+        # Ensure colors are properly applied
+        code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'colorscale=[\'"]([^\'"]*)[\'"]', r'colorscale="\1"', code)
+        code = re.sub(r'line_color=[\'"]([^\'"]*)[\'"]', r'line_color="\1"', code)
+        
+        # Fix common plotly color issues
+        code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'cs=[\'"]([^\'"]*)[\'"]', r'colorscale="\1"', code)
+        code = re.sub(r'lc=[\'"]([^\'"]*)[\'"]', r'line_color="\1"', code)
         
         # Create buffer
         buffer = io.BytesIO()
@@ -360,6 +406,17 @@ def render_seaborn_diagram(code, output_folder):
         import matplotlib.pyplot as plt
         import pandas as pd
         import numpy as np
+        import re
+        
+        # Fix color specifications for seaborn
+        # Ensure colors are properly applied
+        code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'palette=[\'"]([^\'"]*)[\'"]', r'palette="\1"', code)
+        code = re.sub(r'hue=[\'"]([^\'"]*)[\'"]', r'hue="\1"', code)
+        
+        # Fix common seaborn color issues
+        code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        code = re.sub(r'p=[\'"]([^\'"]*)[\'"]', r'palette="\1"', code)
         
         # Post-process code for common AI mistakes
         code = code.replace('sns.venn2', '# sns.venn2  # Invalid function, using alternative')
@@ -409,6 +466,18 @@ def render_pillow_diagram(code, output_folder):
     
     try:
         from PIL import Image, ImageDraw
+        import re
+        
+        # Fix color specifications for pillow
+        # Ensure colors are properly applied
+        code = re.sub(r'fill=[\'"]([^\'"]*)[\'"]', r'fill="\1"', code)
+        code = re.sub(r'outline=[\'"]([^\'"]*)[\'"]', r'outline="\1"', code)
+        code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
+        
+        # Fix common pillow color issues
+        code = re.sub(r'f=[\'"]([^\'"]*)[\'"]', r'fill="\1"', code)
+        code = re.sub(r'o=[\'"]([^\'"]*)[\'"]', r'outline="\1"', code)
+        code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
         
         # Create buffer
         buffer = io.BytesIO()

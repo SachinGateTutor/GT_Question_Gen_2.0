@@ -13,6 +13,191 @@ from services.db_service import (
 )
 from flask_cors import CORS
 
+def generate_fallback_diagram_code(library_name, option):
+    """Generate fallback diagram code when AI fails to generate proper diagrams"""
+    if library_name == 'graphviz':
+        # Create different diagrams for each option
+        if option == 'A':
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='circle', style='filled', fillcolor="lightblue")
+dot.node('B', 'Feature 1', shape='box', style='filled', fillcolor="lightgreen")
+dot.node('C', 'Feature 2', shape='box', style='filled', fillcolor="lightyellow")
+dot.edge('A', 'B', label='connects', color="blue", style='dashed')
+dot.edge('A', 'C', label='connects', color="red", style='solid')
+dot.render('temp', format='png', cleanup=True)
+"""
+        elif option == 'B':
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='diamond', style='filled', fillcolor="lightcoral")
+dot.node('B', 'Process 1', shape='ellipse', style='filled', fillcolor="lightcyan")
+dot.node('C', 'Process 2', shape='ellipse', style='filled', fillcolor="lightpink")
+dot.edge('A', 'B', label='flows', color="green", style='bold')
+dot.edge('A', 'C', label='flows', color="purple", style='dotted')
+dot.render('temp', format='png', cleanup=True)
+"""
+        elif option == 'C':
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='box', style='filled', fillcolor="lightgoldenrodyellow")
+dot.node('B', 'Module 1', shape='hexagon', style='filled', fillcolor="lightsteelblue")
+dot.node('C', 'Module 2', shape='hexagon', style='filled', fillcolor="lightseagreen")
+dot.edge('A', 'B', label='calls', color="orange", style='bold')
+dot.edge('A', 'C', label='calls', color="brown", style='solid')
+dot.render('temp', format='png', cleanup=True)
+"""
+        else:  # Option D
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='triangle', style='filled', fillcolor="lightpink")
+dot.node('B', 'Service 1', shape='parallelogram', style='filled', fillcolor="lightblue")
+dot.node('C', 'Service 2', shape='parallelogram', style='filled', fillcolor="lightgreen")
+dot.edge('A', 'B', label='requests', color="navy", style='bold')
+dot.edge('A', 'C', label='requests', color="maroon", style='dashed')
+dot.render('temp', format='png', cleanup=True)
+"""
+    elif library_name == 'matplotlib':
+        # Create different matplotlib diagrams for each option
+        if option == 'A':
+            return f"""
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
+# Create fallback diagram for Option {option}
+fig, ax = plt.subplots(figsize=(8, 6))
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+ax.plot(x, y, color='blue', linewidth=2, label=f'Option {option}')
+ax.set_title(f'Option {option} - Sine Wave')
+ax.set_xlabel('X-axis')
+ax.set_ylabel('Y-axis')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+plt.close()
+"""
+        elif option == 'B':
+            return f"""
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
+# Create fallback diagram for Option {option}
+fig, ax = plt.subplots(figsize=(8, 6))
+x = np.linspace(0, 10, 100)
+y = np.cos(x)
+ax.plot(x, y, color='red', linewidth=2, linestyle='--', label=f'Option {option}')
+ax.set_title(f'Option {option} - Cosine Wave')
+ax.set_xlabel('X-axis')
+ax.set_ylabel('Y-axis')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+plt.close()
+"""
+        elif option == 'C':
+            return f"""
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
+# Create fallback diagram for Option {option}
+fig, ax = plt.subplots(figsize=(8, 6))
+x = np.linspace(0, 10, 100)
+y = x**2 / 10
+ax.plot(x, y, color='green', linewidth=2, marker='o', markersize=3, label=f'Option {option}')
+ax.set_title(f'Option {option} - Quadratic Function')
+ax.set_xlabel('X-axis')
+ax.set_ylabel('Y-axis')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+plt.close()
+"""
+        else:  # Option D
+            return f"""
+import matplotlib.pyplot as plt
+import numpy as np
+from io import BytesIO
+# Create fallback diagram for Option {option}
+fig, ax = plt.subplots(figsize=(8, 6))
+x = np.linspace(0, 10, 100)
+y = np.exp(-x/3)
+ax.plot(x, y, color='purple', linewidth=2, linestyle=':', label=f'Option {option}')
+ax.set_title(f'Option {option} - Exponential Decay')
+ax.set_xlabel('X-axis')
+ax.set_ylabel('Y-axis')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+plt.close()
+"""
+    else:
+        # Default to graphviz for other libraries with diverse options
+        if option == 'A':
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='circle', style='filled', fillcolor="lightblue")
+dot.node('B', 'Feature 1', shape='box', style='filled', fillcolor="lightgreen")
+dot.node('C', 'Feature 2', shape='box', style='filled', fillcolor="lightyellow")
+dot.edge('A', 'B', label='connects', color="blue", style='dashed')
+dot.edge('A', 'C', label='connects', color="red", style='solid')
+dot.render('temp', format='png', cleanup=True)
+"""
+        elif option == 'B':
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='diamond', style='filled', fillcolor="lightcoral")
+dot.node('B', 'Process 1', shape='ellipse', style='filled', fillcolor="lightcyan")
+dot.node('C', 'Process 2', shape='ellipse', style='filled', fillcolor="lightpink")
+dot.edge('A', 'B', label='flows', color="green", style='bold')
+dot.edge('A', 'C', label='flows', color="purple", style='dotted')
+dot.render('temp', format='png', cleanup=True)
+"""
+        elif option == 'C':
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='box', style='filled', fillcolor="lightgoldenrodyellow")
+dot.node('B', 'Module 1', shape='hexagon', style='filled', fillcolor="lightsteelblue")
+dot.node('C', 'Module 2', shape='hexagon', style='filled', fillcolor="lightseagreen")
+dot.edge('A', 'B', label='calls', color="orange", style='bold')
+dot.edge('A', 'C', label='calls', color="brown", style='solid')
+dot.render('temp', format='png', cleanup=True)
+"""
+        else:  # Option D
+            return f"""
+import graphviz
+from io import BytesIO
+# Create fallback diagram for Option {option}
+dot = graphviz.Digraph()
+dot.node('A', 'Option {option}', shape='triangle', style='filled', fillcolor="lightpink")
+dot.node('B', 'Service 1', shape='parallelogram', style='filled', fillcolor="lightblue")
+dot.node('C', 'Service 2', shape='parallelogram', style='filled', fillcolor="lightgreen")
+dot.edge('A', 'B', label='requests', color="navy", style='bold')
+dot.edge('A', 'C', label='requests', color="maroon", style='dashed')
+dot.render('temp', format='png', cleanup=True)
+"""
+
 app = Flask(__name__)
 CORS(app)
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'images')
@@ -78,8 +263,9 @@ def generate():
             if image_filename:
                 image_url = f"/static/images/{image_filename}"
         
-        # Handle option diagrams
-        if result.get('option_diagram_codes'):
+        # Handle option diagrams - only if user requested them
+        requires_option_diagrams = data.get('requires_option_diagrams', False)
+        if requires_option_diagrams and result.get('option_diagram_codes'):
             library_used = result.get('library_used', 'schemdraw')
             option_diagram_codes = result.get('option_diagram_codes', {})
             
@@ -94,9 +280,40 @@ def generate():
                     if option_image_filename:
                         option_images.append(f"/static/images/{option_image_filename}")
                     else:
-                        option_images.append(None)
+                        # Fallback: generate a default diagram
+                        print(f"⚠️ Debug: Failed to render option {option} diagram, generating fallback")
+                        fallback_code = generate_fallback_diagram_code(library_used, option)
+                        if fallback_code:
+                            fallback_image = render_diagram(
+                                fallback_code,
+                                library_used,
+                                app.config['UPLOAD_FOLDER']
+                            )
+                            if fallback_image:
+                                option_images.append(f"/static/images/{fallback_image}")
+                            else:
+                                option_images.append(None)
+                        else:
+                            option_images.append(None)
                 else:
-                    option_images.append(None)
+                    # Generate fallback diagram for missing option
+                    print(f"⚠️ Debug: No code for option {option}, generating fallback")
+                    fallback_code = generate_fallback_diagram_code(library_used, option)
+                    if fallback_code:
+                        fallback_image = render_diagram(
+                            fallback_code,
+                            library_used,
+                            app.config['UPLOAD_FOLDER']
+                        )
+                        if fallback_image:
+                            option_images.append(f"/static/images/{fallback_image}")
+                        else:
+                            option_images.append(None)
+                    else:
+                        option_images.append(None)
+        else:
+            # If option diagrams are not requested, set all to None
+            option_images = [None, None, None, None]
         
         question_data = {
             'question_text': result.get('question_text'),
