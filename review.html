@@ -880,6 +880,16 @@
                                 ❌ Discard
                             </button>
                         ` : ''}
+                        ${status === 'discarded' ? `
+                            <button class="btn btn-approve" onclick="updateQuestionStatus(${question.QuestionID}, 'approved')">
+                                🔄 Re-approve
+                            </button>
+                        ` : ''}
+                        ${status === 'approved' ? `
+                            <button class="btn btn-discard" onclick="updateQuestionStatus(${question.QuestionID}, 'discarded')">
+                                ❌ Discard
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
                 
@@ -995,7 +1005,13 @@
             
             try {
                 button.disabled = true;
-                button.textContent = status === 'approved' ? '✅ Approving...' : '❌ Discarding...';
+                let loadingText = '';
+                if (status === 'approved') {
+                    loadingText = originalText.includes('Re-approve') ? '🔄 Re-approving...' : '✅ Approving...';
+                } else if (status === 'discarded') {
+                    loadingText = '❌ Discarding...';
+                }
+                button.textContent = loadingText;
                 
                 const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/questions/${questionId}/status`)}`, {
                     method: 'POST',
@@ -1010,7 +1026,13 @@
                 const result = await response.json();
                 if (result.success) {
                     // Show success message
-                    showSuccess(`Question ${status} successfully!`);
+                    let successMessage = '';
+                    if (status === 'approved') {
+                        successMessage = originalText.includes('Re-approve') ? 'Question re-approved successfully!' : 'Question approved successfully!';
+                    } else if (status === 'discarded') {
+                        successMessage = 'Question discarded successfully!';
+                    }
+                    showSuccess(successMessage);
                     // Reload questions to reflect the change
                     loadQuestions();
                 } else {

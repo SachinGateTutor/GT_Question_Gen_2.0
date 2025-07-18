@@ -77,7 +77,7 @@ IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Qu
 BEGIN
     CREATE TABLE QuestionType (
         QuestionTypeID INT IDENTITY(1,1) PRIMARY KEY,
-        TypeName NVARCHAR(50) NOT NULL,
+        QuestionTypeName NVARCHAR(50) NOT NULL,
         IsActive BIT DEFAULT 1
     );
     PRINT 'QuestionType table created successfully.';
@@ -137,7 +137,8 @@ BEGIN
         IsEnable BIT DEFAULT 0,
         IsDeleted BIT DEFAULT 0,
         IsPublic BIT DEFAULT 0,
-        AddedDate DATETIME DEFAULT GETDATE()
+        AddedDate DATETIME DEFAULT GETDATE(),
+        ApprovedDate DATETIME NULL
     );
     PRINT 'QuestionMaster table created successfully.';
 END
@@ -157,6 +158,10 @@ BEGIN
         CorrectOption CHAR(1) CHECK (CorrectOption IN ('A', 'B', 'C', 'D')),
         HasImage BIT DEFAULT 0,
         ImgQuestion NVARCHAR(500),
+        ImgOptionA NVARCHAR(500),
+        ImgOptionB NVARCHAR(500),
+        ImgOptionC NVARCHAR(500),
+        ImgOptionD NVARCHAR(500),
         CreatedDate DATETIME DEFAULT GETDATE()
     );
     PRINT 'MCQ_Questions table created successfully.';
@@ -357,6 +362,7 @@ SELECT
     qm.IsDeleted,
     qm.IsPublic,
     qm.AddedDate,
+    qm.ApprovedDate,
     c.CourseName,
     s.StreamName,
     sub.SubjectName,
@@ -373,6 +379,10 @@ SELECT
     mcq.CorrectOption,
     mcq.HasImage,
     mcq.ImgQuestion,
+    mcq.ImgOptionA,
+    mcq.ImgOptionB,
+    mcq.ImgOptionC,
+    mcq.ImgOptionD,
     qe.ExplanationText,
     qe.ImgExplanation
 FROM QuestionMaster qm
