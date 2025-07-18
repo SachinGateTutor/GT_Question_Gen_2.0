@@ -288,7 +288,7 @@ for temp_file in os.listdir('.'):
 
 app = Flask(__name__)
 CORS(app)
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(app.root_path), 'static', 'images')
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'images')
 
 # Serve the main HTML file
 @app.route('/')
@@ -298,7 +298,13 @@ def index():
 # Serve static files (config.js, etc.)
 @app.route('/<path:filename>')
 def serve_static(filename):
-    return send_from_directory('..', filename)
+    # Check if it's an image file in static/images
+    if filename.startswith('static/images/'):
+        # Serve from app directory
+        return send_from_directory('.', filename)
+    else:
+        # Serve other static files from root directory
+        return send_from_directory('..', filename)
 
 @app.route('/api/generate', methods=['POST'])
 def generate():
