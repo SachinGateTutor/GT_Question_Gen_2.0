@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, jsonify, send_from_directory, abort
 from services.openai_service import generate_mcq_and_diagram
-from services.diagram_service import render_diagram
+from services.diagram_service_new import render_diagram
 from services.db_service import (
     get_subjects, get_topics_by_subject, get_reference_data,
     store_generated_question, get_questions_by_status, update_question_status,

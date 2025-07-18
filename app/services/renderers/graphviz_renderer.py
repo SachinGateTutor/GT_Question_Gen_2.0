@@ -24,6 +24,36 @@ def render(code: str, output_path: str):
             code = code.replace('dot.render(buffer, format=\'png\', cleanup=True)', 
                               'dot.render(tempfile.mktemp(), format=\'png\', cleanup=True)')
         
+        # Fix dot.edges() syntax - it should take a list of tuples, not multiple arguments
+        code = re.sub(r'dot\.edges\(\[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\]\)', 
+                     r'dot.edges([(\1), (\2), (\3), (\4), (\5), (\6)])', code)
+        
+        # Fix dot.edges() with multiple arguments
+        code = re.sub(r'dot\.edges\(([^)]+)\)', 
+                     lambda m: f'dot.edges([{m.group(1)}])' if ',' in m.group(1) else f'dot.edges([{m.group(1)}])', code)
+        
+        # Fix individual edge calls to use proper syntax
+        code = re.sub(r'dot\.edges\(\'([^\']+)\', \'([^\']+)\'\)', r'dot.edge(\1, \2)', code)
+        
+        # Fix the problematic dot.edges() call from the logs
+        # Convert: dot.edges(['10', '5'], ['10', '15'], ['5', '3'], ['5', '7'], ['15', '12'], ['15', '18'])
+        # To: dot.edge('10', '5'); dot.edge('10', '15'); etc.
+        code = re.sub(r'dot\.edges\(\[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\], \[([^\]]+)\]\)', 
+                     r'dot.edge(\1)\ndot.edge(\2)\ndot.edge(\3)\ndot.edge(\4)\ndot.edge(\5)\ndot.edge(\6)', code)
+        
+        # Fix any remaining dot.edges() calls with multiple arguments
+        def fix_edges_call(match):
+            args = match.group(1)
+            # Split by comma and create individual edge calls
+            edge_pairs = re.findall(r'\[([^\]]+)\]', args)
+            edge_calls = []
+            for i in range(0, len(edge_pairs), 2):
+                if i + 1 < len(edge_pairs):
+                    edge_calls.append(f'dot.edge({edge_pairs[i]}, {edge_pairs[i+1]})')
+            return '\n'.join(edge_calls)
+        
+        code = re.sub(r'dot\.edges\(([^)]+)\)', fix_edges_call, code)
+        
         src = Source(code)
         src.format = 'png'
         

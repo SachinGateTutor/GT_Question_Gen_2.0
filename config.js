@@ -7,7 +7,7 @@ const config = {
     
     // For network access (replace with your computer's IP address)
     // Example: API_URL: 'http://192.168.1.100:5000/api/generate',
-    API_URL: 'http://192.168.0.121:5000/api/generate', // personal system
+    API_URL: 'http://192.168.0.120:5000/api/generate', // personal system
     // API_URL: 'http://192.168.0.119:5000/api/generate', // main system
     
     // Flask server settings

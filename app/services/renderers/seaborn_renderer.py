@@ -39,24 +39,20 @@ def render(code: str, output_path: str):
             code += '\n# Creating alternative visualization since venn2 is not available'
             code += '\nsns.barplot(data=df, x="Category", y="Value")'
         
-        # Create buffer
-        buffer = io.BytesIO()
-        
         # Prepare execution environment
         exec_globals = {
             'sns': sns,
             'plt': plt,
             'pd': pd,
-            'np': np,
-            'buffer': buffer
+            'np': np
         }
         
         print(f"🔍 Executing seaborn code:\n{code}")
         exec(code, exec_globals)
         
-        # Save image
-        img = Image.open(buffer)
-        img.save(output_path)
+        # Save image directly to output path
+        plt.savefig(output_path, bbox_inches='tight', dpi=300)
+        plt.close()  # Close the figure to free memory
         print(f"✅ Seaborn diagram saved as: {os.path.basename(output_path)}")
         return os.path.basename(output_path)
         
