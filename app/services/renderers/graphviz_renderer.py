@@ -14,6 +14,42 @@ def render(code: str, output_path: str):
         import glob
         import re
         
+        # Improve color scheme for better readability
+        # Replace dark colors with lighter, more readable alternatives
+        color_mappings = {
+            'blue': 'lightblue',
+            'darkblue': 'lightblue', 
+            'navy': 'lightblue',
+            'black': 'white',
+            'darkgreen': 'lightgreen',
+            'green': 'lightgreen',
+            'red': 'lightcoral',
+            'darkred': 'lightcoral',
+            'purple': 'plum',
+            'darkpurple': 'plum',
+            'brown': 'wheat',
+            'darkbrown': 'wheat',
+            'gray': 'lightgray',
+            'darkgray': 'lightgray',
+            'grey': 'lightgray',
+            'darkgrey': 'lightgray'
+        }
+        
+        # Apply color mappings for better contrast
+        for dark_color, light_color in color_mappings.items():
+            code = re.sub(rf'fillcolor=[\'"]{dark_color}[\'"]', f'fillcolor="{light_color}"', code)
+            code = re.sub(rf'color=[\'"]{dark_color}[\'"]', f'color="{light_color}"', code)
+        
+        # Ensure edges are always visible by replacing white/transparent colors
+        code = re.sub(r'color=[\'"]white[\'"]', 'color="black"', code)
+        code = re.sub(r'color=[\'"]transparent[\'"]', 'color="black"', code)
+        code = re.sub(r'color=[\'"]none[\'"]', 'color="black"', code)
+        
+        # Add font color settings for better readability
+        # Ensure text is always dark for good contrast
+        # Add fontcolor to all node definitions that have style='filled'
+        code = re.sub(r'style=[\'"]filled[\'"]', 'style="filled", fontcolor="black"', code)
+        
         # Fix color specifications for graphviz
         # Ensure colors are properly applied to nodes and edges
         code = re.sub(r'fillcolor=[\'"]([^\'"]*)[\'"]', r'fillcolor="\1"', code)
@@ -31,6 +67,10 @@ def render(code: str, output_path: str):
             code = code.replace('dot.render(buffer, format=\'png\', cleanup=True)', 
                               'dot.render(tempfile.mktemp(), format=\'png\', cleanup=True)')
         
+        # Fix dot.edges() calls that have style parameters (not supported by graphviz)
+        code = re.sub(r'dot\.edges\(\[([^\]]+)\],\s*style=[\'"][^\'"]+[\'"]', r'dot.edges([\1])', code)
+        code = re.sub(r'dot\.edges\(\[([^\]]+)\],\s*color=[\'"][^\'"]+[\'"]', r'dot.edges([\1])', code)
+        
         # Create buffer
         buffer = io.BytesIO()
         
@@ -41,6 +81,10 @@ def render(code: str, output_path: str):
             'tempfile': tempfile,
             'os': os
         }
+        
+        # Add global font color setting for better readability
+        if 'dot = graphviz.Digraph()' in code:
+            code = code.replace('dot = graphviz.Digraph()', 'dot = graphviz.Digraph()\ndot.attr(fontcolor="black")\ndot.attr(edge_color="black")')
         
         print(f"🔍 Executing graphviz code:\n{code}")
         exec(code, exec_globals)

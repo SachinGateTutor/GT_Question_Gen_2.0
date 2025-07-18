@@ -1015,7 +1015,7 @@ dot.edge('B', 'C', label='output', color="brown", style='solid')
 dot.render('temp', format='png', cleanup=True)
 ```
 
-CRITICAL: Each option diagram should be visually distinct, rich in detail, and clearly represent the concept described in that option. 
+CRITICAL: Each option diagram should be visually distinct, rich in detail, and clearly represent the concept described in that option.
 
 IMPORTANT: Generate ACTUAL WORKING Python code for each option diagram. Do NOT use placeholder text like "{get_library_specific_prompt(library_name)}" - replace it with real, executable diagram code.
 
@@ -1609,19 +1609,19 @@ def parse_openai_response(response_text):
         has_option_section = any(option_code in response_text for option_code in option_codes)
         
         if has_option_section:
-            for option_code, option_label in zip(option_codes, option_labels):
-                code_start = None
-                code_end = None
-                for i, line in enumerate(lines):
-                    if option_code in line:
-                        code_start = i
-                    elif code_start is not None and '```' in line:
-                        if code_end is None:
-                            code_end = i
-                            break
-                
-                if code_start is not None and code_end is not None:
-                    option_code_lines = lines[code_start + 1:code_end]
+        for option_code, option_label in zip(option_codes, option_labels):
+            code_start = None
+            code_end = None
+            for i, line in enumerate(lines):
+                if option_code in line:
+                    code_start = i
+                elif code_start is not None and '```' in line:
+                    if code_end is None:
+                        code_end = i
+                        break
+            
+            if code_start is not None and code_end is not None:
+                option_code_lines = lines[code_start + 1:code_end]
                     option_code_text = '\n'.join(option_code_lines)
                     
                     # Validate that the code is not just placeholder text
