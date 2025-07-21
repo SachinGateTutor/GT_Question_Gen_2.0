@@ -12,6 +12,7 @@ from services.db_service import (
     add_subject, update_subject, delete_subject, get_all_subjects,
     add_topic, update_topic, delete_topic, get_all_topics
 )
+from services.ai_explanation_service import ai_explanation_service
 from flask_cors import CORS
 
 def generate_fallback_diagram_code(library_name, option):
@@ -631,6 +632,42 @@ def update_question_status_api(question_id):
     
     success = update_question_status(question_id, status)
     return jsonify({'success': success})
+
+@app.route('/api/explain-question', methods=['POST'])
+def explain_question_api():
+    """Generate AI explanation for a question"""
+    try:
+        data = request.get_json()
+        
+        # Extract question data
+        question_data = {
+            'question_id': data.get('question_id'),
+            'question_text': data.get('question_text', ''),
+            'options': data.get('options', []),
+            'correct_answer': data.get('correct_answer', ''),
+            'topic': data.get('topic', ''),
+            'subject': data.get('subject', ''),
+            'difficulty_level': data.get('difficulty_level', 'Medium'),
+            'question_type': data.get('question_type', 'MCQ'),
+            'bloom_level': data.get('bloom_level', 'Understand')
+        }
+        
+        # Validate required fields
+        if not question_data['question_text']:
+            return jsonify({'error': 'Question text is required'}), 400
+        
+        # Generate AI explanation
+        explanation = ai_explanation_service.generate_question_explanation(question_data)
+        
+        return jsonify(explanation)
+        
+    except Exception as e:
+        print(f"Error in explain_question_api: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to generate explanation',
+            'message': str(e)
+        }), 500
 
 # --- Admin API Endpoints ---
 # Course

@@ -111,6 +111,20 @@
             box-shadow: 0 2px 10px rgba(108, 117, 125, 0.3);
         }
         .btn-secondary:hover { box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4); }
+        .pragya-ai-btn { 
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); 
+            box-shadow: 0 2px 10px rgba(255, 107, 107, 0.3);
+        }
+        .pragya-ai-btn:hover { 
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+            transform: translateY(-2px);
+        }
+        .pragya-ai-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
         .btn:disabled { 
             opacity: 0.6; 
             cursor: not-allowed; 
@@ -584,6 +598,22 @@
             <img id="diagram-popup-image" src="" alt="Diagram">
       </div>
     </div>
+
+    <!-- PragyaAI Explanation Modal -->
+    <div id="pragyaAIModal" class="modal" style="display:none;">
+        <div class="modal-content pragya-ai-modal">
+            <span class="close" onclick="closePragyaAIModal()">&times;</span>
+            <div class="modal-header">
+                <h3>🤖 PragyaAI Explanation</h3>
+                <div class="ai-status" id="aiStatus">Ready to help!</div>
+            </div>
+            <div class="modal-body">
+                <div id="aiExplanationContent">
+                    <!-- AI content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
     <style>
     .modal {
       display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
@@ -596,6 +626,114 @@
       color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer;
     }
     .close:hover { color: #000; }
+    
+    /* PragyaAI Modal Styles */
+    .pragya-ai-modal {
+        max-width: 800px !important;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px 8px 0 0;
+        margin: -20px -20px 20px -20px;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .ai-status {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        margin-top: 5px;
+    }
+    
+    .modal-body {
+        padding: 0;
+    }
+    
+    .ai-explanation-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-left: 4px solid #ff6b6b;
+        padding: 20px;
+        margin: 15px 0;
+        border-radius: 8px;
+    }
+    
+    .ai-explanation-section h4 {
+        color: #ff6b6b;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    
+    .ai-explanation-section p {
+        line-height: 1.6;
+        color: #495057;
+        margin-bottom: 10px;
+    }
+    
+    .ai-loading {
+        text-align: center;
+        padding: 40px;
+        color: #ff6b6b;
+    }
+    
+    .ai-loading .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #ff6b6b;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .ai-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .ai-tab-btn {
+        background: #e9ecef;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .ai-tab-btn.active {
+        background: #ff6b6b;
+        color: white;
+    }
+    
+    .ai-tab-btn:hover {
+        background: #ff6b6b;
+        color: white;
+    }
+    
+    .ai-tab-content {
+        display: none;
+    }
+    
+    .ai-tab-content.active {
+        display: block;
+    }
     </style>
     <script src="config.js"></script>
     <script>
@@ -1016,14 +1154,32 @@
 
             card.innerHTML = cardContent;
 
+            // Create button container for better layout
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '10px';
+            buttonContainer.style.marginBottom = '20px';
+            buttonContainer.style.flexWrap = 'wrap';
+
+            // View Explanation button
             const explanationBtn = document.createElement('button');
             explanationBtn.className = 'explanation-btn btn';
             explanationBtn.textContent = 'View Explanation';
-            explanationBtn.style.marginBottom = '20px';
             explanationBtn.onclick = function() {
               showExplanationPopup(question.ExplanationText);
             };
-            card.appendChild(explanationBtn);
+            buttonContainer.appendChild(explanationBtn);
+
+            // Ask PragyaAI button
+            const pragyaAIBtn = document.createElement('button');
+            pragyaAIBtn.className = 'pragya-ai-btn btn';
+            pragyaAIBtn.innerHTML = '🤖 Ask PragyaAI';
+            pragyaAIBtn.onclick = function() {
+              askPragyaAI(question);
+            };
+            buttonContainer.appendChild(pragyaAIBtn);
+
+            card.appendChild(buttonContainer);
 
             return card;
         }
@@ -1235,6 +1391,163 @@
                  .replace(/"/g, "&quot;")
                  .replace(/'/g, "&#039;");
         }
+
+        // PragyaAI Functions
+        async function askPragyaAI(question) {
+            try {
+                // Show modal with loading state
+                showPragyaAIModal();
+                showAILoading();
+                
+                // Prepare question data for AI
+                const questionData = {
+                    question_id: question.QuestionID,
+                    question_text: question.QuestionText,
+                    options: [
+                        question.OptionA,
+                        question.OptionB,
+                        question.OptionC,
+                        question.OptionD
+                    ].filter(option => option), // Remove empty options
+                    correct_answer: question.CorrectOption,
+                    topic: question.TopicName,
+                    subject: question.SubjectName,
+                    difficulty_level: question.DifficultyLevelName,
+                    question_type: question.QuestionTypeName,
+                    bloom_level: question.BloomLevelName
+                };
+                
+                // Call AI explanation API
+                const response = await fetch(`${config.API_URL.replace('/api/generate', '/api/explain-question')}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(questionData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayAIExplanation(result.explanation);
+                } else {
+                    showAIError(result.error || 'Failed to generate explanation');
+                }
+                
+            } catch (error) {
+                console.error('Error asking PragyaAI:', error);
+                showAIError('Failed to connect to PragyaAI. Please try again.');
+            }
+        }
+        
+        function showPragyaAIModal() {
+            document.getElementById('pragyaAIModal').style.display = 'block';
+        }
+        
+        function closePragyaAIModal() {
+            document.getElementById('pragyaAIModal').style.display = 'none';
+        }
+        
+        function showAILoading() {
+            document.getElementById('aiStatus').textContent = '🤖 PragyaAI is analyzing your question...';
+            document.getElementById('aiExplanationContent').innerHTML = `
+                <div class="ai-loading">
+                    <div class="spinner"></div>
+                    <p>🤖 PragyaAI is analyzing your question...</p>
+                    <p style="font-size: 0.9rem; opacity: 0.7;">This may take a few seconds</p>
+                </div>
+            `;
+        }
+        
+        function displayAIExplanation(explanation) {
+            document.getElementById('aiStatus').textContent = '✅ Explanation ready!';
+            
+            const content = document.getElementById('aiExplanationContent');
+            
+            // Create tabbed interface
+            let html = `
+                <div class="ai-tabs">
+                    <button class="ai-tab-btn active" onclick="showAITab('solution')">📝 Step-by-Step Solution</button>
+                    <button class="ai-tab-btn" onclick="showAITab('concepts')">🧠 Key Concepts</button>
+                    <button class="ai-tab-btn" onclick="showAITab('tips')">💡 Learning Tips</button>
+                    <button class="ai-tab-btn" onclick="showAITab('analysis')">🔍 Why Correct/Incorrect</button>
+                </div>
+                
+                <div id="ai-solution-tab" class="ai-tab-content active">
+                    <div class="ai-explanation-section">
+                        <h4>📝 Step-by-Step Solution</h4>
+                        <p>${explanation.step_by_step_solution || 'Solution analysis not available.'}</p>
+                    </div>
+                </div>
+                
+                <div id="ai-concepts-tab" class="ai-tab-content">
+                    <div class="ai-explanation-section">
+                        <h4>🧠 Key Concepts</h4>
+                        <p>${explanation.key_concepts || 'Key concepts not available.'}</p>
+                    </div>
+                </div>
+                
+                <div id="ai-tips-tab" class="ai-tab-content">
+                    <div class="ai-explanation-section">
+                        <h4>💡 Learning Tips</h4>
+                        <p>${explanation.learning_tips || 'Learning tips not available.'}</p>
+                    </div>
+                </div>
+                
+                <div id="ai-analysis-tab" class="ai-tab-content">
+                    <div class="ai-explanation-section">
+                        <h4>✅ Why the Correct Answer is Right</h4>
+                        <p>${explanation.why_correct || 'Analysis not available.'}</p>
+                    </div>
+                    <div class="ai-explanation-section">
+                        <h4>❌ Why Other Options are Wrong</h4>
+                        <p>${explanation.why_incorrect || 'Analysis not available.'}</p>
+                    </div>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        }
+        
+        function showAITab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.ai-tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tab buttons
+            const tabButtons = document.querySelectorAll('.ai-tab-btn');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(`ai-${tabName}-tab`).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+        
+        function showAIError(message) {
+            document.getElementById('aiStatus').textContent = '❌ Error occurred';
+            document.getElementById('aiExplanationContent').innerHTML = `
+                <div class="ai-loading">
+                    <p style="color: #dc3545;">❌ ${message}</p>
+                    <button class="btn" onclick="closePragyaAIModal()">Close</button>
+                </div>
+            `;
+        }
+        
+        // Close PragyaAI modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const pragyaAIModal = document.getElementById('pragyaAIModal');
+            pragyaAIModal.addEventListener('click', function(e) {
+                if (e.target === pragyaAIModal) {
+                    closePragyaAIModal();
+                }
+            });
+        });
     </script>
     <style>
         @keyframes slideIn {
