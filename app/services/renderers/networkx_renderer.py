@@ -18,6 +18,10 @@ def render(code: str, output_path: str):
         code = re.sub(r'nc=[\'"]([^\'"]*)[\'"]', r'node_color="\1"', code)
         code = re.sub(r'ec=[\'"]([^\'"]*)[\'"]', r'edge_color="\1"', code)
         
+        # Fix buffer references - use raw strings to avoid unicode issues
+        code = code.replace('buffer', f"r'{output_path}'")
+        code = code.replace('plt.savefig(buffer', f'plt.savefig(r"{output_path}"')
+        
         plt.clf()
         namespace = {'nx': nx, 'plt': plt}
         exec(code, namespace)

@@ -1609,19 +1609,19 @@ def parse_openai_response(response_text):
         has_option_section = any(option_code in response_text for option_code in option_codes)
         
         if has_option_section:
-        for option_code, option_label in zip(option_codes, option_labels):
-            code_start = None
-            code_end = None
-            for i, line in enumerate(lines):
-                if option_code in line:
-                    code_start = i
-                elif code_start is not None and '```' in line:
-                    if code_end is None:
-                        code_end = i
-                        break
-            
-            if code_start is not None and code_end is not None:
-                option_code_lines = lines[code_start + 1:code_end]
+            for option_code, option_label in zip(option_codes, option_labels):
+                code_start = None
+                code_end = None
+                for i, line in enumerate(lines):
+                    if option_code in line:
+                        code_start = i
+                    elif code_start is not None and '```' in line:
+                        if code_end is None:
+                            code_end = i
+                            break
+                
+                if code_start is not None and code_end is not None:
+                    option_code_lines = lines[code_start + 1:code_end]
                     option_code_text = '\n'.join(option_code_lines)
                     
                     # Validate that the code is not just placeholder text
@@ -1737,3 +1737,269 @@ def generate_custom_question_variations(custom_prompt, topic, subject):
             break
     
     return variations.get(selected_variation, variations['gate'])
+
+# CDQ Functions
+
+def generate_cdq_passage(data):
+    """Generate a CDQ passage based on subject and topic"""
+    client = get_openai_client()
+    
+    subject = data.get('subject', 'Data Structures')
+    topic = data.get('topic', 'Arrays')
+    stream = data.get('stream', 'Computer Science')
+    difficulty_level = data.get('difficulty_level', 'Medium')
+    bloom_level = data.get('bloom_level', 'auto_detect')
+    
+    # Get difficulty-specific criteria
+    from .difficulty_prompts import get_difficulty_criteria
+    difficulty_criteria = get_difficulty_criteria(difficulty_level)
+    
+    # Get Bloom level specific guidance
+    bloom_guidance = get_bloom_level_guidance(bloom_level)
+    
+    prompt = f"""
+Generate a comprehensive passage for a Common Database Question (CDQ) based on the following parameters:
+
+Subject: {subject}
+Topic: {topic}
+Stream: {stream}
+Difficulty Level: {difficulty_level}
+Bloom Level: {bloom_level}
+
+{difficulty_criteria}
+
+{bloom_guidance}
+
+Requirements for the passage:
+1. Length: 150-300 words (appropriate for {difficulty_level} level)
+2. Content: Should cover key concepts of {topic} in {subject}
+3. Structure: Include definitions, examples, and practical scenarios
+4. Complexity: Match the {difficulty_level} difficulty level
+5. Cognitive Level: Align with {bloom_level} Bloom taxonomy level
+6. Clarity: Clear and well-structured for students to understand
+7. Context: Provide enough information to generate 3-5 MCQ questions
+
+The passage should be educational, engaging, and provide sufficient context for generating multiple-choice questions.
+
+Generate only the passage text without any additional formatting or explanations.
+"""
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error generating CDQ passage: {e}")
+        return None
+
+def generate_cdq_questions(passage_text, data):
+    """Generate MCQ questions based on a CDQ passage"""
+    client = get_openai_client()
+    
+    subject = data.get('subject', 'Data Structures')
+    topic = data.get('topic', 'Arrays')
+    difficulty_level = data.get('difficulty_level', 'Medium')
+    bloom_level = data.get('bloom_level', 'auto_detect')
+    num_questions = data.get('num_questions', 3)
+    
+    # Get difficulty-specific criteria
+    from .difficulty_prompts import get_difficulty_criteria
+    difficulty_criteria = get_difficulty_criteria(difficulty_level)
+    
+    # Get Bloom level specific guidance
+    bloom_guidance = get_bloom_level_guidance(bloom_level)
+    
+    prompt = f"""
+Based on the following passage, generate {num_questions} multiple-choice questions (MCQs) that test understanding of the content.
+
+Passage:
+{passage_text}
+
+Subject: {subject}
+Topic: {topic}
+Difficulty Level: {difficulty_level}
+Bloom Level: {bloom_level}
+
+{difficulty_criteria}
+
+{bloom_guidance}
+
+Requirements for each question:
+1. Question should be directly related to the passage content
+2. All options (A, B, C, D) should be plausible
+3. Only one correct answer
+4. Include explanation for the correct answer
+5. Questions should vary in complexity and cognitive level
+6. Cover different aspects mentioned in the passage
+
+Format each question as:
+Question X: [question text]
+A) [option A]
+B) [option B]
+C) [option C]
+D) [option D]
+Correct Answer: [A/B/C/D]
+Explanation: [explanation for correct answer]
+
+Generate exactly {num_questions} questions.
+"""
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1200
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Error generating CDQ questions: {e}")
+        return None
+
+def get_bloom_level_guidance(bloom_level):
+    """Get guidance for specific Bloom level"""
+    bloom_guidance = {
+        'Remember': """
+Bloom Level: Remember
+- Focus on factual recall and basic concepts
+- Questions should test memory of key terms, definitions, and facts
+- Use verbs like: define, list, name, recall, identify
+""",
+        'Understand': """
+Bloom Level: Understand
+- Focus on comprehension and interpretation
+- Questions should test understanding of concepts and ability to explain
+- Use verbs like: explain, describe, interpret, summarize
+""",
+        'Apply': """
+Bloom Level: Apply
+- Focus on using knowledge in new situations
+- Questions should test practical application of concepts
+- Use verbs like: apply, use, implement, solve
+""",
+        'Analyze': """
+Bloom Level: Analyze
+- Focus on breaking down information and examining relationships
+- Questions should test analytical thinking and comparison
+- Use verbs like: analyze, compare, contrast, examine
+""",
+        'Evaluate': """
+Bloom Level: Evaluate
+- Focus on making judgments and assessments
+- Questions should test critical evaluation and decision-making
+- Use verbs like: evaluate, assess, judge, critique
+""",
+        'Create': """
+Bloom Level: Create
+- Focus on generating new ideas and solutions
+- Questions should test creative thinking and synthesis
+- Use verbs like: design, create, develop, construct
+""",
+        'auto_detect': """
+Bloom Level: Auto-detect
+- Generate questions that naturally fit the content and difficulty
+- Mix of cognitive levels appropriate for the topic and difficulty
+- Vary between Remember, Understand, Apply, and Analyze levels
+"""
+    }
+    
+    return bloom_guidance.get(bloom_level, bloom_guidance['auto_detect'])
+
+def parse_cdq_response(response_text):
+    """Parse CDQ questions from OpenAI response"""
+    questions = []
+    current_question = {}
+    
+    lines = response_text.split('\n')
+    question_count = 0
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Check for new question
+        if line.startswith('Question') and ':' in line:
+            if current_question:
+                questions.append(current_question)
+            current_question = {
+                'question_text': line.split(':', 1)[1].strip(),
+                'options': [],
+                'correct_answer': '',
+                'explanation': ''
+            }
+            question_count += 1
+            continue
+            
+        # Check for options
+        if line.startswith(('A)', 'B)', 'C)', 'D)')):
+            option_text = line.split(')', 1)[1].strip()
+            current_question['options'].append(option_text)
+            continue
+            
+        # Check for correct answer
+        if line.startswith('Correct Answer:'):
+            answer = line.split(':', 1)[1].strip()
+            current_question['correct_answer'] = answer
+            continue
+            
+        # Check for explanation
+        if line.startswith('Explanation:'):
+            explanation = line.split(':', 1)[1].strip()
+            current_question['explanation'] = explanation
+            continue
+            
+        # If we have a current question and this line doesn't match any pattern,
+        # it might be continuation of question text or explanation
+        if current_question and not current_question['options']:
+            current_question['question_text'] += ' ' + line
+        elif current_question and current_question['correct_answer'] and not current_question['explanation']:
+            current_question['explanation'] += ' ' + line
+    
+    # Add the last question
+    if current_question:
+        questions.append(current_question)
+    
+    return questions
+
+def generate_cdq_complete(data):
+    """Generate complete CDQ (passage + questions)"""
+    try:
+        print("🔍 Debug: Starting CDQ generation")
+        print(f"🔍 Debug: Input data: {data}")
+        
+        # Generate passage first
+        passage_text = generate_cdq_passage(data)
+        if not passage_text:
+            print("❌ Error: Failed to generate passage")
+            return None
+        
+        print(f"✅ Generated passage: {passage_text[:100]}...")
+        
+        # Generate questions based on passage
+        questions_response = generate_cdq_questions(passage_text, data)
+        if not questions_response:
+            print("❌ Error: Failed to generate questions")
+            return None
+        
+        print(f"✅ Generated questions response: {questions_response[:100]}...")
+        
+        # Parse questions
+        questions = parse_cdq_response(questions_response)
+        if not questions:
+            print("❌ Error: Failed to parse questions")
+            return None
+        
+        print(f"✅ Parsed {len(questions)} questions")
+        
+        return {
+            'passage_text': passage_text,
+            'questions': questions,
+            'total_questions': len(questions)
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in CDQ generation: {e}")
+        return None

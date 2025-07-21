@@ -19,7 +19,36 @@ def render(code: str, output_path: str):
         code = re.sub(r'cs=[\'"]([^\'"]*)[\'"]', r'colorscale="\1"', code)
         code = re.sub(r'lc=[\'"]([^\'"]*)[\'"]', r'line_color="\1"', code)
         
+        # Fix buffer references - use raw strings to avoid unicode issues
+        code = code.replace('buffer', f"r'{output_path}'")
+        code = code.replace('pio.write_image(fig, buffer', f'pio.write_image(fig, r"{output_path}"')
+        
+        # Add missing imports if needed
+        if 'np.' in code and 'import numpy' not in code:
+            code = 'import numpy as np\n' + code
+        if 'pd.' in code and 'import pandas' not in code:
+            code = 'import pandas as pd\n' + code
+        if 'sklearn.' in code and 'from sklearn' not in code:
+            code = 'from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve\n' + code
+        
         namespace = {'go': go, 'pio': pio}
+        
+        # Add common imports to namespace
+        try:
+            import numpy as np
+            import pandas as pd
+            from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
+            namespace.update({
+                'np': np,
+                'pd': pd,
+                'confusion_matrix': confusion_matrix,
+                'roc_curve': roc_curve,
+                'auc': auc,
+                'precision_recall_curve': precision_recall_curve
+            })
+        except ImportError:
+            print("⚠️ Warning: Some imports not available")
+        
         exec(code, namespace)
         fig = namespace.get("fig")
         if fig:

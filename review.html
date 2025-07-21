@@ -532,6 +532,12 @@
                             <option value="">All Bloom Levels</option>
                         </select>
                     </div>
+                    <div class="filter-group">
+                        <label for="questionTypeFilter">Question Type:</label>
+                        <select id="questionTypeFilter">
+                            <option value="">All Question Types</option>
+                        </select>
+                    </div>
                 </div>
                 <button class="btn" onclick="loadQuestions()">🔍 Apply Filters</button>
                 <button class="btn btn-secondary" onclick="clearFilters()">🔄 Clear Filters</button>
@@ -624,6 +630,11 @@
                 const bloomResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/BloomLevel')}`);
                 const blooms = await bloomResponse.json();
                 populateFilterDropdown('bloomFilter', blooms, 'LevelName');
+
+                // Load question types for filter
+                const questionTypeResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/QuestionType')}`);
+                const questionTypes = await questionTypeResponse.json();
+                populateFilterDropdown('questionTypeFilter', questionTypes, 'TypeName');
 
             } catch (error) {
                 console.error('Error loading filter options:', error);
@@ -766,6 +777,7 @@
                 const topic = document.getElementById('topicFilter').value;
                 const difficulty = document.getElementById('difficultyFilter').value;
                 const bloom = document.getElementById('bloomFilter').value;
+                const questionType = document.getElementById('questionTypeFilter').value;
 
                 let url = `${config.API_URL.replace('/api/generate', '/api/questions')}?status=${status}`;
                 
@@ -775,6 +787,7 @@
                 if (topic) url += `&topic=${encodeURIComponent(topic)}`;
                 if (difficulty) url += `&difficulty=${encodeURIComponent(difficulty)}`;
                 if (bloom) url += `&bloom=${encodeURIComponent(bloom)}`;
+                if (questionType) url += `&questionType=${encodeURIComponent(questionType)}`;
 
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -843,6 +856,10 @@
             const status = question.IsEnable ? 'approved' : (question.IsDeleted ? 'discarded' : 'pending');
             const statusText = question.IsEnable ? 'Approved' : (question.IsDeleted ? 'Discarded' : 'Pending');
 
+            // Check if this is a CDQ question
+            const isCDQ = question.QuestionTypeName === 'CDQ';
+            const hasPassage = question.PassageText && question.PassageText.trim() !== '';
+
             // Process question text and extract code snippets
             let questionText = question.QuestionText || '';
             let codeSnippet = null;
@@ -859,7 +876,7 @@
                 }
             }
 
-            card.innerHTML = `
+            let cardContent = `
                 <div class="question-header">
                     <div>
                         <span class="status-badge status-${status}">${statusText}</span>
@@ -891,10 +908,22 @@
                             </button>
                         ` : ''}
                     </div>
-                </div>
-                
-                <div class="question-text">${questionText}</div>
-                
+                </div>`;
+
+            // Add CDQ passage if available
+            if (isCDQ && hasPassage) {
+                cardContent += `
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-left: 4px solid #007bff; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
+                        <h3 style="color: #007bff; margin-bottom: 15px; font-size: 1.3rem;">📖 CDQ Passage:</h3>
+                        <div style="font-size: 1.1rem; line-height: 1.6; color: #495057; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dee2e6;">
+                            ${question.PassageText}
+                        </div>
+                    </div>`;
+            }
+
+            cardContent += `<div class="question-text">${questionText}</div>`;
+            
+            cardContent += `
                 ${question.ImgQuestion ? `
                     <div style="text-align: center; margin-bottom: 20px;">
                         <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
@@ -983,8 +1012,9 @@
                         <strong>💡 Explanation:</strong><br>
                         ${question.ExplanationText}
                     </div>
-                ` : ''}
-            `;
+                ` : ''}`;
+
+            card.innerHTML = cardContent;
 
             const explanationBtn = document.createElement('button');
             explanationBtn.className = 'explanation-btn btn';
@@ -1083,6 +1113,7 @@
             document.getElementById('topicFilter').value = '';
             document.getElementById('difficultyFilter').value = '';
             document.getElementById('bloomFilter').value = '';
+            document.getElementById('questionTypeFilter').value = '';
             loadQuestions();
         }
 

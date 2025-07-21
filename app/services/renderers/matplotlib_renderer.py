@@ -32,20 +32,38 @@ def render(code: str, output_path: str):
     code = re.sub(r'fc=[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)
     code = re.sub(r'ec=[\'"]([^\'"]*)[\'"]', r'edgecolor="\1"', code)
     
+    # Fix fcolor to facecolor (common AI mistake)
+    code = re.sub(r'fcolor=[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)
+    code = re.sub(r'fcolor=([^\s,)]+)', r'facecolor=\1', code)
+    
+    # Fix BytesIO references
+    code = code.replace('BytesIO()', 'io.BytesIO()')
+    code = code.replace('from io import BytesIO', '')
+    
+    # Fix buffer references
+    code = code.replace('buffer', f"'{output_path}'")
+    code = code.replace('plt.savefig(buffer', f'plt.savefig("{output_path}"')
+    
     # Add missing imports if needed
     if 'np.' in code and 'import numpy' not in code:
         code = 'import numpy as np\n' + code
     if 'pd.' in code and 'import pandas' not in code:
         code = 'import pandas as pd\n' + code
+    if 'sklearn.' in code and 'from sklearn' not in code:
+        code = 'from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve\n' + code
+    
+    # Add dummy data for common undefined variables
+    if 'y_true' in code and 'y_true =' not in code:
+        code = 'y_true = [0, 1, 1, 0, 1, 1, 0]\n' + code
+    if 'y_scores' in code and 'y_scores =' not in code:
+        code = 'y_scores = [0.2, 0.6, 0.8, 0.3, 0.7, 0.9, 0.1]\n' + code
+    if 'y_pred' in code and 'y_pred =' not in code:
+        code = 'y_pred = [0, 1, 1, 0, 1, 1, 0]\n' + code
         
     # Fix common matplotlib issues
     if 'plt.show()' in code:
         code = code.replace('plt.show()', '# plt.show()  # Not needed for saving')
     
-    # Fix BytesIO references
-    code = code.replace('BytesIO()', 'io.BytesIO()')
-    code = code.replace('from io import BytesIO', '')
-
     # Save code to temp file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
         temp_path = f.name

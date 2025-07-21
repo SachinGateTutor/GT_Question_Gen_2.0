@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, jsonify, send_from_directory, abort
 from services.openai_service import generate_mcq_and_diagram
 from services.diagram_service_new import render_diagram
+from services.bloom_detector import detect_bloom_level, update_question_bloom_level
 from services.db_service import (
     get_subjects, get_topics_by_subject, get_reference_data,
     store_generated_question, get_questions_by_status, update_question_status,
@@ -422,11 +423,39 @@ def generate():
         
         # Store the generated question in database
         if result.get('question_text'):
+            # Handle Bloom level detection if 'auto_detect' is selected
+            bloom_level = data.get('bloom_level')
+            detected_bloom_level = None
+            
+            if bloom_level == 'auto_detect':
+                print("🔍 Auto-detecting Bloom level for question...")
+                detected_bloom_level = detect_bloom_level(
+                    result.get('question_text'),
+                    result.get('options', []),
+                    result.get('explanation', '')
+                )
+                if detected_bloom_level:
+                    bloom_level_id = detected_bloom_level
+                    print(f"✅ Bloom level auto-detected: {detected_bloom_level}")
+                else:
+                    bloom_level_id = None  # Default to None if detection fails
+                    print("⚠️ Bloom level detection failed, using None")
+            else:
+                # Convert bloom level name to ID
+                bloom_level_id = None
+                if bloom_level:
+                    # Get bloom level ID from name
+                    bloom_levels = get_reference_data('BloomLevel')
+                    for level in bloom_levels:
+                        if level.get('LevelName') == bloom_level:
+                            bloom_level_id = level.get('BloomLevelID')
+                            break
+            
             db_data = {
                 'subject_id': data.get('subject_id'),
                 'topic_id': data.get('topic_id'),
                 'question_type_id': data.get('question_type_id', 1),  # Default to MCQ
-                'bloom_level_id': data.get('bloom_level_id'),
+                'bloom_level_id': bloom_level_id,
                 'difficulty_level_id': data.get('difficulty_level_id'),
                 'question_text': result.get('question_text'),
                 'options': result.get('options', []),
@@ -436,40 +465,108 @@ def generate():
                 'library_used': result.get('library_used', 'schemdraw'),
                 'option_images': option_images
             }
-            store_generated_question(db_data)
+            
+            # Store the generated question in database
+            question_id = store_generated_question(db_data)
+            
+            # If Bloom level was auto-detected, update the question with the detected level
+            if data.get('bloom_level') == 'auto_detect' and detected_bloom_level and question_id:
+                update_question_bloom_level(question_id, detected_bloom_level)
         
         all_questions.append(question_data)
     
-    # Return the first question for backward compatibility, but also include all questions
-    if all_questions:
-        first_question = all_questions[0].copy()
-        response = {
-            'question_text': first_question.get('question_text'),
-            'options': first_question.get('options'),
-            'correct_answer': first_question.get('correct_answer'),
-            'explanation': first_question.get('explanation'),
-            'diagram_code': first_question.get('diagram_code'),
-            'diagram_image_url': first_question.get('diagram_image_url'),
-            'library_used': first_question.get('library_used', 'schemdraw'),
-            'option_images': first_question.get('option_images'),
-            'all_questions': all_questions,
-            'total_generated': len(all_questions)
-        }
-    else:
-        response = {
-            'question_text': 'No questions generated',
-            'options': [],
-            'correct_answer': '',
-            'explanation': '',
-            'diagram_code': None,
-            'diagram_image_url': None,
-            'library_used': 'schemdraw',
-            'option_images': None,
-            'all_questions': [],
-            'total_generated': 0
-        }
+            # Return the first question for backward compatibility, but also include all questions
+        if all_questions:
+            first_question = all_questions[0].copy()
+            response = {
+                'question_id': question_id,  # Add question ID to response
+                'question_text': first_question.get('question_text'),
+                'options': first_question.get('options'),
+                'correct_answer': first_question.get('correct_answer'),
+                'explanation': first_question.get('explanation'),
+                'diagram_code': first_question.get('diagram_code'),
+                'diagram_image_url': first_question.get('diagram_image_url'),
+                'library_used': first_question.get('library_used', 'schemdraw'),
+                'option_images': first_question.get('option_images'),
+                'bloom_level': detected_bloom_level if detected_bloom_level else bloom_level_id,
+                'all_questions': all_questions,
+                'total_generated': len(all_questions)
+            }
+        else:
+            response = {
+                'question_id': None,
+                'question_text': 'No questions generated',
+                'options': [],
+                'correct_answer': '',
+                'explanation': '',
+                'diagram_code': None,
+                'diagram_image_url': None,
+                'library_used': 'schemdraw',
+                'option_images': None,
+                'bloom_level': None,
+                'all_questions': [],
+                'total_generated': 0
+            }
     
     return jsonify(response)
+
+# CDQ API Endpoint
+@app.route('/api/generate_cdq', methods=['POST'])
+def generate_cdq():
+    """Generate CDQ (Common Database Question) with passage and questions"""
+    data = request.get_json()
+    num_questions = data.get('num_questions', 3)
+    
+    # Look up subject and topic names from IDs
+    subject_id = data.get('subject_id')
+    topic_id = data.get('topic_id')
+    subject_name = None
+    topic_name = None
+    if subject_id:
+        subjects = get_subjects()
+        for subj in subjects:
+            if subj['SubjectID'] == subject_id:
+                subject_name = subj['SubjectName']
+                break
+    if topic_id:
+        topics = get_topics_by_subject(subject_id)
+        for top in topics:
+            if top['TopicID'] == topic_id:
+                topic_name = top['TopicName']
+                break
+    
+    # Fallback to IDs if names not found
+    subject_for_prompt = subject_name if subject_name else subject_id
+    topic_for_prompt = topic_name if topic_name else topic_id
+    
+    # Prepare data for OpenAI
+    data_for_openai = data.copy()
+    data_for_openai['subject'] = subject_for_prompt
+    data_for_openai['topic'] = topic_for_prompt
+    
+    # Import CDQ functions
+    from services.openai_service import generate_cdq_complete
+    from services.db_service import store_cdq_question
+    
+    # Generate CDQ
+    result = generate_cdq_complete(data_for_openai)
+    
+    if not result:
+        return jsonify({
+            'error': 'Failed to generate CDQ',
+            'passage_text': None,
+            'questions': [],
+            'total_questions': 0
+        }), 500
+    
+    # Store in database if questions were generated
+    if result.get('questions'):
+        db_result = store_cdq_question(data, result['passage_text'], result['questions'])
+        if db_result:
+            result['passage_id'] = db_result['passage_id']
+            result['question_ids'] = db_result['question_ids']
+    
+    return jsonify(result)
 
 # API endpoints for dropdown data
 @app.route('/api/courses', methods=['GET'])
@@ -518,8 +615,9 @@ def get_questions_api():
     topic = request.args.get('topic', '')
     difficulty = request.args.get('difficulty', '')
     bloom = request.args.get('bloom', '')
+    question_type = request.args.get('questionType', '')
     
-    questions = get_questions_by_status(status, course, stream, subject, topic, difficulty, bloom)
+    questions = get_questions_by_status(status, course, stream, subject, topic, difficulty, bloom, question_type)
     return jsonify(questions)
 
 @app.route('/api/questions/<int:question_id>/status', methods=['POST'])

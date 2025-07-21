@@ -56,6 +56,10 @@ def render(code: str, output_path: str):
         code = re.sub(r'd \+= e\.AND2.*?$', 'd += logic.And()', code, flags=re.MULTILINE)
         code = re.sub(r'd \+= e\.OR2.*?$', 'd += logic.Or()', code, flags=re.MULTILINE)
         
+        # Fix Rectangle -> Rect (schemdraw uses Rect, not Rectangle)
+        code = re.sub(r'e\.Rectangle', 'e.Rect', code)
+        code = re.sub(r'e\.Rectangle\(', 'e.Rect(', code)
+        
         # Fix invalid syntax like "d += e.LINE, d='left', l=d.unit"
         code = re.sub(r'd \+= e\.LINE.*?d=\'left\'.*?l=d\.unit.*?$', '# Invalid syntax commented out', code, flags=re.MULTILINE)
         
@@ -110,7 +114,9 @@ def render(code: str, output_path: str):
             try:
                 d.save(buffer)
                 buffer.seek(0)
-                img = schemdraw.Image.open(buffer)
+                # Use PIL Image instead of schemdraw.Image
+                from PIL import Image
+                img = Image.open(buffer)
                 print(f"Saving schemdraw image to: {os.path.abspath(output_path)}")
                 img.save(output_path)
                 print(f"✅ Schemdraw diagram saved as: {os.path.basename(output_path)}")

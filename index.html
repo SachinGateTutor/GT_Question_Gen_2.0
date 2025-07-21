@@ -781,6 +781,7 @@
                 
                 <div id="result" class="hidden">
                     <div class="question-card">
+                        <div id="difficultyIndicator" style="margin-bottom: 10px; font-size: 0.9rem; font-weight: 500;"></div>
                         <div id="questionText" style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: #212529; line-height: 1.5;"></div>
                         <div id="options" style="margin-bottom: 20px;"></div>
                         <div id="explanation" class="explanation"></div>
@@ -857,6 +858,13 @@
                 const bloomResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/BloomLevel')}`);
                 bloomLevels = await bloomResponse.json();
                 populateDropdown('bloomLevel', bloomLevels, 'LevelName', 'BloomLevelID');
+                
+                // Add Auto Detect option to bloom level dropdown
+                const bloomSelect = document.getElementById('bloomLevel');
+                const autoDetectOption = document.createElement('option');
+                autoDetectOption.value = 'auto';
+                autoDetectOption.textContent = '🔍 Auto Detect';
+                bloomSelect.appendChild(autoDetectOption);
 
             } catch (error) {
                 console.error('Error loading dropdown data:', error);
@@ -899,7 +907,9 @@
             data.forEach(item => {
                 const option = document.createElement('option');
                 option.value = item[valueField];
+                
                 option.textContent = item[displayField];
+                
                 select.appendChild(option);
             });
         }
@@ -984,15 +994,20 @@
             try {
                 const formData = new FormData(e.target);
                 const numQuestions = parseInt(formData.get('numQuestions'));
+                const questionTypeId = parseInt(formData.get('questionType'));
+                
+                // Check if this is a CDQ question (CDQ has ID 6)
+                const isCDQ = questionTypeId === 6;
+                
                 const data = {
                     course_id: parseInt(formData.get('course')),
                     stream_id: parseInt(formData.get('stream')),
                     subject_id: parseInt(formData.get('subject')),
                     topic_id: parseInt(formData.get('topic')),
-                    question_type_id: parseInt(formData.get('questionType')),
+                    question_type_id: questionTypeId,
                     difficulty_level_id: formData.get('difficultyLevel') ? parseInt(formData.get('difficultyLevel')) : null,
-                    bloom_level_id: formData.get('bloomLevel') ? parseInt(formData.get('bloomLevel')) : null,
-                    question_type: 'MCQ',
+                    bloom_level_id: formData.get('bloomLevel') && formData.get('bloomLevel') !== 'auto' ? parseInt(formData.get('bloomLevel')) : 'auto',
+                    question_type: isCDQ ? 'CDQ' : 'MCQ',
                     requires_diagram: formData.get('requiresDiagram') === 'on',
                     requires_option_diagrams: formData.get('requiresOptionDiagrams') === 'on',
                     is_programming_question: formData.get('isProgrammingQuestion') === 'on',
@@ -1000,12 +1015,17 @@
                     num_questions: numQuestions
                 };
                 
-                // Update button text based on number of questions
-                if (numQuestions > 1) {
+                // Update button text based on question type and number
+                if (isCDQ) {
+                    generateBtn.textContent = `🔄 Generating CDQ with ${numQuestions} questions...`;
+                } else if (numQuestions > 1) {
                     generateBtn.textContent = `🔄 Generating ${numQuestions} questions...`;
                 }
                 
-                const response = await fetch(config.API_URL, {
+                // Use different API endpoint for CDQ
+                const apiUrl = isCDQ ? config.API_URL.replace('/api/generate', '/api/generate_cdq') : config.API_URL;
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -1016,7 +1036,7 @@
                 }
                 
                 const resultData = await response.json();
-                displayResult(resultData);
+                displayResult(resultData, isCDQ);
                 
                 // Reload stats after generating questions
                 loadStatsPreview();
@@ -1032,7 +1052,7 @@
             }
         });
         
-        function displayResult(data) {
+        function displayResult(data, isCDQ = false) {
             const result = document.getElementById('result');
             const questionText = document.getElementById('questionText');
             const options = document.getElementById('options');
@@ -1043,6 +1063,149 @@
             // Clear previous content
             result.innerHTML = '';
             
+            if (isCDQ) {
+                // Handle CDQ results - they have a different structure
+                displayCDQResult(data, result);
+            } else {
+                // Handle regular MCQ results
+                displayMCQResult(data, result);
+            }
+            
+            result.classList.remove('hidden');
+                
+            // Trigger MathJax to render equations (robust check)
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
+        }
+        
+        function displayCDQResult(data, result) {
+            // Add CDQ header
+            const header = document.createElement('div');
+            header.style.cssText = `
+                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                color: #1565c0;
+                padding: 15px 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                font-weight: 600;
+                text-align: center;
+            `;
+            header.textContent = `📖 CDQ (Common Database Question) Generated Successfully!`;
+            result.appendChild(header);
+            
+            // Display the passage
+            if (data.passage_text) {
+                const passageCard = document.createElement('div');
+                passageCard.className = 'question-card';
+                passageCard.style.cssText = `
+                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                    border-left: 4px solid #007bff;
+                    margin-bottom: 30px;
+                `;
+                
+                const passageTitle = document.createElement('h3');
+                passageTitle.style.cssText = 'color: #007bff; margin-bottom: 15px; font-size: 1.3rem;';
+                passageTitle.textContent = '📖 Passage:';
+                passageCard.appendChild(passageTitle);
+                
+                const passageText = document.createElement('div');
+                passageText.style.cssText = `
+                    font-size: 1.1rem;
+                    line-height: 1.6;
+                    color: #495057;
+                    padding: 15px;
+                    background: white;
+                    border-radius: 8px;
+                    border: 1px solid #dee2e6;
+                `;
+                passageText.innerHTML = processMathEquations(data.passage_text);
+                passageCard.appendChild(passageText);
+                
+                result.appendChild(passageCard);
+            }
+            
+            // Display questions
+            if (data.questions && data.questions.length > 0) {
+                const questionsTitle = document.createElement('h3');
+                questionsTitle.style.cssText = 'color: #28a745; margin: 30px 0 20px 0; font-size: 1.3rem;';
+                questionsTitle.textContent = `❓ Questions (${data.questions.length}):`;
+                result.appendChild(questionsTitle);
+                
+                data.questions.forEach((question, index) => {
+                    const questionCard = document.createElement('div');
+                    questionCard.className = 'question-card';
+                    questionCard.style.cssText = `
+                        background: white;
+                        border: 1px solid #dee2e6;
+                        border-radius: 10px;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    `;
+                    
+                    // Add question number
+                    const questionNumber = document.createElement('div');
+                    questionNumber.style.cssText = `
+                        font-weight: 600;
+                        color: #495057;
+                        margin-bottom: 15px;
+                        font-size: 1.1rem;
+                    `;
+                    questionNumber.textContent = `Question ${index + 1}:`;
+                    questionCard.appendChild(questionNumber);
+                    
+                    // Add question text
+                    const questionTextDiv = document.createElement('div');
+                    questionTextDiv.style.cssText = `
+                        font-size: 1.1rem;
+                        margin-bottom: 20px;
+                        color: #212529;
+                        line-height: 1.5;
+                    `;
+                    questionTextDiv.innerHTML = processMathEquations(question.question_text || 'No question text');
+                    questionCard.appendChild(questionTextDiv);
+                    
+                    // Add options
+                    if (question.options && question.options.length > 0) {
+                        const optionsContainer = document.createElement('div');
+                        optionsContainer.style.cssText = 'margin-bottom: 20px;';
+                        optionsContainer.className = 'options-container';
+                        optionsContainer.innerHTML = generateOptionsHTML(question.options, question.correct_answer);
+                        questionCard.appendChild(optionsContainer);
+                    }
+                    
+                    // Add explanation button
+                    if (question.explanation) {
+                        const explanationBtn = document.createElement('button');
+                        explanationBtn.className = 'explanation-btn btn';
+                        explanationBtn.textContent = 'View Explanation';
+                        explanationBtn.style.marginBottom = '10px';
+                        explanationBtn.onclick = function() {
+                            showExplanationPopup(processMathEquations(question.explanation));
+                        };
+                        questionCard.appendChild(explanationBtn);
+                    }
+                    
+                    result.appendChild(questionCard);
+                    
+                    // Add separator between questions
+                    if (index < data.questions.length - 1) {
+                        const separator = document.createElement('hr');
+                        separator.style.cssText = `
+                            border: none;
+                            height: 2px;
+                            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+                            margin: 20px 0;
+                            border-radius: 1px;
+                        `;
+                        result.appendChild(separator);
+                    }
+                });
+            }
+        }
+        
+        function displayMCQResult(data, result) {
             // Check if we have multiple questions
             const allQuestions = data.all_questions || [data];
             const totalGenerated = data.total_generated || 1;
@@ -1088,6 +1251,25 @@
                         processedQuestionText = processedQuestionText.replace(/```[\s\S]*?```/g, '').trim();
                     }
                 }
+                
+                // Add difficulty indicator
+                const difficultyIndicator = document.createElement('div');
+                difficultyIndicator.style.cssText = 'margin-bottom: 10px; font-size: 0.9rem; font-weight: 500; padding: 5px 10px; border-radius: 5px; display: inline-block;';
+                
+                // Get difficulty level from the form data or default
+                const selectedDifficultyId = parseInt(document.getElementById('difficultyLevel').value) || 2;
+                const difficultyMapping = {
+                    1: { name: 'Easy', color: '🟢', bgColor: '#d4edda', textColor: '#155724' },
+                    2: { name: 'Medium', color: '🟡', bgColor: '#fff3cd', textColor: '#856404' },
+                    3: { name: 'Hard', color: '🔴', bgColor: '#f8d7da', textColor: '#721c24' },
+                    4: { name: 'Expert', color: '⚫', bgColor: '#d1ecf1', textColor: '#0c5460' }
+                };
+                
+                const difficulty = difficultyMapping[selectedDifficultyId] || difficultyMapping[2];
+                difficultyIndicator.style.backgroundColor = difficulty.bgColor;
+                difficultyIndicator.style.color = difficulty.textColor;
+                difficultyIndicator.innerHTML = `${difficulty.color} ${difficulty.name} Difficulty`;
+                questionCard.appendChild(difficultyIndicator);
                 
                 // Create question text div FIRST
                 const questionTextDiv = document.createElement('div');

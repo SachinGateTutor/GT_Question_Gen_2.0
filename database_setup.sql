@@ -264,7 +264,8 @@ BEGIN
     ('True/False'),
     ('Fill in the Blanks'),
     ('Short Answer'),
-    ('Long Answer');
+    ('Long Answer'),
+    ('CDQ');
     PRINT 'Question types inserted successfully.';
 END
 GO

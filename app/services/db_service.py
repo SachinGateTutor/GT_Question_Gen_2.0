@@ -248,21 +248,21 @@ def store_generated_question(data):
         # Insert into QuestionMaster
         question_id = insert_question_master(data)
         if not question_id:
-            return False
+            return None
         
         # Insert into MCQ_Questions
         if not insert_mcq_question(question_id, data):
-            return False
+            return None
         
         # Insert explanation
         insert_question_explanation(question_id, data)
         
-        return True
+        return question_id
     except Exception as e:
         print(f"Error storing question: {e}")
-        return False
+        return None
 
-def get_questions_by_status(status='pending', course='', stream='', subject='', topic='', difficulty='', bloom=''):
+def get_questions_by_status(status='pending', course='', stream='', subject='', topic='', difficulty='', bloom='', question_type=''):
     """Get questions by status and additional filters"""
     conn = get_db_connection()
     if not conn:
@@ -282,6 +282,7 @@ def get_questions_by_status(status='pending', course='', stream='', subject='', 
                 qm.BloomLevelID,
                 qm.DifficultyLevelID,
                 qm.IsEnable,
+                qm.IsDeleted,
                 qm.AddedDate,
                 cm.CourseName,
                 stm.StreamName,
@@ -301,7 +302,9 @@ def get_questions_by_status(status='pending', course='', stream='', subject='', 
                 mcq.ImgOptionB,
                 mcq.ImgOptionC,
                 mcq.ImgOptionD,
-                qe.ExplanationText
+                qe.ExplanationText,
+                cp.PassageID,
+                cp.PassageText
             FROM QuestionMaster qm
             LEFT JOIN SubjectMaster sm ON qm.SubjectID = sm.SubjectID
             LEFT JOIN StreamMaster stm ON sm.StreamID = stm.StreamID
@@ -312,16 +315,21 @@ def get_questions_by_status(status='pending', course='', stream='', subject='', 
             LEFT JOIN DifficultyLevel dl ON qm.DifficultyLevelID = dl.DifficultyLevelID
             LEFT JOIN MCQ_Questions mcq ON qm.QuestionID = mcq.QuestionID
             LEFT JOIN QuestionExplanation qe ON qm.QuestionID = qe.QuestionID
-            WHERE qm.IsDeleted = 0
+            LEFT JOIN CDQ_Questions cq ON qm.QuestionID = cq.QuestionID
+            LEFT JOIN CDQ_Passages cp ON cq.PassageID = cp.PassageID
+            WHERE 1=1
         """
         
         # Add status filter
         if status == 'approved':
-            query += " AND qm.IsEnable = 1"
+            query += " AND qm.IsEnable = 1 AND qm.IsDeleted = 0"
         elif status == 'discarded':
             query += " AND qm.IsDeleted = 1"
         elif status == 'pending':
             query += " AND qm.IsEnable = 0 AND qm.IsDeleted = 0"
+        elif status == 'all':
+            # Show all questions regardless of status
+            pass
         
         # Add additional filters
         params = []
@@ -343,6 +351,9 @@ def get_questions_by_status(status='pending', course='', stream='', subject='', 
         if bloom:
             query += " AND bl.LevelName = ?"
             params.append(bloom)
+        if question_type:
+            query += " AND qt.TypeName = ?"
+            params.append(question_type)
         
         query += " ORDER BY qm.AddedDate DESC"
         
@@ -358,11 +369,11 @@ def get_questions_by_status(status='pending', course='', stream='', subject='', 
         conn.close()
         return result
     except Exception as e:
-        print(f"Error getting questions: {e}")
+        print(f"Error getting questions by status: {e}")
         return []
 
 def update_question_status(question_id, status):
-    """Update question status (approve/discard)"""
+    """Update question status (approve/discard/re-approve)"""
     conn = get_db_connection()
     if not conn:
         return False
@@ -370,15 +381,17 @@ def update_question_status(question_id, status):
     try:
         cursor = conn.cursor()
         if status == 'approved':
+            # Approve or re-approve: set as enabled and not deleted
             cursor.execute("""
                 UPDATE QuestionMaster 
-                SET IsEnable = 1, IsPublic = 1, ApprovedDate = ?
+                SET IsEnable = 1, IsPublic = 1, IsDeleted = 0, ApprovedDate = ?
                 WHERE QuestionID = ?
             """, (datetime.now(), question_id))
         elif status == 'discarded':
+            # Discard: set as deleted
             cursor.execute("""
                 UPDATE QuestionMaster 
-                SET IsDeleted = 1
+                SET IsDeleted = 1, IsEnable = 0
                 WHERE QuestionID = ?
             """, (question_id,))
         
@@ -737,3 +750,120 @@ def get_all_topics():
     except Exception as e:
         print(f"Error getting all topics: {e}")
         return [] 
+
+# CDQ Database Functions
+def insert_cdq_passage(data):
+    """Insert a CDQ passage into the database"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO CDQ_Passages 
+            (PassageText, SubjectID, TopicID)
+            OUTPUT INSERTED.PassageID
+            VALUES (?, ?, ?)
+        """, (
+            data['passage_text'],
+            data['subject_id'],
+            data['topic_id']
+        ))
+        result = cursor.fetchone()
+        if result is None:
+            return None
+        passage_id = result[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return int(passage_id)
+    except Exception as e:
+        print(f"Error inserting CDQ passage: {e}")
+        return None
+
+def insert_cdq_question(passage_id, question_id):
+    """Link a question to a CDQ passage"""
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO CDQ_Questions 
+            (PassageID, QuestionID)
+            VALUES (?, ?)
+        """, (passage_id, question_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error inserting CDQ question link: {e}")
+        return False
+
+def store_cdq_question(data, passage_text, questions):
+    """Store a complete CDQ (passage + questions)"""
+    try:
+        # Insert passage first
+        passage_data = {
+            'passage_text': passage_text,
+            'subject_id': data.get('subject_id'),
+            'topic_id': data.get('topic_id')
+        }
+        passage_id = insert_cdq_passage(passage_data)
+        if not passage_id:
+            print("❌ Error: Failed to insert passage")
+            return None
+        
+        print(f"✅ Inserted passage with ID: {passage_id}")
+        
+        # Store each question and link to passage
+        question_ids = []
+        for question in questions:
+            # Handle Bloom level conversion
+            bloom_level_id = data.get('bloom_level_id')
+            if bloom_level_id == 'auto' or bloom_level_id == 'auto_detect':
+                # Use default Bloom level (1 = Remember) for auto-detect
+                bloom_level_id = 1
+            elif isinstance(bloom_level_id, str) and bloom_level_id.isdigit():
+                bloom_level_id = int(bloom_level_id)
+            elif not isinstance(bloom_level_id, int):
+                bloom_level_id = 1  # Default to Remember level
+            
+            # Prepare question data for storage
+            question_data = {
+                'subject_id': data.get('subject_id'),
+                'topic_id': data.get('topic_id'),
+                'question_type_id': 6,  # CDQ question type
+                'bloom_level_id': bloom_level_id,
+                'difficulty_level_id': data.get('difficulty_level_id'),
+                'question_text': question.get('question_text'),
+                'options': question.get('options', []),
+                'correct_answer': question.get('correct_answer'),
+                'explanation': question.get('explanation'),
+                'diagram_image_url': None,  # CDQ doesn't use diagrams
+                'library_used': None,
+                'option_images': None
+            }
+            
+            # Store the question
+            question_id = store_generated_question(question_data)
+            if question_id:
+                # Link question to passage
+                if insert_cdq_question(passage_id, question_id):
+                    question_ids.append(question_id)
+                    print(f"✅ Stored CDQ question {question_id}")
+                else:
+                    print(f"❌ Failed to link question {question_id} to passage")
+            else:
+                print(f"❌ Failed to store question")
+        
+        return {
+            'passage_id': passage_id,
+            'question_ids': question_ids,
+            'total_questions': len(question_ids)
+        }
+        
+    except Exception as e:
+        print(f"Error storing CDQ question: {e}")
+        return None 

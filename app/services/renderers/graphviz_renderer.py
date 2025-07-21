@@ -61,6 +61,10 @@ def render(code: str, output_path: str):
         code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
         code = re.sub(r'bg=[\'"]([^\'"]*)[\'"]', r'bgcolor="\1"', code)
         
+        # Fix invalid colors
+        code = re.sub(r'lightpurple', 'plum', code)
+        code = re.sub(r'fillcolor="lightpurple"', 'fillcolor="plum"', code)
+        
         # Post-process code for common AI mistakes
         # Fix the render method call - graphviz doesn't accept BytesIO directly
         if 'dot.render(buffer, format=' in code:
