@@ -401,6 +401,163 @@
             margin-left: 15px;
         }
 
+        /* Random Generation Styles */
+        .btn-random {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            margin-top: 10px;
+        }
+
+        .btn-random:hover {
+            background: linear-gradient(135deg, #ee5a24 0%, #ff6b6b 100%);
+        }
+
+        .btn-start-random {
+            background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+            margin-top: 15px;
+        }
+
+        .btn-start-random:hover {
+            background: linear-gradient(135deg, #00a085 0%, #00b894 100%);
+        }
+
+        .random-options {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 15px;
+            border: 2px solid #dee2e6;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .topic-analysis-display {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border: 2px solid #2196f3;
+        }
+
+        .topic-analysis-display h4 {
+            color: #1565c0;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .analysis-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e3f2fd;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #1565c0;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* Progress Modal Styles */
+        .progress-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .progress-modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .progress-title {
+            color: #1565c0;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e3f2fd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            color: #666;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .generation-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .generation-stat-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .generation-stat-label {
+            font-weight: 600;
+            color: #495057;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .generation-stat-value {
+            color: #1565c0;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -742,8 +899,65 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="customPrompt">💡 Custom Instructions (Optional):</label>
-                        <textarea id="customPrompt" name="customPrompt" placeholder="Any specific requirements or instructions for the questions..."></textarea>
+                        <label for="customPrompt">Custom Prompt (Optional):</label>
+                        <textarea id="customPrompt" name="customPrompt" placeholder="Add any specific requirements or instructions for question generation..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" id="generateBtn" class="btn">
+                            🚀 Generate Question
+                        </button>
+                    </div>
+
+                    <!-- Random Generation Section -->
+                    <div class="form-group">
+                        <button type="button" id="randomGenerateBtn" class="btn btn-random">
+                            🎲 Generate Random Questions
+                        </button>
+                        <div class="random-options" id="randomOptions" style="display: none;">
+                            <div class="form-group">
+                                <label>Generation Strategy:</label>
+                                <select id="generationStrategy">
+                                    <option value="comprehensive">📚 Comprehensive Coverage</option>
+                                    <option value="balanced">⚖️ Balanced Mix</option>
+                                    <option value="enhanced">🎯 Enhanced Explanations</option>
+                                    <option value="practical">🔧 Practical Applications</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Question Count:</label>
+                                <input type="range" id="targetCount" min="5" max="50" value="15">
+                                <span id="countDisplay">15 questions</span>
+                            </div>
+                            <div class="form-group">
+                                <button type="button" id="startRandomGeneration" class="btn btn-start-random">
+                                    🚀 Start Random Generation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Topic Analysis Display -->
+                    <div class="topic-analysis-display" id="topicAnalysisDisplay" style="display: none;">
+                        <h4>📊 Topic Analysis</h4>
+                        <div class="analysis-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Topic Type:</span>
+                                <span id="topicType" class="stat-value">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Complexity Level:</span>
+                                <span id="topicComplexity" class="stat-value">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Diagram Requirements:</span>
+                                <span id="diagramRequirements" class="stat-value">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Enhancement Focus:</span>
+                                <span id="enhancementFocus" class="stat-value">-</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -767,7 +981,6 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn" id="generateBtn">🚀 Generate Question</button>
                 </form>
             </div>
 
@@ -818,6 +1031,37 @@
             <a href="#" onclick="showReviewPage()">📋 Review Questions</a>
             <a href="#" onclick="showStats()">📊 Statistics</a>
             <a href="admin.html" id="adminPageBtn">🛠️ Admin Panel</a>
+        </div>
+    </div>
+
+    <!-- Progress Modal for Random Generation -->
+    <div id="progressModal" class="progress-modal">
+        <div class="progress-modal-content">
+            <h3 class="progress-title">🎲 Generating Random Questions</h3>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Analyzing topic...</div>
+            </div>
+            <div class="generation-stats">
+                <div class="generation-stat-item">
+                    <span class="generation-stat-label">Questions Generated:</span>
+                    <span class="generation-stat-value" id="questionsGenerated">0</span>
+                </div>
+                <div class="generation-stat-item">
+                    <span class="generation-stat-label">Current Difficulty:</span>
+                    <span class="generation-stat-value" id="currentDifficulty">-</span>
+                </div>
+                <div class="generation-stat-item">
+                    <span class="generation-stat-label">Current Bloom Level:</span>
+                    <span class="generation-stat-value" id="currentBloom">-</span>
+                </div>
+                <div class="generation-stat-item">
+                    <span class="generation-stat-label">Enhancement Type:</span>
+                    <span class="generation-stat-value" id="currentEnhancement">-</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1051,7 +1295,287 @@
                 generateBtn.textContent = '🚀 Generate Question';
             }
         });
-        
+
+        // Close popup when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const diagramPopup = document.getElementById('diagram-popup');
+            diagramPopup.addEventListener('click', function(e) {
+                if (e.target === diagramPopup) {
+                    closeDiagramPopup();
+                }
+            });
+        });
+
+        // Random Generation Event Listeners
+        document.getElementById('randomGenerateBtn').addEventListener('click', function() {
+            const randomOptions = document.getElementById('randomOptions');
+            randomOptions.style.display = randomOptions.style.display === 'none' ? 'block' : 'none';
+            
+            // Analyze topic when random options are shown
+            if (randomOptions.style.display === 'block') {
+                analyzeTopicForRandomGeneration();
+            }
+        });
+
+        document.getElementById('targetCount').addEventListener('input', function() {
+            document.getElementById('countDisplay').textContent = this.value + ' questions';
+        });
+
+        document.getElementById('startRandomGeneration').addEventListener('click', function() {
+            generateRandomQuestions();
+        });
+
+        // Topic Analysis for Random Generation
+        async function analyzeTopicForRandomGeneration() {
+            const formData = new FormData(document.getElementById('mcqForm'));
+            
+            const data = {
+                topic_id: parseInt(formData.get('topic')),
+                subject_id: parseInt(formData.get('subject')),
+                stream_id: parseInt(formData.get('stream')),
+                course_id: parseInt(formData.get('course'))
+            };
+            
+            try {
+                const response = await fetch('/api/analyze_topic_for_random', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const analysis = await response.json();
+                updateTopicAnalysisDisplay(analysis);
+                
+            } catch (error) {
+                console.error('Error analyzing topic:', error);
+                showError('Failed to analyze topic for random generation');
+            }
+        }
+
+        function updateTopicAnalysisDisplay(analysis) {
+            document.getElementById('topicType').textContent = analysis.topic_type || 'Unknown';
+            document.getElementById('topicComplexity').textContent = analysis.complexity_level || 'Unknown';
+            document.getElementById('diagramRequirements').textContent = 
+                analysis.diagram_requirements?.requires_diagrams ? 'Yes - Visual diagrams needed' : 'No - Enhanced explanations preferred';
+            document.getElementById('enhancementFocus').textContent = 
+                analysis.diagram_requirements?.alternative_enhancements?.join(', ') || 'Detailed explanations';
+            
+            // Show the analysis display
+            document.getElementById('topicAnalysisDisplay').style.display = 'block';
+        }
+
+        // Random Question Generation
+        async function generateRandomQuestions() {
+            const formData = new FormData(document.getElementById('mcqForm'));
+            const strategy = document.getElementById('generationStrategy').value;
+            const targetCount = parseInt(document.getElementById('targetCount').value);
+            
+            const data = {
+                course_id: parseInt(formData.get('course')),
+                stream_id: parseInt(formData.get('stream')),
+                subject_id: parseInt(formData.get('subject')),
+                topic_id: parseInt(formData.get('topic')),
+                generation_strategy: strategy,
+                target_question_count: targetCount
+            };
+            
+            // Show progress modal
+            showRandomProgressModal();
+            
+            try {
+                const response = await fetch('/api/generate_random_questions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                displayRandomResults(result);
+                
+                // Reload stats after generating questions
+                loadStatsPreview();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                hideRandomProgressModal();
+                showError('Failed to generate random questions');
+            }
+        }
+
+        function showRandomProgressModal() {
+            document.getElementById('progressModal').style.display = 'block';
+            updateRandomProgress({
+                percentage: 0,
+                status: 'Analyzing topic...',
+                generated_count: 0,
+                current_difficulty: '-',
+                current_bloom: '-',
+                current_enhancement: '-'
+            });
+        }
+
+        function hideRandomProgressModal() {
+            document.getElementById('progressModal').style.display = 'none';
+        }
+
+        function updateRandomProgress(progress) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const questionsGenerated = document.getElementById('questionsGenerated');
+            const currentDifficulty = document.getElementById('currentDifficulty');
+            const currentBloom = document.getElementById('currentBloom');
+            const currentEnhancement = document.getElementById('currentEnhancement');
+            
+            progressFill.style.width = progress.percentage + '%';
+            progressText.textContent = progress.status;
+            questionsGenerated.textContent = progress.generated_count;
+            currentDifficulty.textContent = progress.current_difficulty;
+            currentBloom.textContent = progress.current_bloom;
+            currentEnhancement.textContent = progress.current_enhancement;
+        }
+
+        function displayRandomResults(data) {
+            hideRandomProgressModal();
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '';
+            
+            // Add success header
+            const header = document.createElement('div');
+            header.style.cssText = `
+                background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+                color: #155724;
+                padding: 15px 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                font-weight: 600;
+                text-align: center;
+            `;
+            header.textContent = `🎉 Successfully Generated ${data.total_questions} Random Questions!`;
+            result.appendChild(header);
+            
+            // Add topic analysis summary
+            if (data.topic_analysis) {
+                const analysisCard = document.createElement('div');
+                analysisCard.className = 'question-card';
+                analysisCard.style.cssText = `
+                    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                    border-left: 4px solid #2196f3;
+                    margin-bottom: 20px;
+                `;
+                
+                const analysisTitle = document.createElement('h4');
+                analysisTitle.style.cssText = 'color: #1565c0; margin-bottom: 15px;';
+                analysisTitle.textContent = '📊 Generation Summary';
+                analysisCard.appendChild(analysisTitle);
+                
+                const analysisContent = document.createElement('div');
+                analysisContent.innerHTML = `
+                    <p><strong>Topic:</strong> ${data.topic_analysis.topic_name}</p>
+                    <p><strong>Complexity Level:</strong> ${data.topic_analysis.complexity_level}</p>
+                    <p><strong>Topic Type:</strong> ${data.topic_analysis.topic_type}</p>
+                    <p><strong>Strategy Used:</strong> ${data.generation_strategy}</p>
+                `;
+                analysisCard.appendChild(analysisContent);
+                
+                result.appendChild(analysisCard);
+            }
+            
+            // Display generated questions
+            if (data.questions && data.questions.length > 0) {
+                const questionsTitle = document.createElement('h3');
+                questionsTitle.style.cssText = 'color: #28a745; margin: 20px 0; font-size: 1.3rem;';
+                questionsTitle.textContent = `❓ Generated Questions (${data.questions.length}):`;
+                result.appendChild(questionsTitle);
+                
+                data.questions.forEach((question, index) => {
+                    const questionCard = document.createElement('div');
+                    questionCard.className = 'question-card';
+                    questionCard.style.cssText = `
+                        background: white;
+                        border: 1px solid #dee2e6;
+                        border-radius: 10px;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    `;
+                    
+                    // Add question metadata
+                    const metadata = document.createElement('div');
+                    metadata.style.cssText = `
+                        background: #f8f9fa;
+                        padding: 10px;
+                        border-radius: 8px;
+                        margin-bottom: 15px;
+                        font-size: 0.9rem;
+                        color: #6c757d;
+                    `;
+                    metadata.innerHTML = `
+                        <strong>Question ${index + 1}</strong> | 
+                        Difficulty: <span style="color: #28a745;">${question.difficulty}</span> | 
+                        Bloom Level: <span style="color: #007bff;">${question.bloom_level}</span> | 
+                        Enhancement: <span style="color: #ffc107;">${question.enhancement_type}</span>
+                    `;
+                    questionCard.appendChild(metadata);
+                    
+                    // Add question text
+                    const questionTextDiv = document.createElement('div');
+                    questionTextDiv.style.cssText = `
+                        font-size: 1.1rem;
+                        margin-bottom: 20px;
+                        color: #212529;
+                        line-height: 1.5;
+                    `;
+                    questionTextDiv.innerHTML = processMathEquations(question.question_text || 'No question text');
+                    questionCard.appendChild(questionTextDiv);
+                    
+                    // Add options
+                    if (question.options && question.options.length > 0) {
+                        const optionsContainer = document.createElement('div');
+                        optionsContainer.style.cssText = 'margin-bottom: 20px;';
+                        optionsContainer.className = 'options-container';
+                        optionsContainer.innerHTML = generateOptionsHTML(question.options, question.correct_answer);
+                        questionCard.appendChild(optionsContainer);
+                    }
+                    
+                    // Add explanation button
+                    if (question.explanation) {
+                        const explanationBtn = document.createElement('button');
+                        explanationBtn.className = 'explanation-btn btn';
+                        explanationBtn.textContent = 'View Explanation';
+                        explanationBtn.style.marginBottom = '10px';
+                        explanationBtn.onclick = function() {
+                            showExplanationPopup(processMathEquations(question.explanation));
+                        };
+                        questionCard.appendChild(explanationBtn);
+                    }
+                    
+                    result.appendChild(questionCard);
+                });
+            }
+            
+            result.classList.remove('hidden');
+            
+            // Trigger MathJax to render equations
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        function showError(message) {
+            const error = document.getElementById('error');
+            error.textContent = message;
+            error.classList.remove('hidden');
+        }
+
         function displayResult(data, isCDQ = false) {
             const result = document.getElementById('result');
             const questionText = document.getElementById('questionText');
@@ -1536,16 +2060,6 @@
         function closeDiagramPopup() {
             document.getElementById('diagram-popup').style.display = 'none';
         }
-
-        // Close popup when clicking outside
-        document.addEventListener('DOMContentLoaded', function() {
-            const diagramPopup = document.getElementById('diagram-popup');
-            diagramPopup.addEventListener('click', function(e) {
-                if (e.target === diagramPopup) {
-                    closeDiagramPopup();
-                }
-            });
-        });
     </script>
 </body>
 </html>
