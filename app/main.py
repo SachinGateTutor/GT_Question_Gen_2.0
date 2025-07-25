@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, send_from_directory, abort
 from services.openai_service import generate_mcq_and_diagram
 from services.diagram_service_new import render_diagram
 from services.bloom_detector import detect_bloom_level, update_question_bloom_level
-from services.topic_analysis_service import topic_analysis_service
+
 from services.db_service import (
     get_subjects, get_topics_by_subject, get_reference_data,
     store_generated_question, get_questions_by_status, update_question_status,
@@ -515,64 +515,7 @@ def generate():
 # CDQ API Endpoint
 @app.route('/api/generate_cdq', methods=['POST'])
 def generate_cdq():
-    """Generate CDQ (Common Database Question) with passage and questions"""
-    data = request.get_json()
-    num_questions = data.get('num_questions', 3)
-    
-    # Look up subject and topic names from IDs
-    subject_id = data.get('subject_id')
-    topic_id = data.get('topic_id')
-    subject_name = None
-    topic_name = None
-    if subject_id:
-        subjects = get_subjects()
-        for subj in subjects:
-            if subj['SubjectID'] == subject_id:
-                subject_name = subj['SubjectName']
-                break
-    if topic_id:
-        topics = get_topics_by_subject(subject_id)
-        for top in topics:
-            if top['TopicID'] == topic_id:
-                topic_name = top['TopicName']
-                break
-    
-    # Fallback to IDs if names not found
-    subject_for_prompt = subject_name if subject_name else subject_id
-    topic_for_prompt = topic_name if topic_name else topic_id
-    
-    # Prepare data for OpenAI
-    data_for_openai = data.copy()
-    data_for_openai['subject'] = subject_for_prompt
-    data_for_openai['topic'] = topic_for_prompt
-    
-    # Import CDQ functions
-    from services.openai_service import generate_cdq_complete
-    from services.db_service import store_cdq_question
-    
-    # Generate CDQ
-    result = generate_cdq_complete(data_for_openai)
-    
-    if not result:
-        return jsonify({
-            'error': 'Failed to generate CDQ',
-            'passage_text': None,
-            'questions': [],
-            'total_questions': 0
-        }), 500
-    
-    # Store in database if questions were generated
-    if result.get('questions'):
-        db_result = store_cdq_question(data, result['passage_text'], result['questions'])
-        if db_result:
-            result['passage_id'] = db_result['passage_id']
-            result['question_ids'] = db_result['question_ids']
-    
-    return jsonify(result)
-
-@app.route('/api/generate_random_questions', methods=['POST'])
-def generate_random_questions():
-    """Generate multiple questions with varied difficulty levels and Bloom levels"""
+    """Generate CDQ (Context Dependent Question) with diagram"""
     try:
         data = request.get_json()
         
@@ -581,156 +524,77 @@ def generate_random_questions():
         subject_id = data.get('subject_id')
         stream_id = data.get('stream_id')
         course_id = data.get('course_id')
-        generation_strategy = data.get('generation_strategy', 'comprehensive')
-        target_question_count = data.get('target_question_count', 15)
+        context_type = data.get('context_type', 'real_world')
+        difficulty_level_id = data.get('difficulty_level_id', 2)
+        bloom_level_id = data.get('bloom_level_id', 2)
         
         if not all([topic_id, subject_id, stream_id, course_id]):
             return jsonify({
                 'error': 'Missing required parameters: topic_id, subject_id, stream_id, course_id'
             }), 400
         
-        # Step 1: Analyze topic complexity and requirements
-        print("🔍 Analyzing topic complexity...")
-        topic_analysis = topic_analysis_service.analyze_topic_complexity(
-            topic_id, subject_id, stream_id, course_id
-        )
+        # Prepare data for CDQ generation
+        question_data = {
+            'course_id': course_id,
+            'stream_id': stream_id,
+            'subject_id': subject_id,
+            'topic_id': topic_id,
+            'question_type_id': 2,  # CDQ
+            'difficulty_level_id': difficulty_level_id,
+            'bloom_level_id': bloom_level_id,
+            'question_type': 'CDQ',
+            'requires_diagram': True,
+            'requires_option_diagrams': False,
+            'is_programming_question': False,
+            'custom_prompt': f"Generate a CDQ with {context_type} context. Focus on practical application and real-world scenarios.",
+            'num_questions': 1
+        }
         
-        # Step 2: Calculate question distribution
-        print("📊 Calculating question distribution...")
-        question_distribution = topic_analysis_service.calculate_question_distribution(topic_analysis)
+        # Generate CDQ
+        result = generate_mcq_and_diagram(question_data)
         
-        # Step 3: Generate questions in batches
-        print("🚀 Generating questions...")
-        generated_questions = []
-        total_generated = 0
-        
-        for batch in question_distribution:
-            batch_count = batch['count']
-            print(f"📝 Generating {batch_count} questions: {batch['difficulty']} - {batch['bloom_level']}")
+        if result and not result.get('error'):
+            # Store question in database
+            stored_question = store_generated_question(question_data, result)
             
-            for i in range(batch_count):
-                try:
-                    # Prepare data for question generation
-                    question_data = {
-                        'course_id': course_id,
-                        'stream_id': stream_id,
-                        'subject_id': subject_id,
-                        'topic_id': topic_id,
-                        'question_type_id': 1,  # MCQ
-                        'difficulty_level_id': get_difficulty_level_id(batch['difficulty']),
-                        'bloom_level_id': get_bloom_level_id(batch['bloom_level']),
-                        'question_type': 'MCQ',
-                        'requires_diagram': batch.get('requires_diagram', False),
-                        'requires_option_diagrams': batch.get('requires_option_diagrams', False),
-                        'is_programming_question': batch.get('is_programming', False),
-                        'custom_prompt': f"Generate a {batch['difficulty']} level question focusing on {batch['bloom_level']} cognitive level. Enhancement type: {batch.get('enhancement_type', 'detailed_explanations')}",
-                        'num_questions': 1
-                    }
-                    
-                    # Generate single question
-                    result = generate_mcq_and_diagram(question_data)
-                    
-                    if result and not result.get('error'):
-                        # Store question in database
-                        stored_question = store_generated_question(question_data, result)
-                        
-                        if stored_question:
-                            generated_questions.append({
-                                'question_id': stored_question,
-                                'question_text': result.get('question_text', ''),
-                                'options': result.get('options', []),
-                                'correct_answer': result.get('correct_answer', ''),
-                                'explanation': result.get('explanation', ''),
-                                'difficulty': batch['difficulty'],
-                                'bloom_level': batch['bloom_level'],
-                                'enhancement_type': batch.get('enhancement_type', 'detailed_explanations'),
-                                'diagram_image': result.get('diagram_image'),
-                                'library_used': result.get('library_used')
-                            })
-                            total_generated += 1
-                    
-                except Exception as e:
-                    print(f"Error generating question {i+1} in batch: {e}")
-                    continue
-        
-        # Step 4: Return results
-        return jsonify({
-            'success': True,
-            'total_questions': total_generated,
-            'questions': generated_questions,
-            'topic_analysis': topic_analysis,
-            'distribution_summary': {
-                'total_batches': len(question_distribution),
-                'distribution': question_distribution
-            },
-            'generation_strategy': generation_strategy,
-            'target_count': target_question_count
-        })
-        
-    except Exception as e:
-        print(f"Error in generate_random_questions: {e}")
-        return jsonify({
-            'error': 'Failed to generate random questions',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/analyze_topic_for_random', methods=['POST'])
-def analyze_topic_for_random():
-    """Analyze topic for random question generation planning"""
-    try:
-        data = request.get_json()
-        
-        topic_id = data.get('topic_id')
-        subject_id = data.get('subject_id')
-        stream_id = data.get('stream_id')
-        course_id = data.get('course_id')
-        
-        if not all([topic_id, subject_id, stream_id, course_id]):
+            if stored_question:
+                return jsonify({
+                    'success': True,
+                    'question_id': stored_question,
+                    'question_text': result.get('question_text', ''),
+                    'options': result.get('options', []),
+                    'correct_answer': result.get('correct_answer', ''),
+                    'explanation': result.get('explanation', ''),
+                    'diagram_image_url': result.get('diagram_image_url'),
+                    'library_used': result.get('library_used'),
+                    'context_type': context_type
+                })
+            else:
+                return jsonify({
+                    'error': 'Failed to store generated question'
+                }), 500
+        else:
             return jsonify({
-                'error': 'Missing required parameters'
-            }), 400
-        
-        # Analyze topic
-        analysis = topic_analysis_service.analyze_topic_complexity(
-            topic_id, subject_id, stream_id, course_id
-        )
-        
-        return jsonify(analysis)
-        
+                'error': 'Failed to generate CDQ',
+                'message': result.get('error', 'Unknown error')
+            }), 500
+            
     except Exception as e:
-        print(f"Error in analyze_topic_for_random: {e}")
+        print(f"Error in generate_cdq: {e}")
         return jsonify({
-            'error': 'Failed to analyze topic',
+            'error': 'Failed to generate CDQ',
             'message': str(e)
         }), 500
-
-def get_difficulty_level_id(difficulty_name: str) -> int:
-    """Convert difficulty name to ID"""
-    difficulty_mapping = {
-        'Easy': 1,
-        'Medium': 2,
-        'Hard': 3,
-        'Expert': 4
-    }
-    return difficulty_mapping.get(difficulty_name, 2)  # Default to Medium
-
-def get_bloom_level_id(bloom_name: str) -> int:
-    """Convert Bloom level name to ID"""
-    bloom_mapping = {
-        'Remember': 1,
-        'Understand': 2,
-        'Apply': 3,
-        'Analyze': 4,
-        'Evaluate': 5,
-        'Create': 6
-    }
-    return bloom_mapping.get(bloom_name, 2)  # Default to Understand
 
 # API endpoints for dropdown data
 @app.route('/api/courses', methods=['GET'])
 def get_courses_api():
-    courses = get_courses()
-    return jsonify(courses)
+    """Get all courses"""
+    try:
+        courses = get_courses()
+        return jsonify(courses)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/streams/<int:course_id>', methods=['GET'])
 def get_streams_api(course_id):
