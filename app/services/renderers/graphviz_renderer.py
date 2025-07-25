@@ -4,6 +4,8 @@ import traceback
 import re
 import tempfile
 import io
+import time
+import uuid
 
 def render(code: str, output_path: str):
     """Render graphviz diagram with improved error handling"""
@@ -47,8 +49,12 @@ def render(code: str, output_path: str):
         
         # Add font color settings for better readability
         # Ensure text is always dark for good contrast
-        # Add fontcolor to all node definitions that have style='filled'
+        # Add fontcolor to all node definitions that have style='filled' (but avoid duplicates)
         code = re.sub(r'style=[\'"]filled[\'"]', 'style="filled", fontcolor="black"', code)
+        
+        # Fix duplicate style attributes that cause syntax errors
+        code = re.sub(r'style=[\'"][^\'"]*[\'"],\s*style=[\'"][^\'"]*[\'"]', 'style="filled"', code)
+        code = re.sub(r'style=[\'"][^\'"]*[\'"],\s*style=[\'"][^\'"]*[\'"]', 'style="filled"', code)
         
         # Fix color specifications for graphviz
         # Ensure colors are properly applied to nodes and edges
@@ -83,7 +89,9 @@ def render(code: str, output_path: str):
             'graphviz': graphviz,
             'buffer': buffer,
             'tempfile': tempfile,
-            'os': os
+            'os': os,
+            'time': time,
+            'uuid': uuid
         }
         
         # Add global font color setting for better readability

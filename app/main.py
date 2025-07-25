@@ -1,6 +1,9 @@
 import os
+import threading
+import uuid
+from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, abort
-from services.openai_service import generate_mcq_and_diagram
+from services.openai_service import generate_mcq_and_diagram, ai_analyze_topic
 from services.diagram_service_new import render_diagram
 from services.bloom_detector import detect_bloom_level, update_question_bloom_level
 
@@ -11,10 +14,13 @@ from services.db_service import (
     add_course, update_course, delete_course, get_all_courses,
     add_stream, update_stream, delete_stream, get_all_streams,
     add_subject, update_subject, delete_subject, get_all_subjects,
-    add_topic, update_topic, delete_topic, get_all_topics
+    add_topic, update_topic, delete_topic, get_all_topics, get_topic_details
 )
 from services.ai_explanation_service import ai_explanation_service
 from flask_cors import CORS
+
+# Global storage for active generations
+active_generations = {}
 
 def generate_fallback_diagram_code(library_name, option):
     """Generate fallback diagram code when AI fails to generate proper diagrams"""
@@ -780,6 +786,229 @@ def admin_topic_modify(topic_id):
         success = delete_topic(topic_id)
         return jsonify({'success': success, 'message': 'Topic deleted successfully' if success else 'Failed to delete topic'})
     return abort(405)
+
+# Random Question Generation Endpoints
+@app.route('/api/analyze-topic', methods=['POST'])
+def analyze_topic():
+    """Analyze topic and return AI recommendations for question generation"""
+    try:
+        data = request.json
+        course_id = data.get('course_id')
+        stream_id = data.get('stream_id') 
+        subject_id = data.get('subject_id')
+        topic_id = data.get('topic_id')
+        question_type = data.get('question_type')
+        
+        # Get topic details from database
+        topic_info = get_topic_details(topic_id, subject_id, stream_id, course_id)
+        if not topic_info:
+            return jsonify({
+                'success': False,
+                'error': 'Topic information not found'
+            }), 404
+        
+        # Call AI analysis service
+        analysis_result = ai_analyze_topic(topic_info, question_type)
+        
+        return jsonify({
+            'success': True,
+            'analysis': analysis_result,
+            'topic_info': topic_info
+        })
+        
+    except Exception as e:
+        print(f"Topic analysis error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'AI analysis failed. Please switch to manual input.'
+        }), 500
+
+@app.route('/api/generate-random', methods=['POST'])
+def generate_random_questions():
+    """Generate questions based on AI analysis with real-time progress"""
+    try:
+        data = request.json
+        question_plan = data.get('question_plan')
+        generation_id = str(uuid.uuid4())
+        
+        # Store generation session
+        active_generations[generation_id] = {
+            'status': 'active',
+            'progress': {
+                'current': 0,
+                'total': question_plan['total_questions'],
+                'diagram_current': 0,
+                'diagram_total': question_plan['diagram_questions'],
+                'option_diagram_current': 0,
+                'option_diagram_total': question_plan['option_diagram_questions'],
+                'text_only_current': 0,
+                'text_only_total': question_plan['text_only_questions'],
+                'code_current': 0,
+                'code_total': question_plan['code_questions']
+            },
+            'generated_questions': [],
+            'start_time': datetime.now()
+        }
+        
+        # Start background generation
+        thread = threading.Thread(
+            target=generate_questions_background,
+            args=(generation_id, data, question_plan)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'generation_id': generation_id
+        })
+        
+    except Exception as e:
+        print(f"Random generation error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/generation-progress/<generation_id>')
+def get_generation_progress(generation_id):
+    """Get real-time progress of question generation"""
+    if generation_id in active_generations:
+        return jsonify({
+            'success': True,
+            'progress': active_generations[generation_id]['progress'],
+            'status': active_generations[generation_id]['status']
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Generation not found'}), 404
+
+@app.route('/api/stop-generation/<generation_id>', methods=['POST'])
+def stop_generation(generation_id):
+    """Stop ongoing question generation"""
+    if generation_id in active_generations:
+        active_generations[generation_id]['status'] = 'stopped'
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Generation not found'}), 404
+
+def generate_questions_background(generation_id, request_data, question_plan):
+    """Background function to generate questions with progress updates"""
+    try:
+        session = active_generations[generation_id]
+        progress = session['progress']
+        
+        # Generate each type of question
+        question_types = [
+            ('diagram', question_plan['diagram_questions']),
+            ('option_diagram', question_plan['option_diagram_questions']),
+            ('text_only', question_plan['text_only_questions']),
+            ('code', question_plan['code_questions'])
+        ]
+        
+        for q_type, count in question_types:
+            for i in range(count):
+                # Check if generation was stopped
+                if session['status'] == 'stopped':
+                    break
+                    
+                # Generate individual question
+                question_data = generate_single_question(request_data, q_type)
+                
+                if question_data:
+                    # Store in database
+                    question_id = store_generated_question(question_data)
+                    
+                    # Update progress
+                    progress['current'] += 1
+                    progress[f'{q_type}_current'] += 1
+                    
+                    session['generated_questions'].append({
+                        'id': question_id,
+                        'type': q_type,
+                        'question': question_data
+                    })
+                
+            if session['status'] == 'stopped':
+                break
+        
+        # Mark as completed
+        if session['status'] != 'stopped':
+            session['status'] = 'completed'
+            
+    except Exception as e:
+        print(f"Background generation error: {str(e)}")
+        session['status'] = 'error'
+        session['error'] = str(e)
+
+def generate_single_question(request_data, question_type):
+    """Generate a single question based on type"""
+    enhanced_request = request_data.copy()
+    
+    # Modify request based on question type
+    if question_type == 'diagram':
+        enhanced_request['requires_diagram'] = True
+        enhanced_request['requires_option_diagrams'] = False
+    elif question_type == 'option_diagram':
+        enhanced_request['requires_diagram'] = False
+        enhanced_request['requires_option_diagrams'] = True
+    elif question_type == 'code':
+        enhanced_request['is_programming_question'] = True
+    else:  # text_only
+        enhanced_request['requires_diagram'] = False
+        enhanced_request['requires_option_diagrams'] = False
+        enhanced_request['is_programming_question'] = False
+    
+    # Call existing generation function
+    generated_data = generate_mcq_and_diagram(enhanced_request)
+    
+    # Merge generated data with original request data for database storage
+    if generated_data and 'error' not in generated_data:
+        # Add database fields from original request
+        generated_data.update({
+            'subject_id': request_data.get('subject_id'),
+            'topic_id': request_data.get('topic_id'),
+            'question_type_id': 1,  # MCQ
+            'bloom_level_id': request_data.get('bloom_level_id', 1),
+            'difficulty_level_id': request_data.get('difficulty_level_id', 1),
+            'marks': 1
+        })
+        
+        # Handle diagram rendering if needed
+        if generated_data.get('diagram_code'):
+            try:
+                from services.renderers.random_generation_renderer import render_diagram_for_random
+                import os
+                # Set the output folder for diagram images
+                output_folder = os.path.join(os.path.dirname(__file__), 'static', 'images')
+                diagram_result = render_diagram_for_random(generated_data['diagram_code'], generated_data['library_used'], output_folder)
+                if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
+                    generated_data['diagram_image_url'] = diagram_result['image_url']
+                else:
+                    generated_data['diagram_image_url'] = None
+            except Exception as e:
+                print(f"Diagram rendering error: {e}")
+                generated_data['diagram_image_url'] = None
+        
+        # Handle option diagrams if needed
+        if generated_data.get('option_diagram_codes'):
+            option_images = []
+            for option, code in generated_data['option_diagram_codes'].items():
+                if code:
+                    try:
+                        from services.renderers.random_generation_renderer import render_option_diagram_for_random
+                        import os
+                        # Set the output folder for diagram images
+                        output_folder = os.path.join(os.path.dirname(__file__), 'static', 'images')
+                        diagram_result = render_option_diagram_for_random(code, generated_data['library_used'], output_folder)
+                        if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
+                            option_images.append(diagram_result['image_url'])
+                        else:
+                            option_images.append(None)
+                    except Exception as e:
+                        print(f"Option diagram rendering error: {e}")
+                        option_images.append(None)
+                else:
+                    option_images.append(None)
+            generated_data['option_images'] = option_images
+    
+    return generated_data
 
 if __name__ == '__main__':
     # Get host and port from environment variables or use defaults

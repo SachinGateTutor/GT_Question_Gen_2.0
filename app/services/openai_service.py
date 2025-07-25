@@ -2,6 +2,7 @@ import os
 import openai
 import traceback
 import re
+import json
 
 def get_openai_client():
     # Hardcoded API key for limited use
@@ -75,9 +76,60 @@ def generate_mcq_and_diagram(data):
         print("🔍 Debug: Starting generate_mcq_and_diagram")
         print(f"🔍 Debug: Input data: {data}")
         
-        stream = data.get('stream', 'CS')
-        subject = data.get('subject', 'Data Structures')
-        topic = data.get('topic', 'Binary Trees')
+        # Get values from data, with intelligent defaults
+        stream = data.get('stream')
+        subject = data.get('subject')
+        
+        # If stream is not provided, try to get it from stream_id
+        if not stream:
+            stream_id = data.get('stream_id')
+            if stream_id:
+                try:
+                    from .db_service import get_stream_name_by_id
+                    stream = get_stream_name_by_id(stream_id)
+                    if stream:
+                        print(f"🔍 Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
+                    else:
+                        stream = 'CS'  # fallback
+                except Exception as e:
+                    stream = 'CS'  # fallback
+            else:
+                stream = 'CS'  # fallback if no stream_id
+        
+        # If subject is not provided, try to get it from subject_id
+        if not subject:
+            subject_id = data.get('subject_id')
+            if subject_id:
+                try:
+                    from .db_service import get_subject_name_by_id
+                    subject = get_subject_name_by_id(subject_id)
+                    if subject:
+                        print(f"🔍 Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
+                    else:
+                        subject = 'Data Structures'  # fallback
+                except Exception as e:
+                    subject = 'Data Structures'  # fallback
+            else:
+                subject = 'Data Structures'  # fallback if no subject_id
+        topic = data.get('topic')
+        
+        # If topic is not provided, try to get it from topic_id
+        if not topic:
+            topic_id = data.get('topic_id')
+            if topic_id:
+                try:
+                    from .db_service import get_topic_name_by_id
+                    topic = get_topic_name_by_id(topic_id)
+                    if topic:
+                        print(f"🔍 Debug: Retrieved topic from DB: {topic} for topic_id: {topic_id}")
+                    else:
+                        topic = 'Binary Trees'  # fallback
+                        print(f"⚠️ Warning: Could not find topic for topic_id: {topic_id}, using fallback")
+                except Exception as e:
+                    topic = 'Binary Trees'  # fallback
+                    print(f"⚠️ Warning: Error retrieving topic: {e}, using fallback")
+            else:
+                topic = 'Binary Trees'  # fallback if no topic_id
         question_type = data.get('question_type', 'MCQ')
         requires_diagram = data.get('requires_diagram', False)
         requires_option_diagrams = data.get('requires_option_diagrams', False)
@@ -508,6 +560,8 @@ plt.savefig(buffer, format='png', bbox_inches='tight')
 plt.close()""",
         
         'graphviz': """import graphviz
+import time
+import uuid
 from io import BytesIO
 
 # Create RICH, HIERARCHICAL graphviz diagram with diverse elements
@@ -518,8 +572,11 @@ dot = graphviz.Digraph()
 # Example: dot.edge('A', 'B', label='to decision', color='red', style='dashed')
 # CRITICAL: Use dot.edge() for individual edges, NOT dot.edges() with style/color parameters
 # CRITICAL: dot.edges() only accepts tuples like [('A', 'B'), ('B', 'C')] - no styling
-# Note: dot.render() saves to file, not buffer
-dot.render('temp', format='png', cleanup=True)
+# Note: Use unique filename to avoid conflicts
+import uuid
+import time
+unique_filename = f"graphviz_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+dot.render(unique_filename, format='png', cleanup=True)
 # The backend will handle reading the file and serving the image""",
         
         'plotly': """import plotly.graph_objects as go
@@ -637,7 +694,7 @@ def get_library_rules(library_name):
    - Add tooltips and URLs for interactive elements
 2. CRITICAL: For edges, use dot.edge('A', 'B', style='dashed', color='red') NOT dot.edges()
 3. CRITICAL: dot.edges() only accepts a list of tuples like [('A', 'B'), ('B', 'C')] - no style/color parameters
-4. Use dot.render('temp', format='png', cleanup=True)
+4. Use unique filenames: unique_filename = f"graphviz_{uuid.uuid4().hex[:8]}_{int(time.time())}"; dot.render(unique_filename, format='png', cleanup=True)
 5. Make diagrams show clear flow and relationships
 6. Use appropriate shapes for different concepts (rectangles for processes, diamonds for decisions)
 7. IMPORTANT: Use proper color names and ensure colors are applied correctly""",
@@ -959,6 +1016,8 @@ OptionACode:
 ```python
 # Generate RICH, DIVERSE diagram for Option A with multiple elements, colors, and annotations
 import graphviz
+import time
+import uuid
 from io import BytesIO
 # Create RICH, HIERARCHICAL graphviz diagram for Option A
 dot = graphviz.Digraph()
@@ -967,13 +1026,16 @@ dot.node('B', 'Left Child', shape='box', style='filled', fillcolor="lightgreen")
 dot.node('C', 'Right Child', shape='box', style='filled', fillcolor="lightgreen")
 dot.edge('A', 'B', label='Root->Left', color="blue", style='dashed')
 dot.edge('A', 'C', label='Root->Right', color="blue", style='dashed')
-dot.render('temp', format='png', cleanup=True)
+unique_filename = f"graphviz_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+dot.render(unique_filename, format='png', cleanup=True)
 ```
 
 OptionBCode:
 ```python
 # Generate RICH, DIVERSE diagram for Option B with different colors, shapes, and layout
 import graphviz
+import time
+import uuid
 from io import BytesIO
 # Create RICH, HIERARCHICAL graphviz diagram for Option B
 dot = graphviz.Digraph()
@@ -982,13 +1044,16 @@ dot.node('B', 'Process', shape='box', style='filled', fillcolor="lightyellow")
 dot.node('C', 'Decision', shape='diamond', style='filled', fillcolor="lightcoral")
 dot.edge('A', 'B', label='to process', color="red", style='dashed')
 dot.edge('B', 'C', label='to decision', color="blue", style='solid')
-dot.render('temp', format='png', cleanup=True)
+unique_filename = f"graphviz_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+dot.render(unique_filename, format='png', cleanup=True)
 ```
 
 OptionCCode:
 ```python
 # Generate RICH, DIVERSE diagram for Option C with unique visual style and elements
 import graphviz
+import time
+import uuid
 from io import BytesIO
 # Create RICH, HIERARCHICAL graphviz diagram for Option C
 dot = graphviz.Digraph()
@@ -997,13 +1062,16 @@ dot.node('B', 'Process', shape='box', style='filled', fillcolor="lightpink")
 dot.node('C', 'Output', shape='ellipse', style='filled', fillcolor="lightyellow")
 dot.edge('A', 'B', label='process', color="green", style='bold')
 dot.edge('B', 'C', label='result', color="purple", style='dotted')
-dot.render('temp', format='png', cleanup=True)
+unique_filename = f"graphviz_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+dot.render(unique_filename, format='png', cleanup=True)
 ```
 
 OptionDCode:
 ```python
 # Generate RICH, DIVERSE diagram for Option D with distinct colors, shapes, and annotations
 import graphviz
+import time
+import uuid
 from io import BytesIO
 # Create RICH, HIERARCHICAL graphviz diagram for Option D
 dot = graphviz.Digraph()
@@ -1012,7 +1080,8 @@ dot.node('B', 'Analysis', shape='box', style='filled', fillcolor="lightblue")
 dot.node('C', 'Result', shape='circle', style='filled', fillcolor="lightgreen")
 dot.edge('A', 'B', label='analyze', color="orange", style='dashed')
 dot.edge('B', 'C', label='output', color="brown", style='solid')
-dot.render('temp', format='png', cleanup=True)
+unique_filename = f"graphviz_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+dot.render(unique_filename, format='png', cleanup=True)
 ```
 
 CRITICAL: Each option diagram should be visually distinct, rich in detail, and clearly represent the concept described in that option.
@@ -2003,3 +2072,77 @@ def generate_cdq_complete(data):
     except Exception as e:
         print(f"❌ Error in CDQ generation: {e}")
         return None
+
+def ai_analyze_topic(topic_info, question_type):
+    """Use OpenAI to analyze topic and recommend question distribution"""
+    
+    analysis_prompt = f"""
+    As an educational content expert, analyze this topic and recommend the optimal question distribution:
+
+    Topic: {topic_info['topic_name']}
+    Subject: {topic_info['subject_name']}
+    Stream: {topic_info['stream_name']}
+    Course: {topic_info['course_name']}
+    Bloom Level: {topic_info['bloom_level_name']}
+    Question Type: {question_type}
+
+    IMPORTANT SUBJECT-SPECIFIC GUIDELINES:
+    - For Mathematics, Physics, Chemistry: NO code questions (use 0 for code_questions)
+    - For Programming, Computer Science, Software Engineering: Include code questions
+    - For subjects like Artificial Intelligence, Machine Learning: May include code questions if relevant
+    - For subjects like Data Structures, Algorithms: Include code questions for implementation examples
+    
+    Please provide recommendations for:
+    1. Total number of questions needed to comprehensively cover this topic
+    2. How many questions should have diagrams (visual explanations)
+    3. How many questions should have diagrams in options (visual choices)
+    4. How many should be text-only questions
+    5. How many should include code snippets (ONLY if applicable to the subject)
+    
+    Consider the complexity and breadth of the topic. For technical subjects, include more diagram-based questions.
+    
+    Respond in this exact JSON format:
+    {{
+        "total_questions": <number>,
+        "diagram_questions": <number>,
+        "option_diagram_questions": <number>, 
+        "text_only_questions": <number>,
+        "code_questions": <number>,
+        "reasoning": "<brief explanation of the distribution>"
+    }}
+    """
+    
+    try:
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": analysis_prompt}],
+            temperature=0.3,
+            max_tokens=500
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        
+        # Validate the response
+        required_keys = ['total_questions', 'diagram_questions', 'option_diagram_questions', 'text_only_questions', 'code_questions']
+        if not all(key in result for key in required_keys):
+            raise ValueError("Invalid AI response format")
+            
+        return result
+        
+    except Exception as e:
+        print(f"AI topic analysis failed: {str(e)}")
+        raise Exception("AI analysis service unavailable")
+
+def safe_exec_diagram_code(code, exec_globals):
+    """
+    Ensure 'import uuid' and 'import time' are present in the code before exec.
+    """
+    imports = []
+    if 'import uuid' not in code:
+        imports.append('import uuid')
+    if 'import time' not in code:
+        imports.append('import time')
+    if imports:
+        code = '\n'.join(imports) + '\n' + code
+    exec(code, exec_globals)

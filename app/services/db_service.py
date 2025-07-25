@@ -867,3 +867,106 @@ def store_cdq_question(data, passage_text, questions):
     except Exception as e:
         print(f"Error storing CDQ question: {e}")
         return None 
+
+def get_topic_details(topic_id, subject_id, stream_id, course_id):
+    """Get complete topic information for AI analysis"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                t.TopicName,
+                s.SubjectName,
+                st.StreamName,
+                c.CourseName,
+                t.BloomLevelID,
+                bl.LevelName as BloomLevelName
+            FROM TopicMaster t
+            JOIN SubjectMaster s ON t.SubjectID = s.SubjectID
+            JOIN StreamMaster st ON s.StreamID = st.StreamID
+            JOIN CourseMaster c ON st.CourseID = c.CourseID
+            LEFT JOIN BloomLevel bl ON t.BloomLevelID = bl.BloomLevelID
+            WHERE t.TopicID = ? AND s.SubjectID = ?
+        """, (topic_id, subject_id))
+        
+        row = cursor.fetchone()
+        if row:
+            return {
+                'topic_name': row[0],
+                'subject_name': row[1],
+                'stream_name': row[2],
+                'course_name': row[3],
+                'bloom_level_id': row[4],
+                'bloom_level_name': row[5] if row[5] else 'Not Specified'
+            }
+        return None
+        
+    except Exception as e:
+        print(f"Error getting topic details: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_topic_name_by_id(topic_id):
+    """Get topic name by topic ID"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT TopicName FROM TopicMaster WHERE TopicID = ?", topic_id)
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        return None
+    except Exception as e:
+        print(f"Error getting topic name: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_subject_name_by_id(subject_id):
+    """Get subject name by subject ID"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT SubjectName FROM SubjectMaster WHERE SubjectID = ?", subject_id)
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        return None
+    except Exception as e:
+        print(f"Error getting subject name: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_stream_name_by_id(stream_id):
+    """Get stream name by stream ID"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT StreamName FROM StreamMaster WHERE StreamID = ?", stream_id)
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        return None
+    except Exception as e:
+        print(f"Error getting stream name: {e}")
+        return None
+    finally:
+        cursor.close()
+        conn.close() 
