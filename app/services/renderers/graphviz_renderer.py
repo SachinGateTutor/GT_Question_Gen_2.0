@@ -44,41 +44,6 @@ def is_python_code(code: str) -> bool:
     # If more than 2 Python indicators are found, it's likely Python code
     return python_count >= 2
 
-def create_fallback_diagram(output_path: str) -> str:
-    """Create a fallback diagram when invalid code is provided"""
-    try:
-        import graphviz
-        
-        dot = graphviz.Digraph()
-        dot.attr(fontcolor="black")
-        dot.attr(edge_color="black")
-        
-        # Create a simple flowchart
-        dot.node('A', 'Start', shape='ellipse', fillcolor="lightgreen", style="filled", fontcolor="black")
-        dot.node('B', 'Process', shape='box', fillcolor="lightblue", style="filled", fontcolor="black")
-        dot.node('C', 'Decision', shape='diamond', fillcolor="lightyellow", style="filled", fontcolor="black")
-        dot.node('D', 'End', shape='octagon', fillcolor="lightcoral", style="filled", fontcolor="black")
-        
-        dot.edge('A', 'B', label='to process', color="lightcoral", style='dashed')
-        dot.edge('B', 'C', label='check', color="lightblue", style='solid')
-        dot.edge('C', 'D', label='complete', color="lightgreen", style='bold')
-        
-        # Save the diagram
-        base_path = os.path.splitext(output_path)[0]
-        dot.render(base_path, format='png', cleanup=True)
-        
-        actual_file = base_path + '.png'
-        if os.path.exists(actual_file):
-            print(f"✅ Fallback diagram created: {os.path.basename(output_path)}")
-            return os.path.basename(output_path)
-        else:
-            print(f"❌ Fallback diagram file not found: {actual_file}")
-            return None
-            
-    except Exception as e:
-        print(f"❌ Error creating fallback diagram: {e}")
-        return None
-
 def render(code: str, output_path: str):
     """Render graphviz diagram with improved error handling"""
     
@@ -90,8 +55,8 @@ def render(code: str, output_path: str):
         
         # Check if the code is actually Python code instead of Graphviz code
         if is_python_code(code):
-            print(f"⚠️ Debug: Detected Python code instead of Graphviz code, creating fallback diagram")
-            return create_fallback_diagram(output_path)
+            print(f"⚠️ Debug: Detected Python code instead of Graphviz code, diagram generation failed")
+            return None  # Return None instead of creating misleading fallback
         
         # Improve color scheme for better readability
         # Replace dark colors with lighter, more readable alternatives
@@ -203,5 +168,5 @@ def render(code: str, output_path: str):
     except Exception as e:
         print(f'❌ Graphviz diagram generation error: {e}')
         traceback.print_exc()
-        # Try to create a fallback diagram when there's an error
-        return create_fallback_diagram(output_path) 
+        # Return None instead of creating misleading fallback
+        return None 
