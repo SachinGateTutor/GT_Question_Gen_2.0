@@ -564,6 +564,7 @@ import time
 import uuid
 from io import BytesIO
 
+# CRITICAL: Generate ONLY Graphviz diagram code, NOT Python class code
 # Create RICH, HIERARCHICAL graphviz diagram with diverse elements
 dot = graphviz.Digraph()
 # Add diverse nodes and edges with different shapes, colors, and styles
@@ -572,6 +573,8 @@ dot = graphviz.Digraph()
 # Example: dot.edge('A', 'B', label='to decision', color='red', style='dashed')
 # CRITICAL: Use dot.edge() for individual edges, NOT dot.edges() with style/color parameters
 # CRITICAL: dot.edges() only accepts tuples like [('A', 'B'), ('B', 'C')] - no styling
+# CRITICAL: DO NOT generate Python class definitions, methods, or print statements
+# CRITICAL: Generate ONLY Graphviz dot.node() and dot.edge() calls
 # Note: Use unique filename to avoid conflicts
 import uuid
 import time
@@ -1190,11 +1193,18 @@ Each OptionACode, OptionBCode, OptionCCode, and OptionDCode must contain complet
         'graphviz': """
 CRITICAL CODE STRUCTURE FOR GRAPHVIZ:
 - Use exactly: dot = graphviz.Digraph()
+- CRITICAL: Generate ONLY Graphviz diagram code, NOT Python class definitions
+- CRITICAL: DO NOT include Python class definitions, methods, or print statements
+- CRITICAL: Generate ONLY dot.node() and dot.edge() calls
 - Add at least 4 nodes with different shapes: 'box', 'circle', 'ellipse', 'diamond', 'triangle', 'hexagon', 'octagon'
 - Add at least 4 edges with different styles: 'solid', 'dashed', 'dotted', 'bold'
 - Use different colors for nodes and edges
 - Add labels to nodes and edges
 - Use: dot.render('diagram', format='png', cleanup=True)
+- Example structure:
+  dot.node('A', 'Start', shape='ellipse', fillcolor='lightgreen', style='filled')
+  dot.node('B', 'Process', shape='box', fillcolor='lightblue', style='filled')
+  dot.edge('A', 'B', label='to process', color='red', style='dashed')
 """,
         'networkx': """
 CRITICAL CODE STRUCTURE FOR NETWORKX:
