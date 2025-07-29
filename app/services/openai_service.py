@@ -283,6 +283,19 @@ Generate ONLY the corrected diagram code without any explanation:
                                 # Set the problematic option code to None
                                 parsed_result['option_diagram_codes'][option] = None
                 
+                # Auto-detect Bloom level if requested
+                bloom_level_id = data.get('bloom_level_id')
+                if bloom_level_id == 'auto' or bloom_level_id == 'auto_detect':
+                    print(f"🔍 Debug: Auto-detecting Bloom level for question...")
+                    detected_bloom_level = auto_detect_bloom_level(
+                        parsed_result.get('question_text', ''),
+                        parsed_result.get('explanation', ''),
+                        topic,
+                        subject
+                    )
+                    parsed_result['detected_bloom_level_id'] = detected_bloom_level
+                    print(f"🔍 Debug: Auto-detected Bloom level: {detected_bloom_level}")
+                
                 return parsed_result
                 
             except Exception as e:
@@ -2121,6 +2134,62 @@ Bloom Level: Auto-detect
     
     return bloom_guidance.get(bloom_level, bloom_guidance['auto_detect'])
 
+def auto_detect_bloom_level(question_text, explanation, topic, subject):
+    """Analyze the generated question and determine the appropriate Bloom level"""
+    client = get_openai_client()
+    
+    analysis_prompt = f"""
+Analyze the following question and determine the most appropriate Bloom's Taxonomy level.
+
+Question: {question_text}
+Explanation: {explanation}
+Topic: {topic}
+Subject: {subject}
+
+Bloom's Taxonomy Levels:
+1. Remember - Recall facts, terms, basic concepts
+2. Understand - Explain ideas, interpret information
+3. Apply - Use knowledge in new situations
+4. Analyze - Break down information, examine relationships
+5. Evaluate - Make judgments, assess value
+6. Create - Generate new ideas, design solutions
+
+Consider:
+- The cognitive complexity of the question
+- The type of thinking required to answer
+- The verbs used in the question
+- The depth of understanding demonstrated in the explanation
+
+Respond with ONLY the number (1-6) corresponding to the Bloom level:
+"""
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": analysis_prompt}],
+            max_tokens=10
+        )
+        content = response.choices[0].message.content.strip()
+        
+        # Extract the number from the response
+        bloom_level = int(content) if content.isdigit() and 1 <= int(content) <= 6 else 3
+        
+        bloom_names = {
+            1: "Remember",
+            2: "Understand", 
+            3: "Apply",
+            4: "Analyze",
+            5: "Evaluate",
+            6: "Create"
+        }
+        
+        print(f"🔍 Debug: Auto-detected Bloom level: {bloom_level} ({bloom_names[bloom_level]})")
+        return bloom_level
+        
+    except Exception as e:
+        print(f"❌ Error in auto-detecting Bloom level: {e}")
+        return 3  # Default to Apply level
+
 def parse_cdq_response(response_text):
     """Parse CDQ questions from OpenAI response"""
     questions = []
@@ -2184,8 +2253,54 @@ def generate_cdq_complete(data):
         print("🔍 Debug: Starting CDQ generation")
         print(f"🔍 Debug: Input data: {data}")
         
+        # Get values from data, with intelligent defaults
+        stream = data.get('stream')
+        subject = data.get('subject')
+        
+        # If stream is not provided, try to get it from stream_id
+        if not stream:
+            stream_id = data.get('stream_id')
+            if stream_id:
+                try:
+                    from .db_service import get_stream_name_by_id
+                    stream = get_stream_name_by_id(stream_id)
+                    if stream:
+                        print(f"🔍 Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
+                    else:
+                        stream = 'CS'  # fallback
+                except Exception as e:
+                    stream = 'CS'  # fallback
+            else:
+                stream = 'CS'  # fallback if no stream_id
+        
+        # If subject is not provided, try to get it from subject_id
+        if not subject:
+            subject_id = data.get('subject_id')
+            if subject_id:
+                try:
+                    from .db_service import get_subject_name_by_id
+                    subject = get_subject_name_by_id(subject_id)
+                    if subject:
+                        print(f"🔍 Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
+                    else:
+                        subject = 'Computer Science'  # fallback
+                except Exception as e:
+                    subject = 'Computer Science'  # fallback
+            else:
+                subject = 'Computer Science'  # fallback if no subject_id
+        
+        topic = data.get('topic', 'Programming')
+        
+        # Update data with retrieved names
+        enhanced_data = data.copy()
+        enhanced_data['stream'] = stream
+        enhanced_data['subject'] = subject
+        enhanced_data['topic'] = topic
+        
+        print(f"🔍 Debug: Enhanced data - stream: {stream}, subject: {subject}, topic: {topic}")
+        
         # Generate passage first
-        passage_text = generate_cdq_passage(data)
+        passage_text = generate_cdq_passage(enhanced_data)
         if not passage_text:
             print("❌ Error: Failed to generate passage")
             return None
@@ -2193,7 +2308,7 @@ def generate_cdq_complete(data):
         print(f"✅ Generated passage: {passage_text[:100]}...")
         
         # Generate questions based on passage
-        questions_response = generate_cdq_questions(passage_text, data)
+        questions_response = generate_cdq_questions(passage_text, enhanced_data)
         if not questions_response:
             print("❌ Error: Failed to generate questions")
             return None

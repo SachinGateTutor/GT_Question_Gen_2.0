@@ -97,6 +97,32 @@ def get_topics_by_subject(subject_id):
         return []
 
 def insert_question_master(data):
+    # Validate required fields
+    if not data.get('subject_id'):
+        print(f"❌ Missing required field: subject_id in data: {data}")
+        return None
+    if not data.get('topic_id'):
+        print(f"❌ Missing required field: topic_id in data: {data}")
+        return None
+        
+    # Handle bloom_level_id conversion
+    bloom_level_id = data.get('bloom_level_id')
+    detected_bloom_level = data.get('detected_bloom_level_id')
+    
+    if bloom_level_id == 'auto' or bloom_level_id == 'auto_detect':
+        if detected_bloom_level:
+            bloom_level_id = detected_bloom_level
+            print(f"🔍 Debug: Using auto-detected Bloom level: {bloom_level_id}")
+        else:
+            bloom_level_id = 1  # Default to "Remember" level
+            print(f"🔍 Debug: No auto-detection available, defaulting to Bloom level: {bloom_level_id}")
+    elif isinstance(bloom_level_id, str) and bloom_level_id.isdigit():
+        bloom_level_id = int(bloom_level_id)
+    elif not isinstance(bloom_level_id, int):
+        bloom_level_id = 1  # Default fallback
+        
+    print(f"🔍 Debug: Final bloom_level_id: {bloom_level_id}")
+        
     conn = get_db_connection()
     if not conn:
         return None
@@ -109,11 +135,11 @@ def insert_question_master(data):
             OUTPUT INSERTED.QuestionID
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            data['subject_id'],
-            data['topic_id'],
-            data['question_type_id'],
+            data.get('subject_id'),  # Use .get() to avoid KeyError
+            data.get('topic_id'),    # Use .get() to avoid KeyError
+            data.get('question_type_id', 1),  # Default to 1 if missing
             data.get('marks', 1),
-            data.get('bloom_level_id'),
+            bloom_level_id,  # Use the converted integer value
             data.get('difficulty_level_id'),
             data.get('section_id'),
             0,  # IsEnable - default to false
@@ -140,6 +166,7 @@ def insert_mcq_question(question_id, data):
     print(f"correct_answer: {data.get('correct_answer')}")
     print(f"diagram_image_url: {data.get('diagram_image_url')}")
     print(f"option_images: {data.get('option_images')}")
+    print(f"🔍 Debug: diagram_code: {data.get('diagram_code')[:100] if data.get('diagram_code') else 'None'}...")
     options = data.get('options') or []
     
     # Clean the correct answer to extract just the letter (A, B, C, D)
@@ -189,8 +216,8 @@ def insert_mcq_question(question_id, data):
         cursor.execute("""
             INSERT INTO MCQ_Questions 
             (QuestionID, QuestionText, OptionA, OptionB, OptionC, OptionD, 
-             CorrectOption, HasImage, ImgQuestion, ImgOptionA, ImgOptionB, ImgOptionC, ImgOptionD)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             CorrectOption, HasImage, ImgQuestion, ImgOptionA, ImgOptionB, ImgOptionC, ImgOptionD, DiagramCode)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             question_id,
             data.get('question_text'),
@@ -204,7 +231,8 @@ def insert_mcq_question(question_id, data):
             img_option_a,
             img_option_b,
             img_option_c,
-            img_option_d
+            img_option_d,
+            data.get('diagram_code')  # Store the diagram code separately
         ))
         
         conn.commit()
@@ -909,7 +937,7 @@ def get_topic_details(topic_id, subject_id, stream_id, course_id):
         return None
     finally:
         cursor.close()
-        conn.close()
+        conn.close() 
 
 def get_topic_name_by_id(topic_id):
     """Get topic name by topic ID"""

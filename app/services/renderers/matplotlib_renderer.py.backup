@@ -195,25 +195,7 @@ def render(code: str, output_path: str):
             else:
                 # Look for any newly created PNG files
                 import glob
-                # IMPROVED VERSION: Check both current and output directories
-                output_dir = os.path.dirname(output_path) if output_path else ""
-                current_dir = os.getcwd()
-                
-                print(f"🔍 Debug: Searching for PNG files in current dir: {current_dir}")
-                png_files_current = glob.glob("*.png")
-                png_files_output = []
-                
-                # Safely check output directory if it exists and is different
-                if output_dir and os.path.exists(output_dir) and os.path.abspath(output_dir) != os.path.abspath(current_dir):
-                    try:
-                        print(f"🔍 Debug: Searching for PNG files in output dir: {output_dir}")
-                        png_files_output = glob.glob(os.path.join(output_dir, "*.png"))
-                    except Exception as e:
-                        print(f"⚠️ Warning: Could not scan output directory {output_dir}: {e}")
-                        png_files_output = []
-                
-                png_files = png_files_current + [os.path.basename(f) for f in png_files_output]
-                print(f"🔍 Debug: Found PNG files: current={len(png_files_current)}, output={len(png_files_output)}")
+                png_files = glob.glob("*.png")
                 if png_files:
                     # Move the first PNG file found to the output path
                     import shutil

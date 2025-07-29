@@ -118,31 +118,10 @@ def render(code: str, output_path: str):
     max_retries = 2
     for attempt in range(max_retries + 1):
         try:
-            # Record files before execution - IMPROVED VERSION
+            # Record files before execution
             import os
             import glob
-            
-            # Get the output directory for proper file tracking
-            output_dir = os.path.dirname(output_path) if output_path else ""
-            current_dir = os.getcwd()
-            
-            print(f"🔍 Debug: Current working directory: {current_dir}")
-            print(f"🔍 Debug: Output directory: {output_dir}")
-            
-            # Record PNG files in both current directory and output directory
-            files_before_current = set(glob.glob("*.png"))
-            files_before_output = set()
-            
-            # Safely check output directory if it exists and is different from current
-            if output_dir and os.path.exists(output_dir) and os.path.abspath(output_dir) != os.path.abspath(current_dir):
-                try:
-                    files_before_output = set(glob.glob(os.path.join(output_dir, "*.png")))
-                except Exception as e:
-                    print(f"⚠️ Warning: Could not scan output directory {output_dir}: {e}")
-                    files_before_output = set()
-            
-            print(f"🔍 Debug: PNG files in current dir before: {len(files_before_current)}")
-            print(f"🔍 Debug: PNG files in output dir before: {len(files_before_output)}")
+            files_before = set(glob.glob("*.png"))
             
             # Execute the diagram code
             exec_globals = {
@@ -154,25 +133,9 @@ def render(code: str, output_path: str):
             }
             exec(code, exec_globals)
             
-            # Find newly created PNG files in both locations - IMPROVED VERSION
-            files_after_current = set(glob.glob("*.png"))
-            files_after_output = set()
-            
-            # Safely check output directory again
-            if output_dir and os.path.exists(output_dir) and os.path.abspath(output_dir) != os.path.abspath(current_dir):
-                try:
-                    files_after_output = set(glob.glob(os.path.join(output_dir, "*.png")))
-                except Exception as e:
-                    print(f"⚠️ Warning: Could not scan output directory {output_dir} after execution: {e}")
-                    files_after_output = set()
-            
-            new_files_current = files_after_current - files_before_current
-            new_files_output = files_after_output - files_before_output
-            new_files = new_files_current.union(new_files_output)
-            
-            print(f"🔍 Debug: New PNG files in current dir: {new_files_current}")
-            print(f"🔍 Debug: New PNG files in output dir: {new_files_output}")
-            print(f"🔍 Debug: All new PNG files: {new_files}")
+            # Find newly created PNG files
+            files_after = set(glob.glob("*.png"))
+            new_files = files_after - files_before
             
             # Look for the generated file - prioritize specific patterns first, then any new PNG
             possible_files = [

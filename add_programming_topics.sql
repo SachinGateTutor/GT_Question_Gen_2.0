@@ -1,5 +1,5 @@
 -- Add Programming Topics to Database
-USE MCQGen;
+USE GTQuestionDB;
 GO
 
 -- Add Programming as a new subject under Computer Science stream
