@@ -3,6 +3,8 @@ import openai
 import traceback
 import re
 import json
+import time
+import uuid
 
 def get_openai_client():
     # Hardcoded API key for limited use
@@ -106,371 +108,244 @@ def generate_mcq_and_diagram(data):
                     if subject:
                         print(f"🔍 Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
                     else:
-                        subject = 'Data Structures'  # fallback
+                        subject = 'Computer Science'  # fallback
                 except Exception as e:
-                    subject = 'Data Structures'  # fallback
+                    subject = 'Computer Science'  # fallback
             else:
-                subject = 'Data Structures'  # fallback if no subject_id
-        topic = data.get('topic')
+                subject = 'Computer Science'  # fallback if no subject_id
         
-        # If topic is not provided, try to get it from topic_id
-        if not topic:
-            topic_id = data.get('topic_id')
-            if topic_id:
-                try:
-                    from .db_service import get_topic_name_by_id
-                    topic = get_topic_name_by_id(topic_id)
-                    if topic:
-                        print(f"🔍 Debug: Retrieved topic from DB: {topic} for topic_id: {topic_id}")
-                    else:
-                        topic = 'Binary Trees'  # fallback
-                        print(f"⚠️ Warning: Could not find topic for topic_id: {topic_id}, using fallback")
-                except Exception as e:
-                    topic = 'Binary Trees'  # fallback
-                    print(f"⚠️ Warning: Error retrieving topic: {e}, using fallback")
-            else:
-                topic = 'Binary Trees'  # fallback if no topic_id
+        topic = data.get('topic', 'Programming')
         question_type = data.get('question_type', 'MCQ')
         requires_diagram = data.get('requires_diagram', False)
         requires_option_diagrams = data.get('requires_option_diagrams', False)
+        is_programming_question = data.get('is_programming_question', False)
         custom_prompt = data.get('custom_prompt', '')
-
+        
         print(f"🔍 Debug: Parsed values - stream: {stream}, subject: {subject}, topic: {topic}")
         print(f"🔍 Debug: question_type: {question_type}, requires_diagram: {requires_diagram}, requires_option_diagrams: {requires_option_diagrams}")
-
-        # Enhanced programming topics for maximum diversity
-        programming_topics = [
-            # Programming Languages
-            'Java Programming', 'C++ Programming', 'Python Programming', 'JavaScript Programming',
-            'C# Programming', 'C Programming', 'Ruby Programming', 'Go Programming',
-            
-            # Web Development
-            'Web Development', 'Frontend Development', 'Backend Development', 'Full Stack Development',
-            'HTML/CSS', 'React Development', 'Angular Development', 'Node.js Development',
-            
-            # Database and Data
-            'Database Programming', 'SQL Programming', 'NoSQL Programming', 'Data Analysis',
-            'Big Data Processing', 'Data Mining', 'Machine Learning Programming',
-            
-            # Software Engineering
-            'Object-Oriented Programming', 'Functional Programming', 'Design Patterns',
-            'Software Architecture', 'System Design', 'API Development', 'Microservices',
-            
-            # Algorithms and Data Structures
-            'Data Structures with Programs', 'Algorithms Implementation', 'Algorithm Design',
-            'Competitive Programming', 'Dynamic Programming', 'Graph Algorithms',
-            
-            # Specialized Programming
-            'Game Development', 'Mobile App Development', 'Embedded Systems Programming',
-            'System Programming', 'Network Programming', 'Security Programming',
-            
-            # Modern Development
-            'DevOps Programming', 'Cloud Computing', 'Containerization', 'CI/CD Programming',
-            'Test-Driven Development', 'Agile Programming', 'Clean Code Programming'
-        ]
         
-        is_programming_topic = any(prog_topic.lower() in topic.lower() for prog_topic in programming_topics)
-
-        # Get OpenAI client
-        client = get_openai_client()
-        if not client:
-            print("❌ Debug: OpenAI client creation failed")
-            return {
-                'error': 'OpenAI API key not set. Please add your API key to the .env file.',
-                'question_text': 'Sample question for testing',
-                'options': ['A', 'B', 'C', 'D'],
-                'correct_answer': 'A',
-                'explanation': 'Sample explanation for testing.',
-                'diagram_code': None,
-                'library_used': None,
-                'option_diagram_codes': None
-            }
+        # Determine the best library for diagram generation
+        library_name, library_reason = determine_best_library(subject, topic, requires_diagram)
         
-        print("✅ Debug: OpenAI client created successfully")
-
-        # Stage 1: Determine best library
-        library_name, library_reason = determine_best_library(subject, topic, requires_diagram or requires_option_diagrams)
+        # Generate the question with retry mechanism for syntax errors
+        max_retries = 2
+        retry_count = 0
         
-        # Stage 2: Generate question and diagram code
-        if is_programming_topic:
-            # Generate programming question with code snippet
-            prompt = generate_programming_question_prompt(topic, question_type, custom_prompt)
-        elif (requires_diagram or requires_option_diagrams) and library_name:
-            # Generate diagram-based question
-            prompt = generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt)
-        else:
-            # Generate regular question
-            prompt = generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt)
-
-        print("🔄 Debug: Sending request to OpenAI...")
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        content = response.choices[0].message.content
-        print("✅ Debug: Got response from OpenAI")
-        print("=== RAW OPENAI RESPONSE ===")
-        print(content)
-        print("===========================")
-
-        # Parse response
-        question_text = None
-        options = []
-        correct_answer = None
-        explanation = None
-        diagram_code = None
-        option_diagram_codes = {'A': '', 'B': '', 'C': '', 'D': ''}
-        detected_library = library_name
-
-        lines = content.split('\n') if content else []
-        code_lines = []
-        option_code_lines = {'A': [], 'B': [], 'C': [], 'D': []}
-        in_code = False
-        in_option_code = False
-        current_option = None
-        collecting_explanation = False
-        
-        # For programming questions, extract code snippet from question text
-        code_snippet = None
-        if is_programming_topic and content:
-            # Look for code blocks in the entire response
-            import re
-            code_pattern = r'```(\w+)\n(.*?)```'
-            code_matches = re.findall(code_pattern, content, re.DOTALL)
-            if code_matches:
-                # Take the first code block found
-                language, code_content = code_matches[0]
-                code_snippet = f"```{language}\n{code_content}\n```"
-                print(f"🔍 Debug: Extracted code snippet for programming question")
-        
-        for line in lines:
-            if line is None:
-                continue
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Only call split if line contains ':' or '.' as needed
-            if line.lower().startswith('question:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    question_text = parts[1].strip()
-                collecting_explanation = False
-            elif line.startswith('A.') and '.' in line:
-                parts = line.split('.', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.startswith('B.') and '.' in line:
-                parts = line.split('.', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.startswith('C.') and '.' in line:
-                parts = line.split('.', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.startswith('D.') and '.' in line:
-                parts = line.split('.', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            # Handle "Option A:" format as well
-            elif line.lower().startswith('option a:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.lower().startswith('option b:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.lower().startswith('option c:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.lower().startswith('option d:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    options.append(parts[1].strip())
-                collecting_explanation = False
-            elif line.lower().startswith('answer:') and ':' in line:
-                parts = line.split(':', 1)
-                if len(parts) > 1:
-                    correct_answer = parts[1].strip()
-                collecting_explanation = False
-            elif line.lower().startswith('explanation:') and ':' in line:
-                parts = line.split(':', 1)
-                explanation = parts[1].strip() if len(parts) > 1 else ''
-                collecting_explanation = True
-            elif line.lower().startswith(('library:', 'pythoncode:')):
-                collecting_explanation = False
-            # --- Option Diagram Code Extraction ---
-            elif any(line.lower().startswith(f'option{opt.lower()}code:') for opt in ['A', 'B', 'C', 'D']):
-                # Start of an option code block (OptionACode: format)
-                in_option_code = True
-                in_code = False
-                for opt in ['A', 'B', 'C', 'D']:
-                    if line.lower().startswith(f'option{opt.lower()}code:'):
-                        current_option = opt
-                        break
-                continue
-            elif any(line.lower().startswith(f'option {opt.lower()}:') for opt in ['A', 'B', 'C', 'D']):
-                # Start of an option code block (Option A: format)
-                in_option_code = True
-                in_code = False
-                for opt in ['A', 'B', 'C', 'D']:
-                    if line.lower().startswith(f'option {opt.lower()}:'):
-                        current_option = opt
-                        break
-                continue
-            elif in_option_code and '```python' in line:
-                in_code = True
-                continue
-            elif in_option_code and '```' in line and in_code:
-                in_code = False
-                in_option_code = False
-                current_option = None
-                continue
-            elif in_option_code and in_code and current_option:
-                option_code_lines[current_option].append(line)
-            # --- End Option Diagram Code Extraction ---
-            elif requires_diagram and '```python' in line:
-                in_code = True
-                collecting_explanation = False
-            elif requires_diagram and '```' in line and in_code:
-                in_code = False
-            elif requires_diagram and in_code:
-                code_lines.append(line)
-            elif collecting_explanation:
-                # Stop collecting if we hit another field
-                if line.lower().startswith(('library:', 'pythoncode:', 'answer:', 'question:', 'a.', 'b.', 'c.', 'd.')):
-                    collecting_explanation = False
+        while retry_count <= max_retries:
+            try:
+                # Generate the question
+                if is_programming_question:
+                    prompt = generate_programming_question_prompt(topic, question_type, custom_prompt)
+                elif requires_diagram or requires_option_diagrams:
+                    prompt = generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt)
                 else:
-                    if explanation:
-                        explanation += '\n' + line
-                    else:
-                        explanation = line
-        if code_lines and requires_diagram:
-            diagram_code = '\n'.join(code_lines)
-
-        # Process option diagram codes
-        if requires_option_diagrams:
-            for option, lines in option_code_lines.items():
-                if lines:
-                    option_diagram_codes[option] = '\n'.join(lines)
-
-        # Fallback: If no options were parsed but we have option diagrams, create default options
-        if not options and any(option_diagram_codes.values()):
-            options = ['Option A', 'Option B', 'Option C', 'Option D']
-            print("⚠️ Debug: No options parsed, using default option labels")
-        
-        # Fallback: If no options were parsed, try to extract from the response
-        if not options and content:
-            print("⚠️ Debug: No options parsed, attempting to extract from response...")
-            import re
-            # Look for patterns like "Option A:", "A.", etc.
-            option_patterns = [
-                r'Option A:\s*(.+)',
-                r'Option B:\s*(.+)',
-                r'Option C:\s*(.+)',
-                r'Option D:\s*(.+)',
-                r'A\.\s*(.+)',
-                r'B\.\s*(.+)',
-                r'C\.\s*(.+)',
-                r'D\.\s*(.+)'
-            ]
-            
-            for pattern in option_patterns:
-                matches = re.findall(pattern, content, re.IGNORECASE)
-                if matches:
-                    options.extend(matches)
-                    print(f"🔍 Debug: Found options using pattern: {pattern}")
-                    break
-            
-            # If still no options, use default data structures
-            if not options:
-                options = ['Linked List', 'Binary Tree', 'Hash Table', 'Stack']
-                print("⚠️ Debug: Using default options")
-        
-        # Fallback: If no diagram code, create a simple one
-        if not diagram_code and requires_diagram:
-            print("⚠️ Debug: No diagram code found, creating fallback diagram")
-            if library_name == 'graphviz':
-                diagram_code = '''import graphviz
+                    prompt = generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt)
+                
+                # Get OpenAI response
+                client = get_openai_client()
+                print("🔄 Debug: Sending request to OpenAI...")
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7,
+                    max_tokens=2000
+                )
+                
+                print("✅ Debug: Got response from OpenAI")
+                response_text = response.choices[0].message.content
+                print("=== RAW OPENAI RESPONSE ===")
+                print(response_text)
+                print("===========================")
+                
+                # Parse the response
+                parsed_result = parse_openai_response(response_text)
+                
+                # Force correct library detection for option diagrams
+                if requires_option_diagrams:
+                    option_codes = parsed_result.get('option_diagram_codes', {})
+                    
+                    # Check if any option contains graphviz code and force library detection
+                    for option, code in option_codes.items():
+                        if code and ('graphviz' in code or 'dot.node' in code or 'dot.edge' in code):
+                            parsed_result['library_used'] = 'graphviz'
+                            print("🔧 Debug: Forced library to graphviz based on option code analysis")
+                            break
+                    
+                    # Also check main diagram code
+                    if parsed_result.get('diagram_code') and 'graphviz' in parsed_result['diagram_code']:
+                        parsed_result['library_used'] = 'graphviz'
+                        print("🔧 Debug: Forced library to graphviz based on main diagram code")
+                    
+                    # Handle missing options with fallback generation
+                    import time
+                    missing_options = []
+                    for option in ['A', 'B', 'C', 'D']:
+                        if option not in option_codes or not option_codes[option]:
+                            missing_options.append(option)
+                    
+                    if missing_options:
+                        print(f"⚠️ Debug: Missing options: {missing_options} - generating fallbacks")
+                        
+                        # Generate fallback code for missing options
+                        for option in missing_options:
+                            fallback_code = f"""import graphviz
+import time
+import uuid
 dot = graphviz.Digraph()
-dot.node('A', 'Start', shape='ellipse', fillcolor='lightgreen', style='filled')
-dot.node('B', 'Process', shape='box', fillcolor='lightblue', style='filled')
-dot.node('C', 'Decision', shape='diamond', fillcolor='lightyellow', style='filled')
-dot.node('D', 'End', shape='octagon', fillcolor='lightcoral', style='filled')
-dot.edge('A', 'B', label='to process', color='red', style='dashed')
-dot.edge('B', 'C', label='check', color='blue', style='solid')
-dot.edge('C', 'D', label='complete', color='green', style='bold')
-dot.render('temp', format='png', cleanup=True)'''
-            elif library_name == 'networkx':
-                diagram_code = '''import networkx as nx
-import matplotlib.pyplot as plt
-from io import BytesIO
-G = nx.Graph()
-G.add_node(1, color='red', size=1000, label='Start')
-G.add_node(2, color='blue', size=800, label='Process')
-G.add_node(3, color='green', size=1200, label='End')
-G.add_edge(1, 2, color='red', width=3)
-G.add_edge(2, 3, color='blue', width=2)
-nx.draw(G, with_labels=True, font_weight='bold', node_color='lightblue', node_size=1000, edge_color='red', width=2)
-plt.savefig(buffer, format='png', bbox_inches='tight')
-plt.close()'''
-            else:
-                diagram_code = '''import matplotlib.pyplot as plt
-import numpy as np
-from io import BytesIO
-fig, ax = plt.subplots(figsize=(10, 8))
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
-ax.plot(x, y, color='red', linewidth=2, marker='o')
-ax.set_title('Sample Diagram', fontsize=14, fontweight='bold')
-plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
-plt.close()'''
+dot.node('A', 'Option {option}', shape='box', style='filled', fillcolor='lightblue')
+dot.node('B', 'Data {option}', shape='ellipse', style='filled', fillcolor='lightgreen')
+dot.edge('A', 'B', label='relation')
+unique_filename = f"graphviz_fallback_{option}_{{int(time.time())}}"
+dot.render(unique_filename, format='png', cleanup=True)"""
+                            option_codes[option] = fallback_code.strip()
+                            print(f"🔧 Debug: Generated fallback code for Option {option}")
+                        
+                        # Update the parsed result
+                        parsed_result['option_diagram_codes'] = option_codes
+                
+                # Enhanced debugging for option diagrams
+                if requires_option_diagrams:
+                    print(f"🎨 Debug: Option diagrams requested - checking AI response...")
+                    option_codes = parsed_result.get('option_diagram_codes', {})
+                    print(f"🎨 Debug: Found option diagram codes: {list(option_codes.keys())}")
+                    
+                    # Check if response contains expected sections
+                    for option in ['A', 'B', 'C', 'D']:
+                        if f"Option{option}Code:" in response_text:
+                            print(f"✅ Debug: Found Option{option}Code section in response")
+                        else:
+                            print(f"❌ Debug: Missing Option{option}Code section in response")
+                    
+                    if not option_codes or not any(option_codes.values()):
+                        print("❌ Debug: No valid option diagram codes parsed!")
+                        print("🔍 Debug: This indicates the AI did not follow option diagram format instructions")
+                
+                # If we have diagram code, validate syntax before proceeding
+                if parsed_result.get('diagram_code') and requires_diagram:
+                    try:
+                        import ast as ast_module
+                        ast_module.parse(parsed_result['diagram_code'])
+                        print("✅ Debug: Diagram code syntax is valid")
+                    except SyntaxError as syntax_error:
+                        print(f"❌ Debug: Syntax error in diagram code: {syntax_error}")
+                        if retry_count < max_retries:
+                            retry_count += 1
+                            print(f"🔄 Debug: Retrying diagram generation (attempt {retry_count}/{max_retries})")
+                            
+                            # Create a retry prompt with the syntax error
+                            retry_prompt = f"""
+The previous diagram code had a syntax error: {syntax_error}
 
-        # Debug prints for parsed values
-        print("Parsed question_text:", question_text)
-        print("Parsed options:", options)
-        print("Parsed correct_answer:", correct_answer)
-        print("Parsed explanation:", explanation)
-        print("Parsed option_diagram_codes:", option_diagram_codes)
+Please generate a new diagram code that fixes this syntax error. The code should:
+1. Have proper indentation in all loops and conditionals
+2. Have properly matched parentheses and brackets
+3. Use correct Python syntax
+4. Generate a relevant diagram for the topic: {topic}
 
-        # For programming questions, append code snippet to question text
-        if is_programming_topic and code_snippet:
-            if question_text:
-                question_text += f"\n\n{code_snippet}"
-            else:
-                question_text = code_snippet
-
-        return {
-            'question_text': question_text,
-            'options': options,
-            'correct_answer': correct_answer,
-            'explanation': explanation,
-            'diagram_code': diagram_code,
-            'library_used': detected_library,
-            'option_diagram_codes': option_diagram_codes
-        }
+Generate ONLY the corrected diagram code without any explanation:
+"""
+                            
+                            retry_response = client.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=[{"role": "user", "content": retry_prompt}],
+                                temperature=0.3,
+                                max_tokens=1000
+                            )
+                            
+                            retry_code = retry_response.choices[0].message.content.strip()
+                            
+                            # Validate the retry code
+                            try:
+                                import ast as ast_module
+                                ast_module.parse(retry_code)
+                                print("✅ Debug: Retry code syntax is valid")
+                                parsed_result['diagram_code'] = retry_code
+                            except SyntaxError as retry_error:
+                                print(f"❌ Debug: Retry code still has syntax error: {retry_error}")
+                                # If retry also fails, set diagram_code to None
+                                parsed_result['diagram_code'] = None
+                                parsed_result['diagram_image_url'] = None
+                        else:
+                            print("❌ Debug: Max retries reached, setting diagram to None")
+                            parsed_result['diagram_code'] = None
+                            parsed_result['diagram_image_url'] = None
+                
+                # If we have option diagram codes, validate their syntax
+                if parsed_result.get('option_diagram_codes') and requires_option_diagrams:
+                    for option, code in parsed_result['option_diagram_codes'].items():
+                        if code:
+                            try:
+                                import ast as ast_module
+                                ast_module.parse(code)
+                            except SyntaxError as syntax_error:
+                                print(f"❌ Debug: Syntax error in option {option} diagram code: {syntax_error}")
+                                # Set the problematic option code to None
+                                parsed_result['option_diagram_codes'][option] = None
+                
+                return parsed_result
+                
+            except Exception as e:
+                error_str = str(e)
+                print(f"❌ Debug: Error in generate_mcq_and_diagram: {e}")
+                
+                # Handle specific OpenAI API errors
+                if "Error code: 429" in error_str or "exceeded your current quota" in error_str:
+                    print("❌ OpenAI API quota exceeded - switching to fallback mode")
+                    return {
+                        'error': 'OpenAI API quota exceeded',
+                        'question_text': f'Sample question for {subject} - {topic}',
+                        'options': [
+                            f'Option A for {topic}',
+                            f'Option B for {topic}', 
+                            f'Option C for {topic}',
+                            f'Option D for {topic}'
+                        ],
+                        'correct_answer': 'A',
+                        'explanation': 'This is a fallback question generated due to API quota limits.',
+                        'fallback_mode': True
+                    }
+                elif "Error code: 401" in error_str:
+                    print("❌ OpenAI API authentication failed")
+                    return {
+                        'error': 'OpenAI API authentication failed',
+                        'question_text': 'Authentication Error',
+                        'options': ['Please check API key', 'Invalid credentials', 'Access denied', 'Contact administrator'],
+                        'correct_answer': 'A',
+                        'explanation': 'OpenAI API authentication failed. Please check the API key.',
+                        'auth_error': True
+                    }
+                
+                if retry_count < max_retries:
+                    retry_count += 1
+                    print(f"🔄 Debug: Retrying entire generation (attempt {retry_count}/{max_retries})")
+                    # Add exponential backoff for rate limits
+                    if "rate" in error_str.lower() or "429" in error_str:
+                        import time
+                        wait_time = 2 ** retry_count  # 2, 4, 8 seconds
+                        print(f"⏱️ Waiting {wait_time} seconds before retry...")
+                        time.sleep(wait_time)
+                    continue
+                else:
+                    print("❌ Debug: Max retries reached, returning error")
+                    return {
+                        'error': f'Failed to generate question after {max_retries} retries: {str(e)}',
+                        'question_text': 'Error generating question',
+                        'options': ['Error', 'Error', 'Error', 'Error'],
+                        'correct_answer': 'A',
+                        'explanation': 'An error occurred during question generation.'
+                    }
+        
     except Exception as e:
-        print(f"❌ Error in OpenAI service: {e}")
-        print("🔍 Debug: Full exception details:")
+        print(f"❌ Debug: Critical error in generate_mcq_and_diagram: {e}")
+        import traceback
         traceback.print_exc()
         return {
-            'error': f'OpenAI API error: {str(e)}',
-            'question_text': 'Sample question for testing',
-            'options': ['A', 'B', 'C', 'D'],
+            'error': f'Critical error: {str(e)}',
+            'question_text': 'Error generating question',
+            'options': ['Error', 'Error', 'Error', 'Error'],
             'correct_answer': 'A',
-            'explanation': 'This is a sample response for testing.',
-            'diagram_code': None,
-            'library_used': 'schemdraw',
-            'option_diagram_codes': {'A': None, 'B': None, 'C': None, 'D': None}
+            'explanation': 'A critical error occurred during question generation.'
         }
 
 def wrap_math_latex(text):
@@ -529,19 +404,50 @@ d.save(buffer)""",
         'matplotlib': """import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from io import BytesIO
+import time
+import uuid
 
 # Create RICH, COLORFUL matplotlib visualization
 plt.style.use('default')  # Use modern styling
 fig, ax = plt.subplots(figsize=(10, 8))
+
+# CRITICAL RULES for matplotlib:
+# 1. Use 'color' parameter, NOT 'c', 'fc', 'ec', or 'ecolor'
+# 2. Use 'facecolor' for fill colors, NOT 'fcolor', 'facedgecolor', 'facedgedgecolor'
+# 3. Use 'edgecolor' for border colors, NOT 'ecolor', 'edgedgecolor', 'edgefacecolor'
+# 4. NEVER combine parameter names: NO 'facedgedgecolor', 'faceedgecolor', 'edgefacecolor'
+# 5. Valid bbox parameters: facecolor='color', edgecolor='color', boxstyle='style'
+# 6. Always use plt.savefig() with proper filename
+# 7. Always call plt.close() after saving
+# 8. CRITICAL: Ensure all for loops have proper indentation
+# 9. CRITICAL: Check all parentheses and brackets are properly matched
+# 10. CRITICAL: Use proper Python syntax - no missing colons or indentation
+
 # Add diverse plot elements with colors, markers, and annotations
 # Create an informative and visually appealing plot
-# IMPORTANT: Use proper color names and ensure colors are applied correctly
 # Example: ax.plot(x, y, color='red', linewidth=2, marker='o')
-# Example: ax.scatter(x, y, c=colors, s=sizes, alpha=0.6)
-# Example: ax.bar(categories, values, color=colors, alpha=0.7)
+# Example: ax.scatter(x, y, color='blue', s=100, alpha=0.6)
+# Example: ax.bar(categories, values, color='green', alpha=0.7)
 # Example: ax.fill_between(x, y1, y2, color='lightblue', alpha=0.3)
-plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+
+# MANDATORY bbox examples - USE EXACTLY THESE:
+# ax.text(x, y, 'label', bbox=dict(facecolor='white', edgecolor='black'))
+# ax.annotate('text', xy=(x, y), bbox=dict(facecolor='yellow', edgecolor='red'))
+# 
+# FORBIDDEN PARAMETERS (WILL CAUSE ERRORS):
+# ❌ facedgedgecolor ❌ faceedgecolor ❌ edgefacecolor ❌ edgedgecolor 
+# ❌ ecolor ❌ fcolor ❌ edgedgedgecolor ❌ Any combined parameter names
+#
+# ONLY USE: facecolor='value' and edgecolor='value' - NOTHING ELSE!
+
+# CRITICAL: Always ensure proper indentation in loops and conditionals
+# Example of proper for loop:
+# for i in range(5):
+#     ax.plot(x, y, color='red')  # Proper indentation
+
+# Use time-based filename to avoid conflicts
+unique_filename = f"matplotlib_{uuid.uuid4().hex[:8]}_{int(time.time())}"
+plt.savefig(unique_filename, format='png', bbox_inches='tight', dpi=300)
 plt.close()""",
         
         'networkx': """import networkx as nx
@@ -665,10 +571,17 @@ def get_library_rules(library_name):
    - Add legends, titles, and axis labels
    - Use different line styles: '--', '-.', ':', '-'
    - Add annotations: plt.annotate('text', xy=(x, y))
-2. Always end with: plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
-3. Always close with: plt.close()
-4. Make plots informative and visually appealing
-5. IMPORTANT: Use proper color names and ensure colors are applied correctly""",
+2. CRITICAL SYNTAX RULES:
+   - Always ensure proper indentation in for loops and if statements
+   - Check all parentheses and brackets are properly matched
+   - Use proper Python syntax - no missing colons or indentation
+   - Example of proper for loop:
+     for i in range(5):
+         ax.plot(x, y, color='red')  # Proper indentation
+3. Always end with: plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
+4. Always close with: plt.close()
+5. Make plots informative and visually appealing
+6. IMPORTANT: Use proper color names and ensure colors are applied correctly""",
         
         'networkx': """1. Create diverse network visualizations:
    - Use different graph types: nx.Graph(), nx.DiGraph(), nx.MultiGraph()
@@ -1002,8 +915,44 @@ def generate_diagram_question_prompt(topic, subject, stream, question_type, requ
     if requires_option_diagrams:
         option_diagram_instructions = f"""
 
-IMPORTANT: You must generate 4 separate RICH, DIVERSE diagrams for options A, B, C, and D.
+🚨 CRITICAL REQUIREMENT: OPTION DIAGRAMS MANDATORY 🚨
+
+You MUST generate 4 separate RICH, DIVERSE diagrams for options A, B, C, and D.
 Each option should have its own unique, illustrative diagram that clearly represents the concept described in that option.
+
+FORMAT REQUIREMENT: Your response MUST include ALL of these exact sections (NO EXCEPTIONS):
+
+OptionACode:
+```python
+[Complete working code for option A diagram]
+```
+
+OptionBCode:
+```python
+[Complete working code for option B diagram]
+```
+
+OptionCCode:
+```python
+[Complete working code for option C diagram]
+```
+
+OptionDCode:
+```python
+[Complete working code for option D diagram]
+```
+
+VALIDATION CHECKLIST - Before responding, verify:
+✅ OptionACode section exists with working code
+✅ OptionBCode section exists with working code  
+✅ OptionCCode section exists with working code
+✅ OptionDCode section exists with working code
+✅ All 4 sections have unique, different diagrams
+
+DO NOT include a main PythonCode section - ONLY the four OptionCode sections above.
+
+LIBRARY SPECIFICATION: You must specify "Library: {library_name}" in your response.
+DO NOT use "Library: None" - always specify the actual library being used.
 
 VISUAL DIVERSITY REQUIREMENTS:
 - Use different colors, shapes, and layouts for each option
@@ -1092,6 +1041,21 @@ CRITICAL: Each option diagram should be visually distinct, rich in detail, and c
 IMPORTANT: Generate ACTUAL WORKING Python code for each option diagram. Do NOT use placeholder text like "{get_library_specific_prompt(library_name)}" - replace it with real, executable diagram code.
 
 Each OptionACode, OptionBCode, OptionCCode, and OptionDCode must contain complete, working Python code that creates a unique diagram.
+
+🚨 FINAL VALIDATION CHECKLIST - MANDATORY COMPLIANCE 🚨
+✅ OptionACode section exists with UNIQUE working code
+✅ OptionBCode section exists with UNIQUE working code  
+✅ OptionCCode section exists with UNIQUE working code
+✅ OptionDCode section exists with UNIQUE working code
+✅ All 4 sections have DIFFERENT diagrams (NO duplicates)
+✅ All sections use EXACT format "OptionXCode:" (NOT "A.", "B.", etc.)
+✅ NO PythonCode: section exists
+✅ Library specification is provided (NOT "Library: None")
+
+⚠️ CRITICAL WARNING: If you use alternative format like "A.", "B.", "C.", "D." instead of "OptionACode:", "OptionBCode:", etc., the system may not parse your response correctly. ALWAYS use the exact "OptionXCode:" format.
+
+FAILURE TO INCLUDE ALL 4 SECTIONS WITH UNIQUE DIAGRAMS WILL RESULT IN GENERIC FALLBACK DIAGRAMS.
+YOUR RESPONSE MUST HAVE EXACTLY 4 OPTION CODE SECTIONS - NO EXCEPTIONS!
 """
 
     # Enhanced question types for maximum diversity
@@ -1220,6 +1184,14 @@ CRITICAL CODE STRUCTURE FOR MATPLOTLIB:
 - Create rich plots with colors, markers, annotations
 - Use: plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
 - Always close with: plt.close()
+
+⚠️ CRITICAL PARAMETER RULES (VIOLATION = RUNTIME ERROR):
+- ONLY use 'facecolor' for fill colors - NO other variations
+- ONLY use 'edgecolor' for border colors - NO other variations  
+- FORBIDDEN: facedgedgecolor, faceedgecolor, edgefacecolor, edgedgecolor
+- FORBIDDEN: ecolor, fcolor, any combined parameter names
+- VALID ONLY: bbox=dict(facecolor='white', edgecolor='black', boxstyle='round')
+- ANY OTHER PARAMETER COMBINATION WILL CRASH THE SYSTEM
 """,
         'schemdraw': """
 CRITICAL CODE STRUCTURE FOR SCHEMDRAW:
@@ -1257,10 +1229,19 @@ CRITICAL CODE STRUCTURE FOR TURTLE:
     
     code_requirements = code_structure_requirements.get(library_name, code_structure_requirements['graphviz'])
     
+    # Conditional diagram instructions based on requirements
+    if requires_option_diagrams:
+        diagram_instruction = f"""
+CRITICAL: Each option (A, B, C, D) MUST have its own unique diagram using the {library_name} library.
+DO NOT create a single main diagram - create FOUR separate diagrams, one for each option.
+Library: {library_name}"""
+    else:
+        diagram_instruction = f"The question MUST include a relevant RICH, ILLUSTRATIVE diagram using the {library_name} library."
+    
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
 
-The question MUST include a relevant RICH, ILLUSTRATIVE diagram using the {library_name} library.
+{diagram_instruction}
 {option_diagram_instructions}
 
 CRITICAL DIVERSITY REQUIREMENTS:
@@ -1288,10 +1269,10 @@ AVOID GENERIC QUESTIONS:
 
 IMPORTANT: For mathematical equations, use proper LaTeX notation:
 - Use $f(x) = x^2$ for inline equations
-- Use $\frac{{a}}{{b}}$ for fractions
-- Use $\sqrt{{x}}$ for square roots
-- Use $\pi$, $\theta$, $\alpha$, etc. for Greek letters
-- Use $\leq$, $\geq$, $\neq$ for comparison operators
+- Use $\\frac{{a}}{{b}}$ for fractions
+- Use $\\sqrt{{x}}$ for square roots
+- Use $\\pi$, $\\theta$, $\\alpha$, etc. for Greek letters
+- Use $\\leq$, $\\geq$, $\\neq$ for comparison operators
 - **Always use $...$ for inline math in explanations.**
 - **Do not use $$...$$ unless you want a centered block equation.**
 - **Keep explanations as full sentences, not as a list of equations.**
@@ -1408,10 +1389,10 @@ IMPORTANT REQUIREMENTS FOR QUESTION DIVERSITY:
 
 IMPORTANT: For mathematical equations, use proper LaTeX notation:
 - Use $f(x) = x^2$ for inline equations
-- Use $\frac{{a}}{{b}}$ for fractions
-- Use $\sqrt{{x}}$ for square roots
-- Use $\pi$, $\theta$, $\alpha$, etc. for Greek letters
-- Use $\leq$, $\geq$, $\neq$ for comparison operators
+- Use $\\frac{{a}}{{b}}$ for fractions
+- Use $\\sqrt{{x}}$ for square roots
+- Use $\\pi$, $\\theta$, $\\alpha$, etc. for Greek letters
+- Use $\\leq$, $\\geq$, $\\neq$ for comparison operators
 - **Always use $...$ for inline math in explanations.**
 - **Do not use $$...$$ unless you want a centered block equation.**
 - **Keep explanations as full sentences, not as a list of equations.**
@@ -1520,6 +1501,60 @@ def get_diverse_question_templates(topic, subject, stream):
     
     return all_templates
 
+def is_diagram_generation_code(code_snippet):
+    """Determine if code snippet is for diagram generation or question content"""
+    if not code_snippet:
+        return False
+    
+    code_lower = code_snippet.lower()
+    
+    # Check for diagram library imports
+    diagram_imports = [
+        'import graphviz', 'from graphviz', 'import matplotlib', 'from matplotlib',
+        'import plotly', 'from plotly', 'import networkx', 'from networkx', 
+        'import schemdraw', 'from schemdraw', 'import seaborn', 'from seaborn',
+        'import turtle', 'from turtle', 'from PIL import', 'import PIL'
+    ]
+    
+    # Check for diagram-specific function calls
+    diagram_functions = [
+        'graphviz.digraph', 'dot.node', 'dot.edge', 'dot.render',
+        'plt.figure', 'plt.plot', 'plt.savefig', 'plt.show', 'matplotlib',
+        'nx.graph', 'nx.digraph', 'networkx', 'schemdraw.drawing',
+        'turtle.forward', 'turtle.circle', 'image.new', 'draw.rectangle'
+    ]
+    
+    # Check for diagram rendering keywords
+    diagram_keywords = [
+        '.render(', '.savefig(', '.show()', 'format=\'png\'', 'format="png"',
+        'cleanup=true', 'unique_filename', 'dot.save(', 'plt.tight_layout'
+    ]
+    
+    # If code contains any diagram-related imports, functions, or keywords
+    has_diagram_imports = any(imp in code_lower for imp in diagram_imports)
+    has_diagram_functions = any(func in code_lower for func in diagram_functions)
+    has_diagram_keywords = any(keyword in code_lower for keyword in diagram_keywords)
+    
+    is_diagram = has_diagram_imports or has_diagram_functions or has_diagram_keywords
+    
+    # Additional check: if it's a simple code snippet without diagram elements, it's likely question content
+    if not is_diagram:
+        # Check if it's a simple algorithm or data structure (likely question content)
+        simple_patterns = [
+            'def ', 'class ', 'for ', 'while ', 'if ', 'return ',
+            'int[]', 'string[]', 'list', 'array', 'function'
+        ]
+        has_simple_patterns = any(pattern in code_lower for pattern in simple_patterns)
+        
+        if has_simple_patterns and len(code_snippet.split('\n')) < 20:  # Short code snippets are likely question content
+            print(f"🔍 Debug: Code appears to be question content (simple algorithm/data structure)")
+            return False
+    
+    print(f"🔍 Debug: Code analysis - Diagram imports: {has_diagram_imports}, Functions: {has_diagram_functions}, Keywords: {has_diagram_keywords}")
+    print(f"🔍 Debug: Code classified as: {'Diagram generation' if is_diagram else 'Question content'}")
+    
+    return is_diagram
+
 def parse_openai_response(response_text):
     """Parse the OpenAI response to extract question components"""
     print("🔍 Debug: Parsing OpenAI response...")
@@ -1607,10 +1642,21 @@ def parse_openai_response(response_text):
             for i, line in enumerate(lines[:10]):
                 print(f"  {i}: {line.strip()}")
         
-        # Always append code snippet to question text if found (for programming questions)
+        # Determine if code snippet is diagram generation code or question content code
         if code_snippet:
-            print(f"🔍 Debug: Appending code snippet to question text")
-            question_text = f"{question_text}\n\n```{language}\n{code_snippet}\n```"
+            # Check if this is diagram generation code or question content code
+            is_diagram_code = is_diagram_generation_code(code_snippet)
+            
+            if is_diagram_code:
+                print(f"🔍 Debug: Storing code snippet as diagram code (language: {language})")
+                diagram_code = code_snippet  # Store the raw code without markdown formatting
+                print(f"🔍 Debug: Diagram code stored separately: {diagram_code[:100]}...")
+            else:
+                print(f"🔍 Debug: Code snippet is question content, appending to question text (language: {language})")
+                question_text = f"{question_text}\n\n```{language}\n{code_snippet}\n```"
+                print(f"🔍 Debug: Question content code appended to question text")
+        else:
+            print(f"🔍 Debug: No code snippet found, diagram_code remains None")
         
         # Extract options (only A, B, C, D - limit to 4 options)
         for line in lines:
@@ -1644,20 +1690,25 @@ def parse_openai_response(response_text):
                 correct_answer = line.replace('Answer:', '').strip()
                 break
         
-        # Extract explanation
+        # Extract explanation - IMPROVED VERSION
         explanation_start = None
         for i, line in enumerate(lines):
             if line.strip().startswith('Explanation:'):
                 explanation_start = i
+                # Extract explanation from the same line if it exists
+                explanation_text = line.split(':', 1)[1].strip() if ':' in line else ''
+                
+                # Continue collecting subsequent lines until we hit a new section
+                explanation_lines = [explanation_text] if explanation_text else []
+                for next_line in lines[i + 1:]:
+                    # Remove "Answer:" from stop words - explanations come AFTER answers
+                    # Also remove option letters (A., B., C., D.) from stop words since explanations may reference them
+                    if next_line.strip().startswith(('Question:', 'Library:', 'PythonCode:', 'OptionACode:', 'OptionBCode:', 'OptionCCode:', 'OptionDCode:')):
+                        break
+                    explanation_lines.append(next_line)
+                
+                explanation = '\n'.join(explanation_lines).strip()
                 break
-        
-        if explanation_start is not None:
-            explanation_lines = []
-            for line in lines[explanation_start + 1:]:
-                if line.strip().startswith(('Question:', 'A.', 'B.', 'C.', 'D.', 'Answer:', 'Library:', 'PythonCode:', 'OptionACode:', 'OptionBCode:', 'OptionCCode:', 'OptionDCode:')):
-                    break
-                explanation_lines.append(line)
-            explanation = '\n'.join(explanation_lines).strip()
         
         # Extract library used
         for line in lines:
@@ -1680,42 +1731,125 @@ def parse_openai_response(response_text):
             diagram_code_lines = lines[python_code_start + 1:python_code_end]
             diagram_code = '\n'.join(diagram_code_lines)
         
+        # Fallback: Look for any code block if no PythonCode section found
+        if not diagram_code:
+            print("🔍 Debug: No PythonCode section found, looking for any code block...")
+            code_block_start = None
+            code_block_end = None
+            for i, line in enumerate(lines):
+                if line.strip().startswith('```python'):
+                    code_block_start = i
+                    for j in range(i + 1, len(lines)):
+                        if lines[j].strip().startswith('```'):
+                            code_block_end = j
+                            break
+                    break
+            
+            if code_block_start is not None and code_block_end is not None:
+                diagram_code_lines = lines[code_block_start + 1:code_block_end]
+                diagram_code = '\n'.join(diagram_code_lines)
+                print(f"🔍 Debug: Found fallback code block: {diagram_code[:100]}...")
+        
+        # Additional fallback: Look for code after Library: line
+        if not diagram_code:
+            print("🔍 Debug: Looking for code after Library line...")
+            library_line_index = None
+            for i, line in enumerate(lines):
+                if line.strip().startswith('Library:'):
+                    library_line_index = i
+                    break
+            
+            if library_line_index is not None:
+                # Look for code block after Library line
+                for i in range(library_line_index + 1, len(lines)):
+                    if lines[i].strip().startswith('```python'):
+                        code_block_start = i
+                        for j in range(i + 1, len(lines)):
+                            if lines[j].strip().startswith('```'):
+                                code_block_end = j
+                                break
+                        break
+                
+                if 'code_block_start' in locals() and 'code_block_end' in locals():
+                    diagram_code_lines = lines[code_block_start + 1:code_block_end]
+                    diagram_code = '\n'.join(diagram_code_lines)
+                    print(f"🔍 Debug: Found code after Library line: {diagram_code[:100]}...")
+        
         # Extract option diagram codes - only if they are properly formatted and not mixed with main diagram
         option_codes = ['OptionACode:', 'OptionBCode:', 'OptionCCode:', 'OptionDCode:']
         option_labels = ['A', 'B', 'C', 'D']
+        alternative_codes = ['A.', 'B.', 'C.', 'D.']  # Alternative format that AI sometimes uses
         
-        # First check if we're in a section that should have option diagrams
+        # Check if we're in a section that should have option diagrams (either format)
         has_option_section = any(option_code in response_text for option_code in option_codes)
+        has_alternative_section = any(alt_code in response_text for alt_code in alternative_codes)
         
-        if has_option_section:
-            for option_code, option_label in zip(option_codes, option_labels):
-                code_start = None
-                code_end = None
-                for i, line in enumerate(lines):
+        if has_option_section or has_alternative_section:
+            print(f"🔍 Debug: Found option diagram sections - Standard: {has_option_section}, Alternative: {has_alternative_section}")
+            
+            for i, (option_code, option_label, alt_code) in enumerate(zip(option_codes, option_labels, alternative_codes)):
+                option_line_index = None
+                code_block_start = None
+                code_block_end = None
+                format_used = None
+                
+                # Try standard format first (OptionACode:)
+                for j, line in enumerate(lines):
                     if option_code in line:
-                        code_start = i
-                    elif code_start is not None and '```' in line:
-                        if code_end is None:
-                            code_end = i
+                        option_line_index = j
+                        format_used = "standard"
+                        break
+                
+                # If not found, try alternative format (A.)
+                if option_line_index is None:
+                    for j, line in enumerate(lines):
+                        if line.strip() == alt_code:  # Exact match for "A.", "B.", etc.
+                            option_line_index = j
+                            format_used = "alternative"
+                            print(f"🔧 Debug: Found Option {option_label} using alternative format ({alt_code})")
                             break
                 
-                if code_start is not None and code_end is not None:
-                    option_code_lines = lines[code_start + 1:code_end]
-                    option_code_text = '\n'.join(option_code_lines)
+                if option_line_index is not None:
+                    # Find the ```python line after OptionXCode: or X.
+                    for j in range(option_line_index + 1, len(lines)):
+                        if lines[j].strip().startswith('```python'):
+                            code_block_start = j
+                            break
                     
-                    # Validate that the code is not just placeholder text
-                    if option_code_text and not option_code_text.strip().startswith('#'):
-                        # Check if it contains actual code (not just comments)
-                        if any(keyword in option_code_text for keyword in ['import ', 'def ', 'class ', '= ', '+', '-', '*', '/']):
-                            option_diagram_codes[option_label] = option_code_text
+                    # Find the closing ``` line
+                    if code_block_start is not None:
+                        for j in range(code_block_start + 1, len(lines)):
+                            if lines[j].strip() == '```':
+                                code_block_end = j
+                                break
+                    
+                    # Extract the code between the markers
+                    if code_block_start is not None and code_block_end is not None:
+                        option_code_lines = lines[code_block_start + 1:code_block_end]
+                        option_code_text = '\n'.join(option_code_lines)
+                        
+                        print(f"🎨 Debug: Option {option_label} code extracted ({len(option_code_text)} chars, {format_used} format): {option_code_text[:50]}...")
+                        
+                        # Validate that the code contains actual code
+                        if option_code_text and option_code_text.strip():
+                            # Check if it contains actual code (not just comments)
+                            if any(keyword in option_code_text for keyword in ['import ', 'def ', 'class ', '= ', 'dot.', 'plt.', 'd +=']):
+                                option_diagram_codes[option_label] = option_code_text
+                                print(f"✅ Debug: Option {option_label} code successfully parsed using {format_used} format")
+                            else:
+                                print(f"⚠️ Debug: Option {option_label} code appears to be placeholder text")
+                                option_diagram_codes[option_label] = None
                         else:
-                            print(f"⚠️ Debug: Option {option_label} code appears to be placeholder text")
+                            print(f"⚠️ Debug: Option {option_label} code is empty or just comments")
                             option_diagram_codes[option_label] = None
                     else:
-                        print(f"⚠️ Debug: Option {option_label} code is empty or just comments")
+                        print(f"❌ Debug: Could not find code block boundaries for Option {option_label}")
                         option_diagram_codes[option_label] = None
+                else:
+                    print(f"❌ Debug: Could not find {option_code} or {alt_code} line")
+                    option_diagram_codes[option_label] = None
         else:
-            print("🔍 Debug: No option diagram section found, skipping option diagram parsing")
+            print("🔍 Debug: No option diagram section found (neither standard nor alternative format), skipping option diagram parsing")
         
         # If no options were parsed, use default labels
         if not options:
@@ -1734,7 +1868,8 @@ def parse_openai_response(response_text):
         print(f"🔍 Debug: Parsed question_text: {question_text}")
         print(f"🔍 Debug: Parsed options: {options}")
         print(f"🔍 Debug: Parsed correct_answer: {correct_answer}")
-        print(f"🔍 Debug: Parsed explanation: {explanation[:100]}...")
+        print(f"🔍 Debug: Parsed explanation: {explanation}")
+        print(f"🔍 Debug: Explanation length: {len(explanation)} characters")
         print(f"🔍 Debug: Parsed option_diagram_codes: {option_diagram_codes}")
         
         return {

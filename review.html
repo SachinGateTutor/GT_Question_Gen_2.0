@@ -464,6 +464,66 @@
                 font-size: 0.9rem;
                 margin: 10px 0;
             }
+            
+            /* PragyaAI Modal Responsiveness */
+            .pragya-ai-modal {
+                width: 95% !important;
+                max-width: 95% !important;
+                margin: 5% auto !important;
+                max-height: 90vh;
+            }
+            
+            .ai-tabs {
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .ai-tab-btn {
+                padding: 10px 15px;
+                justify-content: center;
+                border-radius: 6px;
+                top: 0;
+                border-bottom: none;
+            }
+            
+            .ai-tab-btn .tab-text {
+                font-size: 0.8rem;
+            }
+            
+            .ai-tab-btn .tab-icon {
+                font-size: 1rem;
+            }
+            
+            .section-header h4 {
+                font-size: 1.1rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .solution-step {
+                margin-bottom: 15px;
+            }
+            
+            .step-header {
+                padding: 10px 15px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .step-content {
+                padding: 15px;
+            }
+            
+            .formatted-content {
+                font-size: 0.9rem;
+            }
+            
+            .bullet-point {
+                padding-left: 25px;
+                font-size: 0.9rem;
+            }
         }
         
         @media (max-width: 480px) {
@@ -483,6 +543,83 @@
             }
             .pagination span {
                 font-size: 0.8rem;
+            }
+            
+            /* PragyaAI Mobile Optimizations */
+            .modal-header h3 {
+                font-size: 1.2rem;
+            }
+            
+            .ai-status {
+                font-size: 0.8rem;
+            }
+            
+            .ai-tab-btn {
+                padding: 8px 12px;
+                gap: 6px;
+            }
+            
+            .ai-tab-btn .tab-text {
+                font-size: 0.75rem;
+            }
+            
+            .ai-tab-btn .tab-icon {
+                font-size: 0.9rem;
+            }
+            
+            .section-header h4 {
+                font-size: 1rem;
+            }
+            
+            .section-icon {
+                font-size: 1.2rem;
+                width: 28px;
+            }
+            
+            .solution-step {
+                border-radius: 8px;
+            }
+            
+            .step-header {
+                padding: 8px 12px;
+            }
+            
+            .step-number {
+                width: 28px;
+                height: 28px;
+                font-size: 0.9rem;
+            }
+            
+            .step-content {
+                padding: 12px;
+            }
+            
+            .formatted-content {
+                font-size: 0.85rem;
+                line-height: 1.6;
+            }
+            
+            .bullet-point {
+                padding: 6px 0 6px 22px;
+                font-size: 0.85rem;
+            }
+            
+            .bullet-point::before {
+                left: 10px;
+                font-size: 1rem;
+            }
+            
+            .no-content-message {
+                padding: 25px 15px;
+            }
+            
+            .no-content-icon {
+                font-size: 2rem;
+                margin-bottom: 10px;
+            }
+            
+            .no-content-message p {
+                font-size: 0.9rem;
             }
         }
     </style>
@@ -702,37 +839,249 @@
     
     .ai-tabs {
         display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
+        gap: 8px;
+        margin-bottom: 25px;
         flex-wrap: wrap;
+        border-bottom: 2px solid #f1f3f4;
+        padding-bottom: 0;
     }
     
     .ai-tab-btn {
-        background: #e9ecef;
+        background: transparent;
         border: none;
-        padding: 10px 20px;
-        border-radius: 6px;
+        padding: 12px 20px;
+        border-radius: 8px 8px 0 0;
         cursor: pointer;
         font-weight: 500;
         transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 3px solid transparent;
+        position: relative;
+        top: 2px;
+    }
+    
+    .ai-tab-btn .tab-icon {
+        font-size: 1.2rem;
+    }
+    
+    .ai-tab-btn .tab-text {
+        font-size: 0.9rem;
+        font-weight: 600;
     }
     
     .ai-tab-btn.active {
-        background: #ff6b6b;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
         color: white;
+        border-bottom-color: #ff6b6b;
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
     }
     
-    .ai-tab-btn:hover {
-        background: #ff6b6b;
-        color: white;
+    .ai-tab-btn:hover:not(.active) {
+        background: rgba(255, 107, 107, 0.1);
+        color: #ff6b6b;
+        transform: translateY(-1px);
     }
     
     .ai-tab-content {
         display: none;
+        animation: fadeIn 0.3s ease;
     }
     
     .ai-tab-content.active {
         display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Enhanced Section Styling */
+    .section-header {
+        margin-bottom: 20px;
+    }
+    
+    .section-header h4 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 10px 0;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    
+    .section-icon {
+        font-size: 1.4rem;
+        display: inline-block;
+        width: 32px;
+        text-align: center;
+    }
+    
+    .section-divider {
+        height: 3px;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        border-radius: 2px;
+        margin-bottom: 15px;
+    }
+    
+    /* Formatted Content Styling */
+    .formatted-content {
+        line-height: 1.8;
+        color: #34495e;
+        font-size: 1rem;
+    }
+    
+    .formatted-explanation {
+        margin: 0;
+    }
+    
+    .formatted-explanation p {
+        margin-bottom: 15px;
+        text-align: justify;
+    }
+    
+    .formatted-explanation strong {
+        color: #2c3e50;
+        font-weight: 700;
+    }
+    
+    .formatted-explanation em {
+        color: #7f8c8d;
+        font-style: italic;
+    }
+    
+    .formatted-explanation code {
+        background: #f8f9fa;
+        color: #e74c3c;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+    }
+    
+    /* Step-by-Step Solution Styling */
+    .solution-step {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .solution-step:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .step-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .step-number {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1rem;
+    }
+    
+    .step-content {
+        padding: 20px;
+        background: white;
+    }
+    
+    /* List Styling */
+    .formatted-list {
+        list-style: none;
+        padding: 0;
+        margin: 15px 0;
+    }
+    
+    .bullet-point {
+        position: relative;
+        padding: 8px 0 8px 30px;
+        margin-bottom: 8px;
+        border-left: 3px solid #ff6b6b;
+        background: rgba(255, 107, 107, 0.05);
+        border-radius: 0 6px 6px 0;
+    }
+    
+    .bullet-point::before {
+        content: '•';
+        position: absolute;
+        left: 12px;
+        color: #ff6b6b;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+    
+    /* Section-specific Styling */
+    .solution-section {
+        border-left: 4px solid #667eea;
+    }
+    
+    .concepts-section {
+        border-left: 4px solid #3498db;
+    }
+    
+    .tips-section {
+        border-left: 4px solid #f39c12;
+    }
+    
+    .analysis-section {
+        border-left: 4px solid #27ae60;
+        margin-bottom: 25px;
+    }
+    
+    .correct-analysis {
+        background: rgba(39, 174, 96, 0.05);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(39, 174, 96, 0.2);
+    }
+    
+    .incorrect-analysis {
+        background: rgba(231, 76, 60, 0.05);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid rgba(231, 76, 60, 0.2);
+    }
+    
+    /* No Content Message */
+    .no-content-message {
+        text-align: center;
+        padding: 40px 20px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        border: 2px dashed #dee2e6;
+        color: #6c757d;
+    }
+    
+    .no-content-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    .no-content-message p {
+        margin: 0;
+        font-style: italic;
+        font-size: 1.1rem;
     }
     </style>
     <script src="config.js"></script>
@@ -1392,6 +1741,60 @@
                  .replace(/'/g, "&#039;");
         }
 
+        // Format explanation content for better display
+        function formatExplanationContent(content) {
+            if (!content || content.trim() === '' || content === 'Analysis not available.' || content === 'Solution analysis not available.' || content === 'Key concepts not available.' || content === 'Learning tips not available.') {
+                return `<div class="no-content-message">
+                    <span class="no-content-icon">📝</span>
+                    <p>No detailed explanation available for this section.</p>
+                </div>`;
+            }
+            
+            // Replace line breaks and format text
+            let formatted = content
+                .replace(/\n\n/g, '</p><p>')  // Double line breaks become paragraph breaks
+                .replace(/\n/g, '<br>')       // Single line breaks become <br>
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold text
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Italic text
+                .replace(/`(.*?)`/g, '<code>$1</code>');           // Inline code
+            
+            // Format numbered steps
+            formatted = formatted.replace(/(\d+\.\s+)/g, '<div class="step-number">$1</div>');
+            
+            // Format bullet points
+            formatted = formatted.replace(/^[-•*]\s+(.+)/gm, '<li class="bullet-point">$1</li>');
+            
+            // Wrap in paragraphs if not already wrapped
+            if (!formatted.includes('<p>') && !formatted.includes('<div>') && !formatted.includes('<li>')) {
+                formatted = `<p>${formatted}</p>`;
+            }
+            
+            // Wrap bullet points in ul
+            if (formatted.includes('<li class="bullet-point">')) {
+                formatted = formatted.replace(/(<li class="bullet-point">.*?<\/li>)/gs, '<ul class="formatted-list">$1</ul>');
+            }
+            
+            // Format step sections
+            if (formatted.includes('<div class="step-number">')) {
+                const steps = formatted.split('<div class="step-number">');
+                let stepFormatted = '';
+                for (let i = 1; i < steps.length; i++) {
+                    const stepContent = steps[i];
+                    stepFormatted += `<div class="solution-step">
+                        <div class="step-header">
+                            <div class="step-number">${i}.</div>
+                        </div>
+                        <div class="step-content">${stepContent.replace(/^\d+\.\s*/, '')}</div>
+                    </div>`;
+                }
+                if (stepFormatted) {
+                    formatted = steps[0] + stepFormatted;
+                }
+            }
+            
+            return `<div class="formatted-explanation">${formatted}</div>`;
+        }
+
         // PragyaAI Functions
         async function askPragyaAI(question) {
             try {
@@ -1468,49 +1871,91 @@
             
             const content = document.getElementById('aiExplanationContent');
             
-            // Create tabbed interface
+            // Create tabbed interface with improved formatting
             let html = `
                 <div class="ai-tabs">
-                    <button class="ai-tab-btn active" onclick="showAITab('solution')">📝 Step-by-Step Solution</button>
-                    <button class="ai-tab-btn" onclick="showAITab('concepts')">🧠 Key Concepts</button>
-                    <button class="ai-tab-btn" onclick="showAITab('tips')">💡 Learning Tips</button>
-                    <button class="ai-tab-btn" onclick="showAITab('analysis')">🔍 Why Correct/Incorrect</button>
+                    <button class="ai-tab-btn active" onclick="showAITab('solution')">
+                        <span class="tab-icon">📝</span>
+                        <span class="tab-text">Step-by-Step Solution</span>
+                    </button>
+                    <button class="ai-tab-btn" onclick="showAITab('concepts')">
+                        <span class="tab-icon">🧠</span>
+                        <span class="tab-text">Key Concepts</span>
+                    </button>
+                    <button class="ai-tab-btn" onclick="showAITab('tips')">
+                        <span class="tab-icon">💡</span>
+                        <span class="tab-text">Learning Tips</span>
+                    </button>
+                    <button class="ai-tab-btn" onclick="showAITab('analysis')">
+                        <span class="tab-icon">🔍</span>
+                        <span class="tab-text">Analysis</span>
+                    </button>
                 </div>
                 
                 <div id="ai-solution-tab" class="ai-tab-content active">
-                    <div class="ai-explanation-section">
-                        <h4>📝 Step-by-Step Solution</h4>
-                        <p>${explanation.step_by_step_solution || 'Solution analysis not available.'}</p>
+                    <div class="ai-explanation-section solution-section">
+                        <div class="section-header">
+                            <h4><span class="section-icon">📝</span> Step-by-Step Solution</h4>
+                            <div class="section-divider"></div>
+                        </div>
+                        <div class="formatted-content">
+                            ${formatExplanationContent(explanation.step_by_step_solution || 'Solution analysis not available.')}
+                        </div>
                     </div>
                 </div>
                 
                 <div id="ai-concepts-tab" class="ai-tab-content">
-                    <div class="ai-explanation-section">
-                        <h4>🧠 Key Concepts</h4>
-                        <p>${explanation.key_concepts || 'Key concepts not available.'}</p>
+                    <div class="ai-explanation-section concepts-section">
+                        <div class="section-header">
+                            <h4><span class="section-icon">🧠</span> Key Concepts</h4>
+                            <div class="section-divider"></div>
+                        </div>
+                        <div class="formatted-content">
+                            ${formatExplanationContent(explanation.key_concepts || 'Key concepts not available.')}
+                        </div>
                     </div>
                 </div>
                 
                 <div id="ai-tips-tab" class="ai-tab-content">
-                    <div class="ai-explanation-section">
-                        <h4>💡 Learning Tips</h4>
-                        <p>${explanation.learning_tips || 'Learning tips not available.'}</p>
+                    <div class="ai-explanation-section tips-section">
+                        <div class="section-header">
+                            <h4><span class="section-icon">💡</span> Learning Tips</h4>
+                            <div class="section-divider"></div>
+                        </div>
+                        <div class="formatted-content">
+                            ${formatExplanationContent(explanation.learning_tips || 'Learning tips not available.')}
+                        </div>
                     </div>
                 </div>
                 
                 <div id="ai-analysis-tab" class="ai-tab-content">
-                    <div class="ai-explanation-section">
-                        <h4>✅ Why the Correct Answer is Right</h4>
-                        <p>${explanation.why_correct || 'Analysis not available.'}</p>
+                    <div class="ai-explanation-section analysis-section">
+                        <div class="section-header">
+                            <h4><span class="section-icon">✅</span> Why the Correct Answer is Right</h4>
+                            <div class="section-divider"></div>
+                        </div>
+                        <div class="formatted-content correct-analysis">
+                            ${formatExplanationContent(explanation.why_correct || 'Analysis not available.')}
+                        </div>
                     </div>
-                    <div class="ai-explanation-section">
-                        <h4>❌ Why Other Options are Wrong</h4>
-                        <p>${explanation.why_incorrect || 'Analysis not available.'}</p>
+                    <div class="ai-explanation-section analysis-section">
+                        <div class="section-header">
+                            <h4><span class="section-icon">❌</span> Why Other Options are Wrong</h4>
+                            <div class="section-divider"></div>
+                        </div>
+                        <div class="formatted-content incorrect-analysis">
+                            ${formatExplanationContent(explanation.why_incorrect || 'Analysis not available.')}
+                        </div>
                     </div>
                 </div>
             `;
             
             content.innerHTML = html;
+            
+            // Trigger MathJax rendering for any mathematical content
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise([content]);
+            }
         }
         
         function showAITab(tabName) {
