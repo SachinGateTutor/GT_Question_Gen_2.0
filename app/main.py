@@ -22,278 +22,7 @@ from flask_cors import CORS
 # Global storage for active generations
 active_generations = {}
 
-def generate_fallback_diagram_code(library_name, option):
-    """Generate fallback diagram code when AI fails to generate proper diagrams"""
-    if library_name == 'graphviz':
-        # Create different diagrams for each option
-        if option == 'A':
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='circle', style='filled', fillcolor="lightblue")
-dot.node('B', 'Feature 1', shape='box', style='filled', fillcolor="lightgreen")
-dot.node('C', 'Feature 2', shape='box', style='filled', fillcolor="lightyellow")
-dot.edge('A', 'B', label='connects', color="blue", style='dashed')
-dot.edge('A', 'C', label='connects', color="red", style='solid')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-        elif option == 'B':
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='diamond', style='filled', fillcolor="lightcoral")
-dot.node('B', 'Process 1', shape='ellipse', style='filled', fillcolor="lightcyan")
-dot.node('C', 'Process 2', shape='ellipse', style='filled', fillcolor="lightpink")
-dot.edge('A', 'B', label='flows', color="green", style='bold')
-dot.edge('A', 'C', label='flows', color="purple", style='dotted')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-        elif option == 'C':
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='box', style='filled', fillcolor="lightgoldenrodyellow")
-dot.node('B', 'Module 1', shape='hexagon', style='filled', fillcolor="lightsteelblue")
-dot.node('C', 'Module 2', shape='hexagon', style='filled', fillcolor="lightseagreen")
-dot.edge('A', 'B', label='calls', color="orange", style='bold')
-dot.edge('A', 'C', label='calls', color="brown", style='solid')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-        else:  # Option D
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='triangle', style='filled', fillcolor="lightpink")
-dot.node('B', 'Service 1', shape='parallelogram', style='filled', fillcolor="lightblue")
-dot.node('C', 'Service 2', shape='parallelogram', style='filled', fillcolor="lightgreen")
-dot.edge('A', 'B', label='requests', color="navy", style='bold')
-dot.edge('A', 'C', label='requests', color="maroon", style='dashed')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-    elif library_name == 'matplotlib':
-        # Create different matplotlib diagrams for each option
-        if option == 'A':
-            return f"""
-import matplotlib.pyplot as plt
-import numpy as np
-from io import BytesIO
-# Create fallback diagram for Option {option}
-fig, ax = plt.subplots(figsize=(8, 6))
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
-ax.plot(x, y, color='blue', linewidth=2, label=f'Option {option}')
-ax.set_title(f'Option {option} - Sine Wave')
-ax.set_xlabel('X-axis')
-ax.set_ylabel('Y-axis')
-ax.legend()
-ax.grid(True, alpha=0.3)
-plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
-plt.close()
-"""
-        elif option == 'B':
-            return f"""
-import matplotlib.pyplot as plt
-import numpy as np
-from io import BytesIO
-# Create fallback diagram for Option {option}
-fig, ax = plt.subplots(figsize=(8, 6))
-x = np.linspace(0, 10, 100)
-y = np.cos(x)
-ax.plot(x, y, color='red', linewidth=2, linestyle='--', label=f'Option {option}')
-ax.set_title(f'Option {option} - Cosine Wave')
-ax.set_xlabel('X-axis')
-ax.set_ylabel('Y-axis')
-ax.legend()
-ax.grid(True, alpha=0.3)
-plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
-plt.close()
-"""
-        elif option == 'C':
-            return f"""
-import matplotlib.pyplot as plt
-import numpy as np
-from io import BytesIO
-# Create fallback diagram for Option {option}
-fig, ax = plt.subplots(figsize=(8, 6))
-x = np.linspace(0, 10, 100)
-y = x**2 / 10
-ax.plot(x, y, color='green', linewidth=2, marker='o', markersize=3, label=f'Option {option}')
-ax.set_title(f'Option {option} - Quadratic Function')
-ax.set_xlabel('X-axis')
-ax.set_ylabel('Y-axis')
-ax.legend()
-ax.grid(True, alpha=0.3)
-plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
-plt.close()
-"""
-        else:  # Option D
-            return f"""
-import matplotlib.pyplot as plt
-import numpy as np
-from io import BytesIO
-# Create fallback diagram for Option {option}
-fig, ax = plt.subplots(figsize=(8, 6))
-x = np.linspace(0, 10, 100)
-y = np.exp(-x/3)
-ax.plot(x, y, color='purple', linewidth=2, linestyle=':', label=f'Option {option}')
-ax.set_title(f'Option {option} - Exponential Decay')
-ax.set_xlabel('X-axis')
-ax.set_ylabel('Y-axis')
-ax.legend()
-ax.grid(True, alpha=0.3)
-plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
-plt.close()
-"""
-    else:
-        # Default to graphviz for other libraries with diverse options
-        if option == 'A':
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='circle', style='filled', fillcolor="lightblue")
-dot.node('B', 'Feature 1', shape='box', style='filled', fillcolor="lightgreen")
-dot.node('C', 'Feature 2', shape='box', style='filled', fillcolor="lightyellow")
-dot.edge('A', 'B', label='connects', color="blue", style='dashed')
-dot.edge('A', 'C', label='connects', color="red", style='solid')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-        elif option == 'B':
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='diamond', style='filled', fillcolor="lightcoral")
-dot.node('B', 'Process 1', shape='ellipse', style='filled', fillcolor="lightcyan")
-dot.node('C', 'Process 2', shape='ellipse', style='filled', fillcolor="lightpink")
-dot.edge('A', 'B', label='flows', color="green", style='bold')
-dot.edge('A', 'C', label='flows', color="purple", style='dotted')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-        elif option == 'C':
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='box', style='filled', fillcolor="lightgoldenrodyellow")
-dot.node('B', 'Module 1', shape='hexagon', style='filled', fillcolor="lightsteelblue")
-dot.node('C', 'Module 2', shape='hexagon', style='filled', fillcolor="lightseagreen")
-dot.edge('A', 'B', label='calls', color="orange", style='bold')
-dot.edge('A', 'C', label='calls', color="brown", style='solid')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
-        else:  # Option D
-            return f"""
-import graphviz
-import tempfile
-import os
-from io import BytesIO
-# Create fallback diagram for Option {option}
-dot = graphviz.Digraph()
-dot.node('A', 'Option {option}', shape='triangle', style='filled', fillcolor="lightpink")
-dot.node('B', 'Service 1', shape='parallelogram', style='filled', fillcolor="lightblue")
-dot.node('C', 'Service 2', shape='parallelogram', style='filled', fillcolor="lightgreen")
-dot.edge('A', 'B', label='requests', color="navy", style='bold')
-dot.edge('A', 'C', label='requests', color="maroon", style='dashed')
-# Use temporary file to avoid cluttering main directory
-temp_path = tempfile.mktemp()
-dot.render(temp_path, format='png', cleanup=True)
-# Clean up any remaining temp files
-for temp_file in os.listdir('.'):
-    if temp_file.startswith('temp') and temp_file.endswith('.png'):
-        try:
-            os.remove(temp_file)
-        except:
-            pass
-"""
+# Removed fallback diagram generation - let it be None when diagram generation fails
 
 app = Flask(__name__)
 CORS(app)
@@ -385,35 +114,12 @@ def generate():
                     else:
                         # Fallback: generate a default diagram
                         print(f"⚠️ Debug: Failed to render option {option} diagram, generating fallback")
-                        fallback_code = generate_fallback_diagram_code(library_used, option)
-                        if fallback_code:
-                            fallback_image = render_diagram(
-                                fallback_code,
-                                library_used,
-                                app.config['UPLOAD_FOLDER']
-                            )
-                            if fallback_image:
-                                option_images.append(f"/static/images/{fallback_image}")
-                            else:
-                                option_images.append(None)
-                        else:
-                            option_images.append(None)
+                        # Fallback: generate a default diagram
+                        option_images.append(None)
                 else:
                     # Generate fallback diagram for missing option
                     print(f"⚠️ Debug: No code for option {option}, generating fallback")
-                    fallback_code = generate_fallback_diagram_code(library_used, option)
-                    if fallback_code:
-                        fallback_image = render_diagram(
-                            fallback_code,
-                            library_used,
-                            app.config['UPLOAD_FOLDER']
-                        )
-                        if fallback_image:
-                            option_images.append(f"/static/images/{fallback_image}")
-                        else:
-                            option_images.append(None)
-                    else:
-                        option_images.append(None)
+                    option_images.append(None)
         else:
             # If option diagrams are not requested, set all to None
             option_images = [None, None, None, None]
@@ -471,7 +177,8 @@ def generate():
                 'explanation': result.get('explanation'),
                 'diagram_image_url': image_url,
                 'library_used': result.get('library_used', 'schemdraw'),
-                'option_images': option_images
+                'option_images': option_images,
+                'diagram_code': result.get('diagram_code')  # Add diagram code
             }
             
             # Store the generated question in database
@@ -533,6 +240,7 @@ def generate_cdq():
         context_type = data.get('context_type', 'real_world')
         difficulty_level_id = data.get('difficulty_level_id', 2)
         bloom_level_id = data.get('bloom_level_id', 2)
+        requires_diagram = data.get('requires_diagram', False)  # Get user's diagram preference
         
         if not all([topic_id, subject_id, stream_id, course_id]):
             return jsonify({
@@ -545,44 +253,109 @@ def generate_cdq():
             'stream_id': stream_id,
             'subject_id': subject_id,
             'topic_id': topic_id,
-            'question_type_id': 2,  # CDQ
+            'question_type_id': 6,  # CDQ (ID 6 from database)
             'difficulty_level_id': difficulty_level_id,
             'bloom_level_id': bloom_level_id,
             'question_type': 'CDQ',
-            'requires_diagram': True,
+            'requires_diagram': requires_diagram,  # Use user's diagram preference
             'requires_option_diagrams': False,
             'is_programming_question': False,
             'custom_prompt': f"Generate a CDQ with {context_type} context. Focus on practical application and real-world scenarios.",
-            'num_questions': 1
+            'num_questions': 4  # Generate 4 questions for CDQ passage
         }
         
-        # Generate CDQ
-        result = generate_mcq_and_diagram(question_data)
+        # Generate CDQ with passage and questions
+        from services.openai_service import generate_cdq_complete
+        result = generate_cdq_complete(question_data)
         
-        if result and not result.get('error'):
-            # Store question in database
-            stored_question = store_generated_question(question_data, result)
+        if result and result.get('passage_text') and result.get('questions'):
+            # Store passage first
+            from services.db_service import insert_cdq_passage
+            passage_data = {
+                'subject_id': subject_id,
+                'topic_id': topic_id,
+                'passage_text': result['passage_text']
+            }
+            print(f"🔍 Debug: Storing CDQ passage with data: {passage_data}")
+            passage_id = insert_cdq_passage(passage_data)
+            print(f"🔍 Debug: CDQ passage stored with ID: {passage_id}")
             
-            if stored_question:
-                return jsonify({
-                    'success': True,
-                    'question_id': stored_question,
-                    'question_text': result.get('question_text', ''),
-                    'options': result.get('options', []),
-                    'correct_answer': result.get('correct_answer', ''),
-                    'explanation': result.get('explanation', ''),
-                    'diagram_image_url': result.get('diagram_image_url'),
-                    'library_used': result.get('library_used'),
-                    'context_type': context_type
-                })
+            if passage_id:
+                # Store each question with passage reference
+                stored_questions = []
+                for i, question in enumerate(result['questions']):
+                    # Create question master entry
+                    question_master_data = {
+                        'subject_id': subject_id,
+                        'topic_id': topic_id,
+                        'question_type_id': 6,  # CDQ (ID 6 from database)
+                        'bloom_level_id': bloom_level_id,
+                        'difficulty_level_id': difficulty_level_id,
+                        'marks': 1
+                    }
+                    
+                    # Store question master
+                    from services.db_service import insert_question_master
+                    question_id = insert_question_master(question_master_data)
+                    
+                    if question_id:
+                        # Store CDQ question with passage reference
+                        from services.db_service import insert_cdq_question
+                        cdq_success = insert_cdq_question(passage_id, question_id)
+                        
+                        if cdq_success:
+                            # Store MCQ question details
+                            mcq_data = {
+                                'question_id': question_id,
+                                'question_text': question.get('question_text', ''),
+                                'options': question.get('options', []),
+                                'correct_answer': question.get('correct_answer', ''),
+                                'diagram_code': question.get('diagram_code') if requires_diagram else None,
+                                'diagram_image_url': question.get('diagram_image_url') if requires_diagram else None
+                            }
+                            
+                            # Add auto-detected Bloom level if available
+                            if result.get('detected_bloom_level_id'):
+                                mcq_data['detected_bloom_level_id'] = result['detected_bloom_level_id']
+                            
+                            from services.db_service import insert_mcq_question
+                            mcq_success = insert_mcq_question(question_id, mcq_data)
+                            
+                            if mcq_success:
+                                # Store explanation if available
+                                if question.get('explanation'):
+                                    explanation_data = {
+                                        'question_id': question_id,
+                                        'explanation_text': question.get('explanation', '')
+                                    }
+                                    from services.db_service import insert_question_explanation
+                                    insert_question_explanation(question_id, explanation_data)
+                                
+                                stored_questions.append(question_id)
+                
+                if stored_questions:
+                    print(f"🔍 Debug: CDQ generation successful - Passage ID: {passage_id}, Question IDs: {stored_questions}")
+                    return jsonify({
+                        'success': True,
+                        'passage_id': passage_id,
+                        'question_ids': stored_questions,
+                        'passage_text': result['passage_text'],
+                        'questions': result['questions'],  # Add the questions array
+                        'total_questions': len(stored_questions),
+                        'context_type': context_type
+                    })
+                else:
+                    return jsonify({
+                        'error': 'Failed to store CDQ questions'
+                    }), 500
             else:
                 return jsonify({
-                    'error': 'Failed to store generated question'
+                    'error': 'Failed to store CDQ passage'
                 }), 500
         else:
             return jsonify({
                 'error': 'Failed to generate CDQ',
-                'message': result.get('error', 'Unknown error')
+                'message': 'No passage or questions generated'
             }), 500
             
     except Exception as e:
@@ -871,10 +644,12 @@ def generate_random_questions():
 def get_generation_progress(generation_id):
     """Get real-time progress of question generation"""
     if generation_id in active_generations:
+        session = active_generations[generation_id]
         return jsonify({
             'success': True,
-            'progress': active_generations[generation_id]['progress'],
-            'status': active_generations[generation_id]['status']
+            'progress': session['progress'],
+            'status': session['status'],
+            'generated_questions': session.get('generated_questions', [])  # Include generated questions
         })
     else:
         return jsonify({'success': False, 'error': 'Generation not found'}), 404
@@ -976,7 +751,7 @@ def generate_single_question(request_data, question_type):
                 from services.renderers.random_generation_renderer import render_diagram_for_random
                 import os
                 # Set the output folder for diagram images
-                output_folder = os.path.join(os.path.dirname(__file__), 'static', 'images')
+                output_folder = app.config['UPLOAD_FOLDER']
                 diagram_result = render_diagram_for_random(generated_data['diagram_code'], generated_data['library_used'], output_folder)
                 if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
                     generated_data['diagram_image_url'] = diagram_result['image_url']
@@ -995,7 +770,7 @@ def generate_single_question(request_data, question_type):
                         from services.renderers.random_generation_renderer import render_option_diagram_for_random
                         import os
                         # Set the output folder for diagram images
-                        output_folder = os.path.join(os.path.dirname(__file__), 'static', 'images')
+                        output_folder = app.config['UPLOAD_FOLDER']
                         diagram_result = render_option_diagram_for_random(code, generated_data['library_used'], output_folder)
                         if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
                             option_images.append(diagram_result['image_url'])

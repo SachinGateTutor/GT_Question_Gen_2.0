@@ -1161,7 +1161,7 @@
 
                     <div class="form-group">
                         <div class="checkbox-group">
-                            <input type="checkbox" id="requiresDiagram" name="requiresDiagram">
+                            <input type="checkbox" id="requiresDiagram" name="requiresDiagram" unchecked>
                             <label for="requiresDiagram">📊 Include Question Diagram</label>
                         </div>
                     </div>
@@ -1205,6 +1205,32 @@
                     <div id="diagramContainer" style="text-align: center; margin-top: 20px;">
                         <div id="libraryInfo" class="library-info hidden"></div>
                         <img id="diagramImage" class="diagram-image hidden" alt="Generated Diagram">
+                    </div>
+                </div>
+
+                <!-- Generation Progress Display -->
+                <div id="generationProgress" class="generation-progress hidden">
+                    <h3>🔄 Generating Questions...</h3>
+                    
+                    <div class="progress-summary">
+                        <div class="total-progress">
+                            <strong>Overall Progress: <span id="current-count">0</span>/<span id="total-count">0</span> questions</strong>
+                        </div>
+                        
+                        <div class="detailed-progress">
+                            <div>📊 With Diagrams: <span id="diagram-progress">0</span>/<span id="diagram-total">0</span></div>
+                            <div>🎯 Option Diagrams: <span id="option-progress">0</span>/<span id="option-total">0</span></div>
+                            <div>📝 Text Only: <span id="text-progress">0</span>/<span id="text-total">0</span></div>
+                            <div>💻 Code Snippets: <span id="code-progress">0</span>/<span id="code-total">0</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-controls">
+                        <button id="stop-generation" class="btn-stop">🛑 Stop Generation</button>
+                    </div>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%"></div>
                     </div>
                 </div>
 
@@ -1280,31 +1306,7 @@
         </div>
     </div>
 
-    <!-- Generation Progress Display -->
-    <div id="generationProgress" class="generation-progress hidden">
-        <h3>🔄 Generating Questions...</h3>
-        
-        <div class="progress-summary">
-            <div class="total-progress">
-                <strong>Overall Progress: <span id="current-count">0</span>/<span id="total-count">0</span> questions</strong>
-            </div>
-            
-            <div class="detailed-progress">
-                <div>📊 With Diagrams: <span id="diagram-progress">0</span>/<span id="diagram-total">0</span></div>
-                <div>🎯 Option Diagrams: <span id="option-progress">0</span>/<span id="option-total">0</span></div>
-                <div>📝 Text Only: <span id="text-progress">0</span>/<span id="text-total">0</span></div>
-                <div>💻 Code Snippets: <span id="code-progress">0</span>/<span id="code-total">0</span></div>
-            </div>
-        </div>
-        
-        <div class="progress-controls">
-            <button id="stop-generation" class="btn-stop">🛑 Stop Generation</button>
-        </div>
-        
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: 0%"></div>
-        </div>
-    </div>
+
 
 
 
@@ -1502,6 +1504,12 @@
             }
             
             result.classList.remove('hidden');
+            
+            // Make sure progress display is hidden when showing manual results
+            const progressDiv = document.getElementById('generationProgress');
+            if (progressDiv) {
+                progressDiv.classList.add('hidden');
+            }
                 
             // Trigger MathJax to render equations (robust check)
             if (window.MathJax && window.MathJax.typesetPromise) {
@@ -2032,6 +2040,15 @@
             const result = document.getElementById('result');
             const error = document.getElementById('error');
             
+            // Clear previous content from the right panel
+            clearRightPanelContent();
+            
+            // Hide progress display if it's showing
+            const progressDiv = document.getElementById('generationProgress');
+            if (progressDiv) {
+                progressDiv.classList.add('hidden');
+            }
+            
             loading.classList.remove('hidden');
             result.classList.add('hidden');
             error.classList.add('hidden');
@@ -2235,8 +2252,14 @@
         }
 
         function showProgressDisplay(questionPlan) {
+            // FIRST: Clear all previous content from the right panel
+            clearRightPanelContent();
+            
             const progressDiv = document.getElementById('generationProgress');
             progressDiv.classList.remove('hidden');
+            
+            // Reset progress display to initial state
+            resetProgressDisplay();
             
             // Initialize progress counters
             document.getElementById('total-count').textContent = questionPlan.total_questions;
@@ -2245,14 +2268,67 @@
             document.getElementById('text-total').textContent = questionPlan.text_only_questions;
             document.getElementById('code-total').textContent = questionPlan.code_questions;
             
-            // Add stop button listener
-            document.getElementById('stop-generation').onclick = stopGeneration;
+            // Reset current counters to 0
+            document.getElementById('current-count').textContent = '0';
+            document.getElementById('diagram-progress').textContent = '0';
+            document.getElementById('option-progress').textContent = '0';
+            document.getElementById('text-progress').textContent = '0';
+            document.getElementById('code-progress').textContent = '0';
             
-            // Clear any previously displayed questions
+            // Reset progress bar
+            document.querySelector('.progress-fill').style.width = '0%';
+            
+            // Reset stop button
+            const stopBtn = document.getElementById('stop-generation');
+            stopBtn.disabled = false;
+            stopBtn.textContent = '🛑 Stop Generation';
+            stopBtn.onclick = stopGeneration;
+            
+            // Reset title
+            const progressTitle = progressDiv.querySelector('h3');
+            if (progressTitle) {
+                progressTitle.textContent = '🔄 Generating Questions...';
+                progressTitle.style.color = '#495057';
+            }
+        }
+
+        function resetProgressDisplay() {
+            // Remove any completion messages
+            const completeDivs = document.querySelectorAll('.generation-complete');
+            completeDivs.forEach(div => div.remove());
+        }
+
+        function clearRightPanelContent() {
+            // Hide previous results
+            const result = document.getElementById('result');
+            if (result) {
+                result.classList.add('hidden');
+            }
+            
+            // Clear loading and error states
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            if (loading) loading.classList.add('hidden');
+            if (error) error.classList.add('hidden');
+            
+            // Clear any generated questions container
             const generatedQuestionsContainer = document.getElementById('generatedQuestionsContainer');
             if (generatedQuestionsContainer) {
-                generatedQuestionsContainer.innerHTML = '';
+                generatedQuestionsContainer.remove();
             }
+            
+            // Clear any existing question cards or content that might be showing
+            const questionCards = document.querySelectorAll('.question-card');
+            questionCards.forEach(card => card.remove());
+            
+            // Clear any diagram containers
+            const diagramContainers = document.querySelectorAll('#diagramContainer');
+            diagramContainers.forEach(container => {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            });
+            
+            console.log('✅ Cleared right panel content for new generation');
         }
 
         async function startProgressPolling() {
@@ -2262,11 +2338,34 @@
                     const result = await response.json();
                     
                     if (result.success) {
+                        // Add status to progress object
+                        result.progress.status = result.status;
                         updateProgressDisplay(result.progress);
                         
                         // Track generated questions for current session
                         if (result.generated_questions && result.generated_questions.length > 0) {
-                            currentSessionQuestions = result.generated_questions;
+                            console.log('🔍 Debug: Raw generated questions from backend:', result.generated_questions);
+                            
+                            // Transform backend question format to frontend format
+                            const transformedQuestions = result.generated_questions.map(q => {
+                                const questionData = q.question || q;
+                                return {
+                                    QuestionID: q.id || questionData.question_id,
+                                    QuestionText: questionData.question_text || '',
+                                    Options: JSON.stringify(questionData.options || []),
+                                    CorrectAnswer: questionData.correct_answer || 'A',
+                                    DiagramImageURL: questionData.diagram_image_url,
+                                    Explanation: questionData.explanation || '',
+                                    IsEnable: false,  // New questions are pending by default
+                                    IsDeleted: false,
+                                    QuestionType: q.type || 'mcq',
+                                    CreatedDate: new Date().toISOString()  // Add current timestamp
+                                };
+                            });
+                            
+                            console.log('🔍 Debug: Transformed questions for display:', transformedQuestions);
+                            currentSessionQuestions = transformedQuestions;
+                            
                             // Show questions in real-time as they are generated
                             displaySessionQuestions(currentSessionQuestions, 'Current Session Questions');
                         }
@@ -2275,44 +2374,147 @@
                             clearInterval(pollInterval);
                             handleGenerationComplete(result.status);
                         }
+                    } else {
+                        console.error('Progress polling failed:', result.error);
                     }
                 } catch (error) {
                     console.error('Progress polling error:', error);
+                    // Continue polling unless it's a critical error
                 }
             }, 1000); // Poll every second
         }
 
         function updateProgressDisplay(progress) {
             // Update counters
-            document.getElementById('current-count').textContent = progress.current;
-            document.getElementById('diagram-progress').textContent = progress.diagram_current;
-            document.getElementById('option-progress').textContent = progress.option_current;
-            document.getElementById('text-progress').textContent = progress.text_current;
-            document.getElementById('code-progress').textContent = progress.code_current;
+            document.getElementById('current-count').textContent = progress.current || 0;
+            document.getElementById('diagram-progress').textContent = progress.diagram_current || 0;
+            document.getElementById('option-progress').textContent = progress.option_current || 0;
+            document.getElementById('text-progress').textContent = progress.text_current || 0;
+            document.getElementById('code-progress').textContent = progress.code_current || 0;
             
             // Update progress bar
-            const percentage = (progress.current / progress.total) * 100;
+            const percentage = ((progress.current || 0) / (progress.total || 1)) * 100;
             document.querySelector('.progress-fill').style.width = percentage + '%';
+            
+            // Update button text based on status
+            const stopBtn = document.getElementById('stop-generation');
+            if (progress.status === 'stopped') {
+                stopBtn.textContent = '⏹️ Generation Stopped';
+                stopBtn.disabled = true;
+            } else if (progress.status === 'completed') {
+                stopBtn.textContent = '✅ Generation Complete';
+                stopBtn.disabled = true;
+            }
         }
 
         async function stopGeneration() {
             if (currentGenerationId) {
-                await fetch(`/api/stop-generation/${currentGenerationId}`, { method: 'POST' });
-                document.getElementById('stop-generation').disabled = true;
-                document.getElementById('stop-generation').textContent = '⏹️ Stopping...';
+                try {
+                    const stopBtn = document.getElementById('stop-generation');
+                    stopBtn.disabled = true;
+                    stopBtn.textContent = '⏹️ Stopping...';
+                    
+                    const response = await fetch(`/api/stop-generation/${currentGenerationId}`, { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        console.log('Generation stop request sent successfully');
+                        // The polling will handle the final UI update when status changes to 'stopped'
+                    } else {
+                        console.error('Failed to stop generation:', result.error);
+                        // Re-enable button if stop failed
+                        stopBtn.disabled = false;
+                        stopBtn.textContent = '🛑 Stop Generation';
+                    }
+                } catch (error) {
+                    console.error('Error stopping generation:', error);
+                    // Re-enable button if there was an error
+                    const stopBtn = document.getElementById('stop-generation');
+                    stopBtn.disabled = false;
+                    stopBtn.textContent = '🛑 Stop Generation';
+                }
             }
         }
 
         function handleGenerationComplete(status) {
             const progressDiv = document.getElementById('generationProgress');
-            progressDiv.innerHTML += `
-                <div class="generation-complete">
-                    <h4>${status === 'completed' ? '✅ Generation Complete!' : '⏹️ Generation Stopped'}</h4>
-                </div>
-            `;
+            const stopBtn = document.getElementById('stop-generation');
             
-            // Questions are already displayed automatically during generation
-            // No need to call showGeneratedQuestions() again
+            // Update the progress title
+            const progressTitle = progressDiv.querySelector('h3');
+            if (progressTitle) {
+                progressTitle.textContent = status === 'completed' ? '✅ Generation Complete!' : '⏹️ Generation Stopped';
+                progressTitle.style.color = status === 'completed' ? '#27ae60' : '#e74c3c';
+            }
+            
+            // Update stop button
+            stopBtn.disabled = true;
+            stopBtn.textContent = status === 'completed' ? '✅ Complete' : '⏹️ Stopped';
+            
+            // Add completion message if not already present
+            if (!progressDiv.querySelector('.generation-complete')) {
+                const completeDiv = document.createElement('div');
+                completeDiv.className = 'generation-complete';
+                completeDiv.innerHTML = `
+                    <h4>${status === 'completed' ? '✅ All questions generated successfully!' : '⏹️ Generation was stopped by user'}</h4>
+                    <p>Generated ${currentSessionQuestions.length} questions total</p>
+                `;
+                progressDiv.appendChild(completeDiv);
+            }
+            
+            // Update progress bar to 100% if completed
+            if (status === 'completed') {
+                document.querySelector('.progress-fill').style.width = '100%';
+            }
+            
+            // Ensure questions are displayed when generation completes
+            if (currentSessionQuestions && currentSessionQuestions.length > 0) {
+                console.log(`🔍 Debug: Displaying final ${currentSessionQuestions.length} questions`);
+                displaySessionQuestions(currentSessionQuestions, status === 'completed' ? 'Generated Questions' : 'Questions Generated Before Stop');
+            } else {
+                console.log('⚠️ Debug: No questions available to display');
+                // Try to fetch questions from the API one more time
+                fetchFinalQuestions();
+            }
+            
+            console.log(`Generation ${status} with ${currentSessionQuestions.length} questions`);
+        }
+
+        async function fetchFinalQuestions() {
+            // Fallback function to fetch questions when generation completes but no questions were captured
+            try {
+                console.log('🔍 Debug: Attempting to fetch final questions from API');
+                const response = await fetch(`/api/generation-progress/${currentGenerationId}`);
+                const result = await response.json();
+                
+                if (result.success && result.generated_questions && result.generated_questions.length > 0) {
+                    console.log('🔍 Debug: Successfully fetched final questions from API');
+                    
+                    // Transform and display questions
+                    const transformedQuestions = result.generated_questions.map(q => {
+                        const questionData = q.question || q;
+                        return {
+                            QuestionID: q.id || questionData.question_id,
+                            QuestionText: questionData.question_text || '',
+                            Options: JSON.stringify(questionData.options || []),
+                            CorrectAnswer: questionData.correct_answer || 'A',
+                            DiagramImageURL: questionData.diagram_image_url,
+                            Explanation: questionData.explanation || '',
+                            IsEnable: false,
+                            IsDeleted: false,
+                            QuestionType: q.type || 'mcq',
+                            CreatedDate: new Date().toISOString()  // Add current timestamp
+                        };
+                    });
+                    
+                    currentSessionQuestions = transformedQuestions;
+                    displaySessionQuestions(currentSessionQuestions, 'Generated Questions');
+                } else {
+                    console.log('⚠️ Debug: No questions found in final fetch');
+                }
+            } catch (error) {
+                console.error('❌ Error fetching final questions:', error);
+            }
         }
 
         function switchToManual() {
@@ -2350,18 +2552,26 @@
         function displaySessionQuestions(questions, title = 'Current Session Questions') {
             // Display questions in the result section
             const resultSection = document.getElementById('result');
-            const generatedQuestionsContainer = document.getElementById('generatedQuestionsContainer');
+            let generatedQuestionsContainer = document.getElementById('generatedQuestionsContainer');
             
-            // Create container if it doesn't exist
+            // Create container if it doesn't exist (it may have been removed during cleanup)
             if (!generatedQuestionsContainer) {
                 const container = document.createElement('div');
                 container.id = 'generatedQuestionsContainer';
                 container.className = 'generated-questions-container';
                 resultSection.appendChild(container);
+                generatedQuestionsContainer = container;
             }
+            
+            // Make sure the result section is visible
+            resultSection.classList.remove('hidden');
             
             // Clear previous content
             document.getElementById('generatedQuestionsContainer').innerHTML = '';
+            
+            // Categorize questions by type for better progress tracking
+            const questionTypes = categorizeQuestions(questions);
+            updateProgressCountersFromQuestions(questionTypes);
             
             // Add header with generation status
             const header = document.createElement('h3');
@@ -2391,6 +2601,51 @@
             if (!isGenerating) {
                 resultSection.scrollIntoView({ behavior: 'smooth' });
             }
+        }
+
+        function categorizeQuestions(questions) {
+            const types = {
+                diagram: 0,
+                option: 0,
+                text: 0,
+                code: 0
+            };
+
+            questions.forEach(question => {
+                // Check if question has diagrams
+                if (question.DiagramImageURL || question.diagram_image_url) {
+                    types.diagram++;
+                }
+                // Check if question has option diagrams
+                else if (question.OptionImages || question.option_images) {
+                    const optionImages = question.OptionImages || question.option_images;
+                    if (optionImages && optionImages.some(img => img !== null)) {
+                        types.option++;
+                    } else {
+                        types.text++;
+                    }
+                }
+                // Check if question has code snippets
+                else if (question.QuestionText && (question.QuestionText.includes('```') || question.QuestionText.includes('code') || question.QuestionText.includes('programming'))) {
+                    types.code++;
+                }
+                // Default to text only
+                else {
+                    types.text++;
+                }
+            });
+
+            return types;
+        }
+
+        function updateProgressCountersFromQuestions(questionTypes) {
+            // Update the progress counters based on actual question categorization
+            document.getElementById('diagram-progress').textContent = questionTypes.diagram;
+            document.getElementById('option-progress').textContent = questionTypes.option;
+            document.getElementById('text-progress').textContent = questionTypes.text;
+            document.getElementById('code-progress').textContent = questionTypes.code;
+            document.getElementById('current-count').textContent = 
+                questionTypes.diagram + questionTypes.option + questionTypes.text + questionTypes.code;
         }
 
         function createQuestionCard(question, index) {
