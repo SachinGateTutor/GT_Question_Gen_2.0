@@ -161,7 +161,7 @@ python test_db_connection.py
 3. **SubjectMaster** - Subject definitions (linked to streams)
 4. **TopicMaster** - Topic definitions (linked to subjects)
 5. **QuestionMaster** - Question metadata
-6. **MCQ_Questions** - MCQ-specific data
+6. **MCQ_Questions** - MCQ-specific data with diagram code support
 7. **QuestionExplanation** - Explanations and diagrams
 
 ### Reference Tables
@@ -178,6 +178,71 @@ python test_db_connection.py
 - **Question Types**: MCQ, True/False, Fill in the Blanks, etc.
 - **Bloom Levels**: Remember, Understand, Apply, Analyze, Evaluate, Create
 - **Difficulty Levels**: Easy, Medium, Hard, Expert
+
+### Enhanced Features (v4.5_ML)
+- **Diagram Code Storage**: MCQ_Questions table now includes `DiagramCode` column (NVARCHAR(MAX)) to store Python diagram generation code
+- **Advanced Question Generation**: Support for programming questions with code snippets and diagrams
+- **PragyaAI Integration**: Enhanced explanations with AI-powered analysis
+- **Multi-format Content**: Support for text, images, and dynamically generated diagrams
+
+## 🔄 Upgrading Existing Database
+
+If you're upgrading from an earlier version that doesn't have the `DiagramCode` column:
+
+```sql
+-- Add DiagramCode column to existing MCQ_Questions table
+USE GTQuestionDB;
+GO
+
+-- Check if column already exists
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[MCQ_Questions]') AND name = 'DiagramCode')
+BEGIN
+    ALTER TABLE MCQ_Questions ADD DiagramCode NVARCHAR(MAX);
+    PRINT 'DiagramCode column added successfully to MCQ_Questions table.';
+END
+ELSE
+BEGIN
+    PRINT 'DiagramCode column already exists in MCQ_Questions table.';
+END
+GO
+
+-- Recreate the view to include the new column
+IF EXISTS (SELECT * FROM sys.views WHERE name = 'vw_QuestionsWithDetails')
+BEGIN
+    DROP VIEW vw_QuestionsWithDetails;
+    PRINT 'Existing view dropped for recreation.';
+END
+GO
+
+-- Create updated view (same as in main setup script)
+CREATE VIEW vw_QuestionsWithDetails AS
+SELECT 
+    qm.QuestionID, qm.SubjectID, qm.TopicID, qm.QuestionTypeID, qm.Marks,
+    qm.BloomLevelID, qm.DifficultyLevelID, qm.SectionID, qm.IsEnable,
+    qm.IsDeleted, qm.IsPublic, qm.AddedDate, qm.ApprovedDate,
+    c.CourseName, s.StreamName, sub.SubjectName, t.TopicName,
+    qt.QuestionTypeName, bl.LevelName AS BloomLevelName,
+    dl.LevelName AS DifficultyLevelName, st.SectionName,
+    mcq.QuestionText, mcq.OptionA, mcq.OptionB, mcq.OptionC, mcq.OptionD,
+    mcq.CorrectOption, mcq.HasImage, mcq.ImgQuestion, mcq.ImgOptionA,
+    mcq.ImgOptionB, mcq.ImgOptionC, mcq.ImgOptionD, mcq.DiagramCode,
+    qe.ExplanationText, qe.ImgExplanation
+FROM QuestionMaster qm
+LEFT JOIN SubjectMaster sub ON qm.SubjectID = sub.SubjectID
+LEFT JOIN StreamMaster s ON sub.StreamID = s.StreamID
+LEFT JOIN CourseMaster c ON s.CourseID = c.CourseID
+LEFT JOIN TopicMaster t ON qm.TopicID = t.TopicID
+LEFT JOIN QuestionType qt ON qm.QuestionTypeID = qt.QuestionTypeID
+LEFT JOIN BloomLevel bl ON qm.BloomLevelID = bl.BloomLevelID
+LEFT JOIN DifficultyLevel dl ON qm.DifficultyLevelID = dl.DifficultyLevelID
+LEFT JOIN SectionType st ON qm.SectionID = st.SectionID
+LEFT JOIN MCQ_Questions mcq ON qm.QuestionID = mcq.QuestionID
+LEFT JOIN QuestionExplanation qe ON qm.QuestionID = qe.QuestionID
+WHERE qm.IsDeleted = 0;
+GO
+
+PRINT 'Database upgrade completed successfully!';
+```
 
 ## 🔍 Troubleshooting
 
@@ -338,13 +403,15 @@ docker exec -i sqlserver /opt/mssql-tools/bin/sqlcmd \
 
 - [ ] SQL Server installed and running
 - [ ] Database GTQuestionDB created
-- [ ] All tables created successfully
+- [ ] All tables created successfully (including DiagramCode column)
 - [ ] Sample data inserted
 - [ ] Indexes created
+- [ ] Updated view `vw_QuestionsWithDetails` includes DiagramCode column
 - [ ] Application can connect to database
-- [ ] Test questions can be generated
+- [ ] Test questions can be generated with diagram code
 - [ ] Questions can be stored and retrieved
 - [ ] Review interface works correctly
+- [ ] PragyaAI explanations display properly
 
 ## 📞 Support
 

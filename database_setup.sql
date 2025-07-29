@@ -162,6 +162,7 @@ BEGIN
         ImgOptionB NVARCHAR(500),
         ImgOptionC NVARCHAR(500),
         ImgOptionD NVARCHAR(500),
+        DiagramCode NVARCHAR(MAX),
         CreatedDate DATETIME DEFAULT GETDATE()
     );
     PRINT 'MCQ_Questions table created successfully.';
@@ -384,6 +385,7 @@ SELECT
     mcq.ImgOptionB,
     mcq.ImgOptionC,
     mcq.ImgOptionD,
+    mcq.DiagramCode,
     qe.ExplanationText,
     qe.ImgExplanation
 FROM QuestionMaster qm
