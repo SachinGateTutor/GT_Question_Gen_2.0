@@ -93,13 +93,13 @@ def render(code: str, output_path: str):
     # Fix duplicate style attributes
     code = re.sub(r'style="[^"]*"\s+style="[^"]*"', 'style="filled"', code)
     
-    # Fix BytesIO references
-    code = code.replace('BytesIO()', 'io.BytesIO()')
+    # Remove BytesIO import if present (not needed for file saving)
     code = code.replace('from io import BytesIO', '')
     
-    # Fix buffer references
-    code = code.replace('buffer', f"'{output_path}'")
-    code = code.replace('dot.render(buffer', f'dot.render("{output_path}"')
+    # Fix buffer references - use proper filename only
+    filename = os.path.basename(output_path)
+    code = code.replace('buffer', f"'{filename}'")
+    code = code.replace('dot.render(buffer', f'dot.render("{filename}"')
     
     # Add missing imports if needed
     if 'graphviz' in code and 'import graphviz' not in code:

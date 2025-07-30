@@ -349,10 +349,6 @@ def generate_cdq():
                     return jsonify({
                         'error': 'Failed to store CDQ questions'
                     }), 500
-            else:
-                return jsonify({
-                    'error': 'Failed to store CDQ passage'
-                }), 500
         else:
             return jsonify({
                 'error': 'Failed to generate CDQ',

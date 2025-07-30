@@ -24,9 +24,10 @@ def render(code: str, output_path: str):
         code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
         code = re.sub(r'p=[\'"]([^\'"]*)[\'"]', r'palette="\1"', code)
         
-        # Fix buffer references - use raw strings to avoid unicode issues
-        code = code.replace('buffer', f"r'{output_path}'")
-        code = code.replace('plt.savefig(buffer', f'plt.savefig(r"{output_path}"')
+        # Fix buffer references - use proper filename only, not full path
+        filename = os.path.basename(output_path)
+        code = code.replace('buffer', f"'{filename}'")
+        code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
         
         # Fix lineplot syntax issues
         code = re.sub(r'sns\.lineplot\(([^,]+),\s*([^,]+)', r'sns.lineplot(x=\1, y=\2', code)

@@ -87,13 +87,13 @@ def render(code: str, output_path: str):
     code = re.sub(r'fcolor=[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)
     code = re.sub(r'fcolor=([^\s,)]+)', r'facecolor=\1', code)
     
-    # Fix BytesIO references
-    code = code.replace('BytesIO()', 'io.BytesIO()')
+    # Remove BytesIO import if present (not needed for file saving)
     code = code.replace('from io import BytesIO', '')
     
-    # Fix buffer references
-    code = code.replace('buffer', f"'{output_path}'")
-    code = code.replace('plt.savefig(buffer', f'plt.savefig("{output_path}"')
+    # Fix buffer references - use proper filename only
+    filename = os.path.basename(output_path)
+    code = code.replace('buffer', f"'{filename}'")
+    code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
     
     # Add missing imports if needed
     if 'np.' in code and 'import numpy' not in code:

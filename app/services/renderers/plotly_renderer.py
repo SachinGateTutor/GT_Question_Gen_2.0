@@ -19,9 +19,10 @@ def render(code: str, output_path: str):
         code = re.sub(r'cs=[\'"]([^\'"]*)[\'"]', r'colorscale="\1"', code)
         code = re.sub(r'lc=[\'"]([^\'"]*)[\'"]', r'line_color="\1"', code)
         
-        # Fix buffer references - use raw strings to avoid unicode issues
-        code = code.replace('buffer', f"r'{output_path}'")
-        code = code.replace('pio.write_image(fig, buffer', f'pio.write_image(fig, r"{output_path}"')
+        # Fix buffer references - use proper filename only, not full path
+        filename = os.path.basename(output_path)
+        code = code.replace('buffer', f"'{filename}'")
+        code = code.replace('pio.write_image(fig, buffer', f'pio.write_image(fig, "{filename}"')
         
         # Add missing imports if needed
         if 'np.' in code and 'import numpy' not in code:
