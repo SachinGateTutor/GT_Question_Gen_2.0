@@ -29,6 +29,10 @@ def render(code: str, output_path: str):
         code = code.replace('buffer', f"'{filename}'")
         code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
         
+        # Fix hardcoded PNG filenames in plt.savefig() calls
+        # Replace any hardcoded .png filename in plt.savefig() with our proper filename
+        code = re.sub(r'plt\.savefig\([\'"][^\'"]*.png[\'"]', f'plt.savefig("{filename}"', code)
+        
         # Fix lineplot syntax issues
         code = re.sub(r'sns\.lineplot\(([^,]+),\s*([^,]+)', r'sns.lineplot(x=\1, y=\2', code)
         

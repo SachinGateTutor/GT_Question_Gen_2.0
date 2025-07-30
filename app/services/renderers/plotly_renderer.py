@@ -24,6 +24,9 @@ def render(code: str, output_path: str):
         code = code.replace('buffer', f"'{filename}'")
         code = code.replace('pio.write_image(fig, buffer', f'pio.write_image(fig, "{filename}"')
         
+        # Fix hardcoded PNG filenames in pio.write_image() calls
+        code = re.sub(r'pio\.write_image\([^,]+,\s*[\'"][^\'"]*.png[\'"]', f'pio.write_image(fig, "{filename}"', code)
+        
         # Add missing imports if needed
         if 'np.' in code and 'import numpy' not in code:
             code = 'import numpy as np\n' + code

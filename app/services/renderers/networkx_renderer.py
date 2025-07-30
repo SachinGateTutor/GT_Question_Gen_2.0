@@ -23,6 +23,9 @@ def render(code: str, output_path: str):
         code = code.replace('buffer', f"'{filename}'")
         code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
         
+        # Fix hardcoded PNG filenames in plt.savefig() calls
+        code = re.sub(r'plt\.savefig\([\'"][^\'"]*.png[\'"]', f'plt.savefig("{filename}"', code)
+        
         plt.clf()
         namespace = {'nx': nx, 'plt': plt}
         exec(code, namespace)

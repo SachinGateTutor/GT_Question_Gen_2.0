@@ -95,6 +95,11 @@ def render(code: str, output_path: str):
     code = code.replace('buffer', f"'{filename}'")
     code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
     
+    # Fix hardcoded PNG filenames in plt.savefig() calls
+    import re
+    # Replace any hardcoded .png filename in plt.savefig() with our proper filename
+    code = re.sub(r'plt\.savefig\([\'"][^\'"]*.png[\'"]', f'plt.savefig("{filename}"', code)
+    
     # Add missing imports if needed
     if 'np.' in code and 'import numpy' not in code:
         code = 'import numpy as np\n' + code
