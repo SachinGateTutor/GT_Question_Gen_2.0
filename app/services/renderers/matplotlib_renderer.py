@@ -349,7 +349,7 @@ def fix_common_syntax_errors(code: str) -> str:
     if open_brackets > close_brackets:
         code += ']' * (open_brackets - close_brackets)
     
-    # Fix unmatched braces by adding missing closing braces  
+    # Fix unmatched braces by adding missing closing braces
     open_braces = code.count('{')
     close_braces = code.count('}')
     if open_braces > close_braces:

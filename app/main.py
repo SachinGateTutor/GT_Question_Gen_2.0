@@ -385,19 +385,19 @@ def generate_cdq():
                 # Check if we have stored questions and return appropriate response
                 if stored_questions:
                     print(f"🔍 Debug: CDQ generation successful - Passage ID: {passage_id}, Question IDs: {stored_questions}")
-                    return jsonify({
-                        'success': True,
+                return jsonify({
+                    'success': True,
                         'passage_id': passage_id,
                         'question_ids': stored_questions,
                         'passage_text': result['passage_text'],
                         'questions': result['questions'],  # Add the questions array
                         'total_questions': len(stored_questions),
-                        'context_type': context_type
-                    })
-                else:
-                    return jsonify({
+                    'context_type': context_type
+                })
+            else:
+                return jsonify({
                         'error': 'Failed to store CDQ questions'
-                    }), 500
+                }), 500
         else:
             return jsonify({
                 'error': 'Failed to generate CDQ',
