@@ -237,19 +237,66 @@ def render(code: str, output_path: str):
                     return None
                     
         except Exception as e:
-            print(f"❌ Matplotlib diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+            error_message = str(e)
+            print(f"❌ Matplotlib diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+            
             if attempt < max_retries:
-                print(f"🔄 Retrying matplotlib diagram generation...")
-                # Try to fix the code and retry
+                print(f"🔧 Attempting AI-powered code correction...")
+                
+                # Try AI-powered error correction
+                try:
+                    from ..openai_service import ai_correct_diagram_code
+                    
+                    # Extract subject and topic from the code context (simple heuristic)
+                    subject = "General"  # Default
+                    topic = "Data Visualization"  # Default
+                    
+                    # Try to extract more context from code comments
+                    if '# Subject:' in code:
+                        subject = code.split('# Subject:')[1].split('\n')[0].strip()
+                    if '# Topic:' in code:
+                        topic = code.split('# Topic:')[1].split('\n')[0].strip()
+                    
+                    corrected_code, correction_success = ai_correct_diagram_code(
+                        original_code=code,
+                        error_message=error_message,
+                        library_name="matplotlib",
+                        subject=subject,
+                        topic=topic
+                    )
+                    
+                    if correction_success and corrected_code != code:
+                        print(f"✅ AI provided corrected code, attempting execution...")
+                        
+                        # Apply our standard fixes to the corrected code
+                        corrected_code = apply_matplotlib_fixes(corrected_code, output_path)
+                        
+                        # Write corrected code to temp file
+                        with open(temp_path, 'w', encoding='utf-8') as f:
+                            f.write(corrected_code)
+                        
+                        # Update code variable for next iteration
+                        code = corrected_code
+                        continue
+                    else:
+                        print(f"❌ AI correction failed or provided same code, trying standard fixes...")
+                        
+                except Exception as ai_error:
+                    print(f"❌ AI correction failed: {ai_error}")
+                
+                # Fallback to standard syntax error fixes
+                print(f"🔄 Trying standard syntax error fixes...")
                 try:
                     fixed_code = fix_common_syntax_errors(code)
                     if fixed_code != code:
                         with open(temp_path, 'w', encoding='utf-8') as f:
                             f.write(fixed_code)
+                        code = fixed_code
                         continue
                 except:
                     pass
             else:
+                print(f"❌ All retry attempts failed for matplotlib diagram generation")
                 traceback.print_exc()
                 # Clean up temp file on final failure
                 if os.path.exists(temp_path):
@@ -302,26 +349,44 @@ def fix_common_syntax_errors(code: str) -> str:
     if open_brackets > close_brackets:
         code += ']' * (open_brackets - close_brackets)
     
-    # Fix unmatched braces by adding missing closing braces
+    # Fix unmatched braces by adding missing closing braces  
     open_braces = code.count('{')
     close_braces = code.count('}')
     if open_braces > close_braces:
         code += '}' * (open_braces - close_braces)
     
-    # Fix arrow parameter issues
-    code = re.sub(r'plt\.arrow\([^)]*edgedgecolor=[^)]*\)', 'plt.arrow(0.45, 0.5, 0.1, 0, head_width=0.05, head_length=0.05)', code)
-    code = re.sub(r'plt\.arrow\([^)]*edgedgedgecolor=[^)]*\)', 'plt.arrow(0.45, 0.5, 0.1, 0, head_width=0.05, head_length=0.05)', code)
-    code = re.sub(r'ax\.arrow\([^)]*edgedgecolor=[^)]*\)', 'ax.arrow(0.45, 0.5, 0.1, 0, head_width=0.05, head_length=0.05)', code)
-    code = re.sub(r'ax\.arrow\([^)]*edgedgedgecolor=[^)]*\)', 'ax.arrow(0.45, 0.5, 0.1, 0, head_width=0.05, head_length=0.05)', code)
+    return code
+
+def apply_matplotlib_fixes(code, output_path):
+    """Apply standard matplotlib code fixes and transformations"""
+    import re
+    import os
     
-    # Fix malformed bbox parameter issues (CRITICAL BACKUP FIXES)
-    code = re.sub(r'facedgedgecolor\s*=\s*[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)  
-    code = re.sub(r'facedgedgecolor\s*=\s*([^\s,)]+)', r'facecolor=\1', code)
-    code = re.sub(r'faceedgecolor\s*=\s*[\'"]([^\'"]*)[\'"]', r'facecolor="\1"', code)
-    code = re.sub(r'faceedgecolor\s*=\s*([^\s,)]+)', r'facecolor=\1', code)
-    code = re.sub(r'edgefacecolor\s*=\s*[\'"]([^\'"]*)[\'"]', r'edgecolor="\1"', code)
-    code = re.sub(r'edgefacecolor\s*=\s*([^\s,)]+)', r'edgecolor=\1', code)
-    code = re.sub(r'edgedgedgecolor\s*=\s*[\'"]([^\'"]*)[\'"]', r'edgecolor="\1"', code)
-    code = re.sub(r'edgedgedgecolor\s*=\s*([^\s,)]+)', r'edgecolor=\1', code)
+    # Remove BytesIO import if present (not needed for file saving)
+    code = code.replace('from io import BytesIO', '')
+    
+    # Fix buffer references - use proper filename only
+    filename = os.path.basename(output_path)
+    code = code.replace('buffer', f"'{filename}'")
+    code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
+    
+    # Fix hardcoded PNG filenames in plt.savefig() calls
+    # Replace any hardcoded .png filename in plt.savefig() with our proper filename
+    code = re.sub(r'plt\.savefig\([\'"][^\'"]*.png[\'"]', f'plt.savefig("{filename}"', code)
+    
+    # Add missing imports if needed
+    if 'import matplotlib.pyplot as plt' not in code and 'plt.' in code:
+        code = 'import matplotlib.pyplot as plt\n' + code
+    if 'import numpy as np' not in code and 'np.' in code:
+        code = 'import numpy as np\n' + code
+    
+    # Fix numpy factorial issue
+    if 'np.factorial' in code:
+        if 'from scipy.special import factorial' not in code:
+            code = 'from scipy.special import factorial\n' + code
+        code = code.replace('np.factorial', 'factorial')
+    
+    # Fix deprecated seaborn style
+    code = code.replace("plt.style.use('seaborn')", "plt.style.use('seaborn-v0_8')")
     
     return code 

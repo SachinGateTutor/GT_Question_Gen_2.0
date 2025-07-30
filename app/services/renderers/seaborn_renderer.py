@@ -21,8 +21,8 @@ def render(code: str, output_path: str):
         code = re.sub(r'hue=[\'"]([^\'"]*)[\'"]', r'hue="\1"', code)
         
         # Fix common seaborn color issues
-        code = re.sub(r'c=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
-        code = re.sub(r'p=[\'"]([^\'"]*)[\'"]', r'palette="\1"', code)
+        code = re.sub(r'c=[\'"][^\'\"]*[\'"]', r'color="blue"', code)
+        code = re.sub(r'p=[\'"][^\'\"]*[\'"]', r'palette="viridis"', code)
         
         # Fix buffer references - use proper filename only, not full path
         filename = os.path.basename(output_path)
@@ -122,15 +122,105 @@ def render(code: str, output_path: str):
             exec_globals['precision_recall_curve'] = dummy_precision_recall_curve
         
         print(f"🔍 Executing seaborn code:\n{code}")
-        exec(code, exec_globals)
         
-        # Save image directly to output path
-        plt.savefig(output_path, bbox_inches='tight', dpi=300)
-        plt.close()  # Close the figure to free memory
-        print(f"✅ Seaborn diagram saved as: {os.path.basename(output_path)}")
-        return os.path.basename(output_path)
+        # AI-powered self-healing execution with retry mechanism
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                exec(code, exec_globals)
+                
+                # Save image directly to output path
+                plt.savefig(output_path, bbox_inches='tight', dpi=300)
+                plt.close()  # Close the figure to free memory
+                print(f"✅ Seaborn diagram saved as: {os.path.basename(output_path)}")
+                return os.path.basename(output_path)
+                
+            except Exception as e:
+                error_message = str(e)
+                print(f"❌ Seaborn diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+                
+                if attempt < max_retries:
+                    print(f"🔧 Attempting AI-powered code correction...")
+                    
+                    # Try AI-powered error correction
+                    try:
+                        from ..openai_service import ai_correct_diagram_code
+                        
+                        # Extract context from code comments or use defaults
+                        subject = "General"
+                        topic = "Data Visualization"
+                        
+                        if '# Subject:' in code:
+                            subject = code.split('# Subject:')[1].split('\n')[0].strip()
+                        if '# Topic:' in code:
+                            topic = code.split('# Topic:')[1].split('\n')[0].strip()
+                        
+                        corrected_code, correction_success = ai_correct_diagram_code(
+                            original_code=code,
+                            error_message=error_message,
+                            library_name="seaborn",
+                            subject=subject,
+                            topic=topic
+                        )
+                        
+                        if correction_success and corrected_code != code:
+                            print(f"✅ AI provided corrected seaborn code, attempting execution...")
+                            
+                            # Apply seaborn-specific fixes to corrected code
+                            corrected_code = apply_seaborn_fixes(corrected_code, output_path)
+                            
+                            # Update code for next iteration
+                            code = corrected_code
+                            continue
+                        else:
+                            print(f"❌ AI correction failed or provided same code")
+                            
+                    except Exception as ai_error:
+                        print(f"❌ AI correction failed: {ai_error}")
+                    
+                    # Fallback: basic error pattern fixes
+                    print(f"🔄 Trying basic seaborn error fixes...")
+                    
+                else:
+                    print(f"❌ All retry attempts failed for seaborn diagram generation")
+                    plt.close()  # Clean up any open figures
+                    return None
         
     except Exception as e:
         print(f'❌ Seaborn diagram generation error: {e}')
         traceback.print_exc()
         return None 
+
+def apply_seaborn_fixes(code, output_path):
+    """Apply standard seaborn code fixes and transformations"""
+    import re
+    import os
+    
+    # Fix common seaborn color issues
+    code = re.sub(r'c=[\'"][^\'\"]*[\'"]', r'color="blue"', code)
+    code = re.sub(r'p=[\'"][^\'\"]*[\'"]', r'palette="viridis"', code)
+    
+    # Fix buffer references - use proper filename only, not full path
+    filename = os.path.basename(output_path)
+    code = code.replace('buffer', f"'{filename}'")
+    code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
+    
+    # Fix hardcoded PNG filenames in plt.savefig() calls
+    # Replace any hardcoded .png filename in plt.savefig() with our proper filename
+    code = re.sub(r'plt\.savefig\([\'"][^\'"]*.png[\'"]', f'plt.savefig("{filename}"', code)
+    
+    # Add missing imports if needed
+    if 'import seaborn as sns' not in code and 'sns.' in code:
+        code = 'import seaborn as sns\n' + code
+    if 'import matplotlib.pyplot as plt' not in code and 'plt.' in code:
+        code = 'import matplotlib.pyplot as plt\n' + code
+    if 'import pandas as pd' not in code and 'pd.' in code:
+        code = 'import pandas as pd\n' + code
+    if 'import numpy as np' not in code and 'np.' in code:
+        code = 'import numpy as np\n' + code
+    
+    # Fix deprecated functions
+    code = code.replace('sns.venn2', '# sns.venn2  # Invalid function')
+    code = code.replace('sns.venn3', '# sns.venn3  # Invalid function')
+    
+    return code 

@@ -3,7 +3,7 @@ import threading
 import uuid
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, abort
-from services.openai_service import generate_mcq_and_diagram, ai_analyze_topic
+from services.openai_service import generate_mcq_and_diagram, ai_analyze_topic, generate_replacement_question
 from services.diagram_service_new import render_diagram
 from services.bloom_detector import detect_bloom_level, update_question_bloom_level
 
@@ -84,7 +84,7 @@ def generate():
         image_url = None
         option_images = []
         
-        # Handle main question diagram
+        # Handle main question diagram with self-healing system
         if result.get('diagram_code'):
             library_used = result.get('library_used', 'schemdraw')
             image_filename = render_diagram(
@@ -92,8 +92,57 @@ def generate():
                 library_used, 
                 app.config['UPLOAD_FOLDER']
             )
+            
+            # Self-healing: If diagram generation failed, try replacement question
             if image_filename:
                 image_url = f"/static/images/{image_filename}"
+                print(f"✅ Diagram generated successfully: {image_filename}")
+            else:
+                print(f"❌ Diagram generation failed completely for {library_used}")
+                print(f"🔄 Attempting to generate replacement question...")
+                
+                # Generate replacement question if diagram was required
+                if data.get('requires_diagram', False):
+                    try:
+                        replacement_data = generate_replacement_question(
+                            subject=subject_for_prompt,
+                            topic=topic_for_prompt,
+                            difficulty_level=data.get('difficulty_level', 'Medium'),
+                            bloom_level=data.get('bloom_level_id', 3),
+                            requires_diagram=True,
+                            library_name=library_used
+                        )
+                        
+                        if replacement_data:
+                            print(f"✅ Generated replacement question successfully")
+                            # Update result with replacement data
+                            result.update(replacement_data)
+                            
+                            # Try to generate diagram for replacement question
+                            if replacement_data.get('diagram_code'):
+                                replacement_image_filename = render_diagram(
+                                    replacement_data['diagram_code'],
+                                    library_used,
+                                    app.config['UPLOAD_FOLDER']
+                                )
+                                if replacement_image_filename:
+                                    image_url = f"/static/images/{replacement_image_filename}"
+                                    print(f"✅ Replacement question diagram generated: {replacement_image_filename}")
+                                else:
+                                    print(f"❌ Replacement question diagram also failed, proceeding without diagram")
+                                    image_url = None
+                            else:
+                                print(f"❌ Replacement question has no diagram code")
+                                image_url = None
+                        else:
+                            print(f"❌ Failed to generate replacement question, proceeding with original")
+                            image_url = None
+                    except Exception as replacement_error:
+                        print(f"❌ Replacement question generation failed: {replacement_error}")
+                        image_url = None
+                else:
+                    print(f"⚠️ Diagram not required, proceeding without diagram")
+                    image_url = None
         
         # Handle option diagrams - only if user requested them
         requires_option_diagrams = data.get('requires_option_diagrams', False)

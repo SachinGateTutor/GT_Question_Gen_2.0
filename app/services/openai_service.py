@@ -2611,3 +2611,195 @@ def safe_exec_diagram_code(code, exec_globals):
     if imports:
         code = '\n'.join(imports) + '\n' + code
     exec(code, exec_globals)
+
+def ai_correct_diagram_code(original_code, error_message, library_name, subject, topic):
+    """
+    AI-powered diagram code error correction system
+    
+    Args:
+        original_code (str): The original code that failed
+        error_message (str): The error message from execution
+        library_name (str): The library being used (matplotlib, seaborn, etc.)
+        subject (str): Subject context
+        topic (str): Topic context
+    
+    Returns:
+        tuple: (corrected_code, success_flag)
+    """
+    try:
+        client = get_openai_client()
+        
+        # Use hybrid model selection for error correction
+        complexity_factors = {
+            'subject': subject,
+            'topic': topic,
+            'error_type': 'code_correction',
+            'library': library_name
+        }
+        selected_model, model_reason = select_optimal_model('code_correction', complexity_factors)
+        
+        correction_prompt = f"""
+You are an expert Python programmer specializing in data visualization libraries. A diagram generation code has failed with an error.
+
+**Context:**
+- Subject: {subject}
+- Topic: {topic}
+- Library: {library_name}
+- Error: {error_message}
+
+**Original Code:**
+```python
+{original_code}
+```
+
+**Your Task:**
+1. Analyze the error and identify the root cause
+2. Provide a corrected version of the code that fixes the specific error
+3. Ensure the corrected code maintains the same visualization purpose
+4. Use only standard imports and avoid deprecated functions
+5. Make sure the output filename is exactly 'output.png' (no hardcoded paths)
+
+**Common Fixes:**
+- Replace np.factorial with scipy.special.factorial
+- Fix deprecated seaborn/matplotlib syntax
+- Correct import statements
+- Fix invalid color specifications
+- Ensure proper function calls
+
+**Important Rules:**
+- Keep the same visualization concept and data
+- Use 'output.png' as filename in all save operations
+- Include all necessary imports
+- Make the code robust and error-free
+- Don't change the core visualization logic unless necessary for error fix
+
+**Output Format:**
+Provide ONLY the corrected Python code without any explanations or markdown.
+"""
+
+        print(f"🔧 Debug: Sending code correction request to {selected_model}...")
+        
+        response = client.chat.completions.create(
+            model=selected_model,
+            messages=[{"role": "user", "content": correction_prompt}],
+            temperature=0.2,  # Low temperature for precise corrections
+            max_tokens=1500
+        )
+        
+        corrected_code = response.choices[0].message.content.strip()
+        
+        # Clean up the response (remove any markdown if present)
+        if corrected_code.startswith('```python'):
+            corrected_code = corrected_code.replace('```python', '').replace('```', '').strip()
+        elif corrected_code.startswith('```'):
+            corrected_code = corrected_code.replace('```', '').strip()
+        
+        print(f"✅ Debug: AI provided corrected code ({len(corrected_code)} chars)")
+        return corrected_code, True
+        
+    except Exception as e:
+        print(f"❌ Debug: AI correction failed: {str(e)}")
+        return original_code, False
+
+def generate_replacement_question(subject, topic, difficulty_level, bloom_level, requires_diagram, library_name=None):
+    """
+    Generate a completely new question to replace a failed one
+    
+    Args:
+        subject (str): Subject context
+        topic (str): Topic context
+        difficulty_level (str): Difficulty level
+        bloom_level (int): Bloom taxonomy level
+        requires_diagram (bool): Whether diagram is required
+        library_name (str): Preferred library for diagram
+    
+    Returns:
+        dict: New question data or None if failed
+    """
+    try:
+        client = get_openai_client()
+        
+        # Use hybrid model selection for replacement question generation
+        complexity_factors = {
+            'subject': subject,
+            'topic': topic,
+            'requires_diagram': requires_diagram,
+            'bloom_level_id': bloom_level,
+            'replacement_generation': True
+        }
+        selected_model, model_reason = select_optimal_model('question_generation', complexity_factors)
+        
+        replacement_prompt = f"""
+Generate a brand new {subject} question about {topic} for {difficulty_level} difficulty level.
+
+**Requirements:**
+- Subject: {subject}
+- Topic: {topic}
+- Difficulty: {difficulty_level}
+- Bloom Level: {bloom_level}
+- Diagram Required: {requires_diagram}
+{f"- Preferred Library: {library_name}" if library_name else ""}
+
+**Format Requirements:**
+Question: [Your question here]
+A. [Option A]
+B. [Option B]  
+C. [Option C]
+D. [Option D]
+Answer: [A/B/C/D]
+Explanation: [Detailed explanation]
+{"Library: " + library_name if requires_diagram and library_name else ""}
+{f"PythonCode:\n```python\n[Simple, error-free {library_name} code using 'output.png' filename]\n```" if requires_diagram else ""}
+
+**Important:**
+- Create a completely different question concept
+- If diagram required, make the code simple and robust
+- Use standard library functions only
+- Ensure code has no syntax errors
+- Use 'output.png' as save filename
+"""
+
+        print(f"🔄 Debug: Generating replacement question with {selected_model}...")
+        
+        response = client.chat.completions.create(
+            model=selected_model,
+            messages=[{"role": "user", "content": replacement_prompt}],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        response_text = response.choices[0].message.content.strip()
+        print(f"✅ Debug: Generated replacement question ({len(response_text)} chars)")
+        
+        # Parse the response (simplified parsing)
+        lines = response_text.split('\n')
+        question_data = {
+            'question_text': '',
+            'options': [],
+            'correct_answer': '',
+            'explanation': '',
+            'library': library_name if requires_diagram else None,
+            'diagram_code': None
+        }
+        
+        for line in lines:
+            if line.startswith('Question:'):
+                question_data['question_text'] = line.replace('Question:', '').strip()
+            elif line.startswith(('A.', 'B.', 'C.', 'D.')):
+                question_data['options'].append(line[2:].strip())
+            elif line.startswith('Answer:'):
+                question_data['correct_answer'] = line.replace('Answer:', '').strip()
+            elif line.startswith('Explanation:'):
+                question_data['explanation'] = line.replace('Explanation:', '').strip()
+            elif '```python' in line:
+                # Extract code block
+                code_start = response_text.find('```python') + 9
+                code_end = response_text.find('```', code_start)
+                if code_end > code_start:
+                    question_data['diagram_code'] = response_text[code_start:code_end].strip()
+        
+        return question_data if question_data['question_text'] else None
+        
+    except Exception as e:
+        print(f"❌ Debug: Replacement question generation failed: {str(e)}")
+        return None
