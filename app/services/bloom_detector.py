@@ -89,8 +89,18 @@ Format: Level: X
 Justification: [brief explanation]
 """
         
+        # Import the hybrid model selection function
+        from .openai_service import select_optimal_model
+        
+        # Use hybrid model selection for Bloom detection
+        complexity_factors = {
+            'subject': 'General',  # Bloom detection is subject-agnostic
+            'topic': 'General'
+        }
+        selected_model, model_reason = select_optimal_model('bloom_detection', complexity_factors)
+        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=selected_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150
         )

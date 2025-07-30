@@ -332,7 +332,8 @@ def generate_cdq():
                                     insert_question_explanation(question_id, explanation_data)
                                 
                                 stored_questions.append(question_id)
-                
+            
+                # Check if we have stored questions and return appropriate response
                 if stored_questions:
                     print(f"🔍 Debug: CDQ generation successful - Passage ID: {passage_id}, Question IDs: {stored_questions}")
                     return jsonify({

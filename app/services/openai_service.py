@@ -13,12 +13,161 @@ def get_openai_client():
     print("Debug: Creating OpenAI client with valid API key")
     return openai.OpenAI(api_key=api_key)
 
+def select_optimal_model(task_type, complexity_factors):
+    """
+    Hybrid model selection based on task complexity and requirements
+    
+    Args:
+        task_type (str): Type of task ('library_selection', 'question_generation', 'bloom_detection', 'topic_analysis', 'cdq_generation')
+        complexity_factors (dict): Factors that determine complexity
+    
+    Returns:
+        str: Selected model name
+        str: Reason for selection
+    """
+    
+    # Default to GPT-3.5-turbo for cost efficiency
+    selected_model = "gpt-3.5-turbo"
+    reason = "Cost-effective default choice"
+    
+    # Complexity scoring system
+    complexity_score = 0
+    
+    # Factor 1: Task Type Complexity
+    task_complexity = {
+        'library_selection': 1,      # Simple classification task
+        'question_generation': 3,     # Complex creative task
+        'bloom_detection': 2,         # Analysis task
+        'topic_analysis': 3,          # Complex analysis
+        'cdq_generation': 4,          # Very complex multi-step task
+        'diagram_generation': 3,      # Creative + technical task
+        'retry_syntax': 2,            # Technical correction
+        'custom_variations': 3        # Creative variations
+    }
+    
+    complexity_score += task_complexity.get(task_type, 2)
+    
+    # Factor 2: Subject Complexity
+    subject = complexity_factors.get('subject', '').lower()
+    subject_complexity = {
+        'machine learning': 4,
+        'artificial intelligence': 4,
+        'data science': 3,
+        'computer science': 3,
+        'software engineering': 3,
+        'algorithms': 3,
+        'data structures': 2,
+        'programming': 2,
+        'mathematics': 3,
+        'physics': 3,
+        'chemistry': 2,
+        'biology': 2,
+        'business': 1,
+        'education': 1
+    }
+    
+    for key, value in subject_complexity.items():
+        if key in subject:
+            complexity_score += value
+            break
+    
+    # Factor 3: Topic Complexity
+    topic = complexity_factors.get('topic', '').lower()
+    topic_complexity = {
+        'neural networks': 4,
+        'deep learning': 4,
+        'reinforcement learning': 4,
+        'natural language processing': 4,
+        'computer vision': 4,
+        'optimization': 3,
+        'model evaluation': 3,
+        'feature engineering': 3,
+        'clustering': 2,
+        'classification': 2,
+        'regression': 2,
+        'arrays': 1,
+        'strings': 1,
+        'basic concepts': 1
+    }
+    
+    for key, value in topic_complexity.items():
+        if key in topic:
+            complexity_score += value
+            break
+    
+    # Factor 4: Question Requirements
+    requires_diagram = complexity_factors.get('requires_diagram', False)
+    requires_option_diagrams = complexity_factors.get('requires_option_diagrams', False)
+    is_programming_question = complexity_factors.get('is_programming_question', False)
+    
+    if requires_diagram:
+        complexity_score += 2
+    if requires_option_diagrams:
+        complexity_score += 3  # More complex than single diagram
+    if is_programming_question:
+        complexity_score += 2
+    
+    # Factor 5: Bloom Level
+    bloom_level = complexity_factors.get('bloom_level_id', 3)
+    if isinstance(bloom_level, str) and bloom_level.isdigit():
+        bloom_level = int(bloom_level)
+    elif isinstance(bloom_level, str):
+        bloom_level = 3  # Default to Apply level
+    
+    # Higher Bloom levels (4-6) are more complex
+    if bloom_level >= 4:
+        complexity_score += 2
+    elif bloom_level >= 5:
+        complexity_score += 3
+    
+    # Factor 6: Custom Prompt Complexity
+    custom_prompt = complexity_factors.get('custom_prompt', '')
+    if custom_prompt and len(custom_prompt) > 100:
+        complexity_score += 1
+    if custom_prompt and any(keyword in custom_prompt.lower() for keyword in ['complex', 'advanced', 'detailed', 'comprehensive']):
+        complexity_score += 2
+    
+    # Factor 7: Number of Questions
+    num_questions = complexity_factors.get('num_questions', 1)
+    if num_questions > 3:
+        complexity_score += 1
+    if num_questions > 5:
+        complexity_score += 2
+    
+    # Decision Logic
+    if complexity_score >= 8:
+        selected_model = "gpt-4o-mini"
+        reason = f"High complexity task (score: {complexity_score}) - requires advanced reasoning"
+    elif complexity_score >= 6:
+        selected_model = "gpt-4o-mini"
+        reason = f"Medium-high complexity (score: {complexity_score}) - benefits from advanced model"
+    elif complexity_score >= 4:
+        # Use GPT-3.5-turbo but with higher temperature for creativity
+        selected_model = "gpt-3.5-turbo"
+        reason = f"Medium complexity (score: {complexity_score}) - balanced approach"
+    else:
+        selected_model = "gpt-3.5-turbo"
+        reason = f"Low complexity (score: {complexity_score}) - cost-effective choice"
+    
+    print(f"🤖 Model Selection: {selected_model} - {reason}")
+    print(f"📊 Complexity Score: {complexity_score} (Task: {task_type}, Subject: {subject}, Topic: {topic})")
+    
+    return selected_model, reason
+
 def determine_best_library(subject, topic, requires_diagram):
     """Stage 1: Determine the best library for the given subject/topic"""
     if not requires_diagram:
         return None, None
     
     client = get_openai_client()
+    
+    # Use hybrid model selection
+    complexity_factors = {
+        'subject': subject,
+        'topic': topic,
+        'requires_diagram': requires_diagram
+    }
+    selected_model, model_reason = select_optimal_model('library_selection', complexity_factors)
     
     library_prompt = f"""
 For the subject '{subject}' and topic '{topic}', determine the best Python library to generate a relevant diagram.
@@ -47,8 +196,7 @@ Reason: <brief reason why this library is best for this subject/topic>
     
     try:
         response = client.chat.completions.create(
-            # model="gpt-3.5-turbo",
-            model="gpt-3.5-turbo",
+            model=selected_model,
             messages=[{"role": "user", "content": library_prompt}]
         )
         content = response.choices[0].message.content
@@ -142,12 +290,25 @@ def generate_mcq_and_diagram(data):
                 else:
                     prompt = generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt)
                 
+                # Use hybrid model selection for question generation
+                complexity_factors = {
+                    'subject': subject,
+                    'topic': topic,
+                    'requires_diagram': requires_diagram,
+                    'requires_option_diagrams': requires_option_diagrams,
+                    'is_programming_question': is_programming_question,
+                    'bloom_level_id': data.get('bloom_level_id', 3),
+                    'custom_prompt': custom_prompt,
+                    'num_questions': data.get('num_questions', 1)
+                }
+                selected_model, model_reason = select_optimal_model('question_generation', complexity_factors)
+                
                 # Get OpenAI response
                 client = get_openai_client()
                 print("🔄 Debug: Sending request to OpenAI...")
                 
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model=selected_model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
                     max_tokens=2000
@@ -247,8 +408,16 @@ Please generate a new diagram code that fixes this syntax error. The code should
 Generate ONLY the corrected diagram code without any explanation:
 """
                             
+                            # Use hybrid model selection for retry
+                            retry_complexity_factors = {
+                                'subject': subject,
+                                'topic': topic,
+                                'requires_diagram': requires_diagram
+                            }
+                            retry_model, retry_reason = select_optimal_model('retry_syntax', retry_complexity_factors)
+                            
                             retry_response = client.chat.completions.create(
-                                model="gpt-3.5-turbo",
+                                model=retry_model,
                                 messages=[{"role": "user", "content": retry_prompt}],
                                 temperature=0.3,
                                 max_tokens=1000
@@ -2013,8 +2182,17 @@ Generate only the passage text without any additional formatting or explanations
 """
     
     try:
+        # Use hybrid model selection for CDQ passage generation
+        complexity_factors = {
+            'subject': subject,
+            'topic': topic,
+            'difficulty_level': difficulty_level,
+            'bloom_level': bloom_level
+        }
+        selected_model, model_reason = select_optimal_model('cdq_generation', complexity_factors)
+        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=selected_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=800
         )
@@ -2076,8 +2254,18 @@ Generate exactly {num_questions} questions.
 """
     
     try:
+        # Use hybrid model selection for CDQ questions generation
+        complexity_factors = {
+            'subject': subject,
+            'topic': topic,
+            'difficulty_level': difficulty_level,
+            'bloom_level': bloom_level,
+            'num_questions': num_questions
+        }
+        selected_model, model_reason = select_optimal_model('cdq_generation', complexity_factors)
+        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=selected_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1200
         )
@@ -2165,8 +2353,15 @@ Respond with ONLY the number (1-6) corresponding to the Bloom level:
 """
     
     try:
+        # Use hybrid model selection for Bloom detection
+        complexity_factors = {
+            'subject': subject,
+            'topic': topic
+        }
+        selected_model, model_reason = select_optimal_model('bloom_detection', complexity_factors)
+        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=selected_model,
             messages=[{"role": "user", "content": analysis_prompt}],
             max_tokens=10
         )
@@ -2375,8 +2570,17 @@ def ai_analyze_topic(topic_info, question_type):
     
     try:
         client = get_openai_client()
+        
+        # Use hybrid model selection for topic analysis
+        complexity_factors = {
+            'subject': topic_info.get('subject_name', ''),
+            'topic': topic_info.get('topic_name', ''),
+            'question_type': question_type
+        }
+        selected_model, model_reason = select_optimal_model('topic_analysis', complexity_factors)
+        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=selected_model,
             messages=[{"role": "user", "content": analysis_prompt}],
             temperature=0.3,
             max_tokens=500
