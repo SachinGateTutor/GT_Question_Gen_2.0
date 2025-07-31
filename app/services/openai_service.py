@@ -1482,6 +1482,11 @@ PythonCode:
 {get_library_specific_prompt(library_name)}
 ```
 
+🚨 MANDATORY: You MUST include the PythonCode section with actual working diagram code! 
+🚨 The PythonCode section is REQUIRED - do NOT omit it!
+🚨 If you don't include PythonCode, the question will be rejected!
+🚨 ALWAYS include the PythonCode section - this is NOT optional!
+
 CRITICAL RULES for the PythonCode:
 {get_library_rules(library_name)}
 
@@ -2614,7 +2619,7 @@ def safe_exec_diagram_code(code, exec_globals):
 
 def ai_correct_diagram_code(original_code, error_message, library_name, subject, topic):
     """
-    AI-powered diagram code error correction system
+    AI-powered diagram code error correction system with library-specific enhancements
     
     Args:
         original_code (str): The original code that failed
@@ -2638,45 +2643,28 @@ def ai_correct_diagram_code(original_code, error_message, library_name, subject,
         }
         selected_model, model_reason = select_optimal_model('code_correction', complexity_factors)
         
-        correction_prompt = f"""
-You are an expert Python programmer specializing in data visualization libraries. A diagram generation code has failed with an error.
-
-**Context:**
-- Subject: {subject}
-- Topic: {topic}
-- Library: {library_name}
-- Error: {error_message}
-
-**Original Code:**
-```python
-{original_code}
-```
-
-**Your Task:**
-1. Analyze the error and identify the root cause
-2. Provide a corrected version of the code that fixes the specific error
-3. Ensure the corrected code maintains the same visualization purpose
-4. Use only standard imports and avoid deprecated functions
-5. Make sure the output filename is exactly 'output.png' (no hardcoded paths)
-
-**Common Fixes:**
-- Replace np.factorial with scipy.special.factorial
-- Fix deprecated seaborn/matplotlib syntax
-- Correct import statements
-- Fix invalid color specifications
-- Ensure proper function calls
-
-**Important Rules:**
-- Keep the same visualization concept and data
-- Use 'output.png' as filename in all save operations
-- Include all necessary imports
-- Make the code robust and error-free
-- Don't change the core visualization logic unless necessary for error fix
-
-**Output Format:**
-Provide ONLY the corrected Python code without any explanations or markdown.
-"""
-
+        # Apply library-specific regex fixes first
+        corrected_code = apply_library_specific_fixes(original_code, library_name)
+        
+        # Get library-specific error patterns
+        error_patterns = get_library_error_patterns(library_name)
+        
+        # Check if we have a specific pattern for this error
+        specific_fix = None
+        for pattern, fix_description in error_patterns.items():
+            if pattern.lower() in error_message.lower():
+                specific_fix = fix_description
+                break
+        
+        # Generate library-specific correction prompt
+        correction_prompt = get_library_specific_correction_prompt(
+            library_name, corrected_code, error_message, subject, topic
+        )
+        
+        # Add specific error context if available
+        if specific_fix:
+            correction_prompt += f"\n\n**Specific Error Fix Required:**\n{specific_fix}"
+        
         print(f"🔧 Debug: Sending code correction request to {selected_model}...")
         
         response = client.chat.completions.create(
@@ -2694,6 +2682,9 @@ Provide ONLY the corrected Python code without any explanations or markdown.
         elif corrected_code.startswith('```'):
             corrected_code = corrected_code.replace('```', '').strip()
         
+        # Apply additional library-specific fixes to the AI response
+        corrected_code = apply_library_specific_fixes(corrected_code, library_name)
+        
         print(f"✅ Debug: AI provided corrected code ({len(corrected_code)} chars)")
         return corrected_code, True
         
@@ -2703,7 +2694,7 @@ Provide ONLY the corrected Python code without any explanations or markdown.
 
 def generate_replacement_question(subject, topic, difficulty_level, bloom_level, requires_diagram, library_name=None):
     """
-    Generate a completely new question to replace a failed one
+    Generate a completely new question to replace a failed one with enhanced library-specific templates
     
     Args:
         subject (str): Subject context
@@ -2729,6 +2720,16 @@ def generate_replacement_question(subject, topic, difficulty_level, bloom_level,
         }
         selected_model, model_reason = select_optimal_model('question_generation', complexity_factors)
         
+        # Get library-specific working template if available
+        working_template = ""
+        if requires_diagram and library_name:
+            working_template = get_library_working_templates(library_name)
+        
+        # Get library-specific error patterns for guidance
+        error_patterns = {}
+        if library_name:
+            error_patterns = get_library_error_patterns(library_name)
+        
         replacement_prompt = f"""
 Generate a brand new {subject} question about {topic} for {difficulty_level} difficulty level.
 
@@ -2751,12 +2752,20 @@ Explanation: [Detailed explanation]
 {"Library: " + library_name if requires_diagram and library_name else ""}
 {f"PythonCode:\n```python\n[Simple, error-free {library_name} code using 'output.png' filename]\n```" if requires_diagram else ""}
 
-**Important:**
+**Library-Specific Guidelines:**
+{f"- Library: {library_name}" if library_name else ""}
+{f"- Working Template:\n```python\n{working_template}\n```" if working_template else ""}
+{f"- Common Error Patterns to Avoid:\n" + "\n".join([f"  • {pattern}: {fix}" for pattern, fix in error_patterns.items()]) if error_patterns else ""}
+
+**Important Rules:**
 - Create a completely different question concept
-- If diagram required, make the code simple and robust
+- If diagram required, use the working template as a base
+- Avoid common error patterns for this library
 - Use standard library functions only
 - Ensure code has no syntax errors
 - Use 'output.png' as save filename
+- Make the code robust and error-free
+- Follow library-specific best practices
 """
 
         print(f"🔄 Debug: Generating replacement question with {selected_model}...")
@@ -2798,8 +2807,468 @@ Explanation: [Detailed explanation]
                 if code_end > code_start:
                     question_data['diagram_code'] = response_text[code_start:code_end].strip()
         
+        # Apply library-specific fixes to the generated code
+        if question_data['diagram_code'] and library_name:
+            question_data['diagram_code'] = apply_library_specific_fixes(question_data['diagram_code'], library_name)
+        
         return question_data if question_data['question_text'] else None
         
     except Exception as e:
         print(f"❌ Debug: Replacement question generation failed: {str(e)}")
         return None
+
+# Library-specific error patterns and correction functions
+def get_library_error_patterns(library_name):
+    """
+    Get library-specific error patterns and their fixes
+    
+    Args:
+        library_name (str): Name of the library
+    
+    Returns:
+        dict: Error patterns and their fixes
+    """
+    patterns = {
+        'schemdraw': {
+            "invalid syntax": "Fix element call syntax and method calls",
+            "has no attribute 'dff'": "Use DFlipFlop instead of dff",
+            "has no attribute 'Box'": "Use Rect instead of Box",
+            "has no attribute 'Dff'": "Use DFlipFlop instead of Dff",
+            "has no attribute 'OPAMP'": "Use Opamp instead of OPAMP",
+            "name 'schem' is not defined": "Fix import statement - use schemdraw not schem",
+            "module 'schemdraw.elements' has no attribute": "Check element name case sensitivity",
+            "cannot assign to literal": "Fix variable assignment syntax",
+            "d.add(": "Replace d.add() with d +=",
+            "e.dff(": "Replace e.dff() with e.DFlipFlop(",
+            "schem.Drawing": "Replace with schemdraw.Drawing",
+            "import SchemDraw": "Replace with import schemdraw",
+            "labelloc not defined in Element": "Use .label(loc='top') instead of .labelloc()",
+            "Element.label() missing 1 required positional argument": "Provide label text as first argument",
+            "invalid decimal literal": "Fix malformed parentheses in element calls",
+            "not defined in Element": "Check element method names and parameters"
+        },
+        'matplotlib': {
+            "module 'numpy' has no attribute 'factorial'": "Use scipy.special.factorial instead",
+            "Legend.__init__() got an unexpected keyword argument": "Remove invalid legend parameters",
+            "'seaborn-darkgrid' is not a valid package style": "Use seaborn-v0_8-darkgrid instead",
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax"
+        },
+        'seaborn': {
+            "Legend.__init__() got an unexpected keyword argument": "Remove invalid legend parameters",
+            "'seaborn-darkgrid' is not a valid package style": "Use seaborn-v0_8-darkgrid instead",
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax"
+        },
+        'networkx': {
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax",
+            "name 'buffer' is not defined": "Fix plt.savefig() calls"
+        },
+        'plotly': {
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax"
+        },
+        'graphviz': {
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax"
+        },
+        'pillow': {
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax"
+        },
+        'turtle': {
+            "invalid syntax": "Check for malformed function calls",
+            "cannot assign to literal": "Fix variable assignment syntax"
+        }
+    }
+    
+    return patterns.get(library_name, {})
+
+def get_library_working_templates(library_name):
+    """
+    Get working code templates for each library
+    
+    Args:
+        library_name (str): Name of the library
+    
+    Returns:
+        str: Working code template
+    """
+    templates = {
+        'schemdraw': '''import schemdraw
+import schemdraw.elements as e
+from schemdraw import Drawing
+
+d = schemdraw.Drawing()
+# Create a simple circuit diagram
+d += e.DFlipFlop(label='DFF')
+d += e.Dot()
+d += e.Line()
+d += e.Dot()
+d += e.Ground()
+d.save('output.png')''',
+        
+        'matplotlib': '''import matplotlib.pyplot as plt
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(8, 6))
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+ax.plot(x, y)
+ax.set_title('Sample Plot')
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+plt.savefig('output.png', dpi=300, bbox_inches='tight')
+plt.close()''',
+        
+        'seaborn': '''import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Set style
+sns.set_style("whitegrid")
+
+# Create data
+data = np.random.randn(100)
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.histplot(data, bins=20, ax=ax)
+ax.set_title('Sample Histogram')
+plt.savefig('output.png', dpi=300, bbox_inches='tight')
+plt.close()''',
+        
+        'networkx': '''import networkx as nx
+import matplotlib.pyplot as plt
+
+G = nx.Graph()
+G.add_edges_from([(1, 2), (2, 3), (3, 1)])
+pos = nx.spring_layout(G)
+nx.draw(G, pos, with_labels=True, node_color='lightblue', 
+        node_size=500, font_size=16, font_weight='bold')
+plt.savefig('output.png', dpi=300, bbox_inches='tight')
+plt.close()''',
+        
+        'plotly': '''import plotly.graph_objects as go
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+fig = go.Figure(data=go.Scatter(x=x, y=y, mode='lines'))
+fig.update_layout(title='Sample Plot', xaxis_title='X', yaxis_title='Y')
+fig.write_image('output.png')''',
+        
+        'graphviz': '''from graphviz import Digraph
+
+dot = Digraph(comment='Sample Graph')
+dot.node('A', 'Node A')
+dot.node('B', 'Node B')
+dot.edge('A', 'B')
+dot.render('output', format='png', cleanup=True)''',
+        
+        'pillow': '''from PIL import Image, ImageDraw
+
+# Create a simple image
+img = Image.new('RGB', (400, 300), color='white')
+draw = ImageDraw.Draw(img)
+draw.rectangle([50, 50, 350, 250], outline='black', width=2)
+draw.text((200, 150), 'Sample', fill='black')
+img.save('output.png')''',
+        
+        'turtle': '''import turtle
+import io
+from PIL import Image
+
+# Create turtle drawing
+t = turtle.Turtle()
+t.speed(0)
+t.penup()
+t.goto(-50, 0)
+t.pendown()
+t.circle(50)
+t.hideturtle()
+
+# Capture the canvas
+canvas = turtle.getcanvas()
+canvas.postscript(file='temp.ps')
+img = Image.open('temp.ps')
+img.save('output.png')'''
+    }
+    
+    return templates.get(library_name, '')
+
+def get_library_specific_correction_prompt(library_name, original_code, error_message, subject, topic):
+    """
+    Generate library-specific correction prompts
+    
+    Args:
+        library_name (str): Name of the library
+        original_code (str): Original code that failed
+        error_message (str): Error message
+        subject (str): Subject context
+        topic (str): Topic context
+    
+    Returns:
+        str: Library-specific correction prompt
+    """
+    
+    error_patterns = get_library_error_patterns(library_name)
+    working_template = get_library_working_templates(library_name)
+    
+    if library_name == 'schemdraw':
+        return f"""
+You are a schemdraw expert specializing in electronic circuit diagrams. Fix this code that failed with error: {error_message}
+
+**Context:**
+- Subject: {subject}
+- Topic: {topic}
+- Library: schemdraw (electronic circuits)
+
+**Original Code:**
+```python
+{original_code}
+```
+
+**Common Schemdraw Fixes:**
+- Replace e.dff() with e.DFlipFlop()
+- Replace e.Box() with e.Rect()
+- Replace e.OPAMP() with e.Opamp()
+- Replace d.add() with d +=
+- Replace schem.Drawing() with schemdraw.Drawing()
+- Remove invalid parameters: clk=, D=, Q=, reseta=, resetb=
+- Fix import statements: use 'import schemdraw' not 'import SchemDraw'
+- Use proper element names: DFlipFlop, Rect, Dot, Line, Arrow, Opamp
+- Fix label syntax: use .label('text', loc='top') not .labelloc()
+- Provide label text as first argument: .label('text') not .label()
+- Fix malformed parentheses in element calls
+- Use simple element calls: e.Dot(), e.Line(), e.Ground()
+
+**Working Template:**
+```python
+{working_template}
+```
+
+**Your Task:**
+1. Fix the specific error: {error_message}
+2. Apply schemdraw-specific corrections
+3. Ensure code uses 'output.png' as filename
+4. Make the code robust and error-free
+5. Use simple, proven element combinations
+
+**Output Format:**
+Provide ONLY the corrected Python code without any explanations or markdown.
+"""
+
+    elif library_name == 'matplotlib':
+        return f"""
+You are a matplotlib expert specializing in data visualization. Fix this code that failed with error: {error_message}
+
+**Context:**
+- Subject: {subject}
+- Topic: {topic}
+- Library: matplotlib (data visualization)
+
+**Original Code:**
+```python
+{original_code}
+```
+
+**Common Matplotlib Fixes:**
+- Replace np.factorial with scipy.special.factorial
+- Remove invalid legend parameters: locolor, color, facecolor, edgecolor
+- Update deprecated styles: seaborn-darkgrid → seaborn-v0_8-darkgrid
+- Fix plt.savefig() calls to use 'output.png'
+- Ensure proper import statements
+
+**Working Template:**
+```python
+{working_template}
+```
+
+**Your Task:**
+1. Fix the specific error: {error_message}
+2. Apply matplotlib-specific corrections
+3. Ensure code uses 'output.png' as filename
+4. Make the code robust and error-free
+
+**Output Format:**
+Provide ONLY the corrected Python code without any explanations or markdown.
+"""
+
+    elif library_name == 'seaborn':
+        return f"""
+You are a seaborn expert specializing in statistical visualization. Fix this code that failed with error: {error_message}
+
+**Context:**
+- Subject: {subject}
+- Topic: {topic}
+- Library: seaborn (statistical plots)
+
+**Original Code:**
+```python
+{original_code}
+```
+
+**Common Seaborn Fixes:**
+- Remove invalid legend parameters: locolor, color, facecolor, edgecolor
+- Update deprecated styles: seaborn-darkgrid → seaborn-v0_8-darkgrid
+- Fix plt.savefig() calls to use 'output.png'
+- Ensure proper import statements
+- Use sns.set_style() instead of deprecated styles
+
+**Working Template:**
+```python
+{working_template}
+```
+
+**Your Task:**
+1. Fix the specific error: {error_message}
+2. Apply seaborn-specific corrections
+3. Ensure code uses 'output.png' as filename
+4. Make the code robust and error-free
+
+**Output Format:**
+Provide ONLY the corrected Python code without any explanations or markdown.
+"""
+
+    else:
+        # Generic correction prompt for other libraries
+        return f"""
+You are a Python expert specializing in {library_name}. Fix this code that failed with error: {error_message}
+
+**Context:**
+- Subject: {subject}
+- Topic: {topic}
+- Library: {library_name}
+
+**Original Code:**
+```python
+{original_code}
+```
+
+**Working Template:**
+```python
+{working_template}
+```
+
+**Your Task:**
+1. Fix the specific error: {error_message}
+2. Apply {library_name}-specific corrections
+3. Ensure code uses 'output.png' as filename
+4. Make the code robust and error-free
+
+**Output Format:**
+Provide ONLY the corrected Python code without any explanations or markdown.
+"""
+
+def apply_library_specific_fixes(code, library_name):
+    """
+    Apply library-specific code fixes using regex patterns
+    
+    Args:
+        code (str): Original code
+        library_name (str): Name of the library
+    
+    Returns:
+        str: Fixed code
+    """
+    if library_name == 'schemdraw':
+        # Schemdraw-specific fixes
+        fixes = [
+            # Basic element name fixes
+            (r'e\.dff\(', 'e.DFlipFlop('),
+            (r'e\.Box\(', 'e.Rect('),
+            (r'e\.OPAMP\(', 'e.Opamp('),
+            (r'e\.ARROW\(', 'e.Arrow('),
+            (r'e\.DOT\(', 'e.Dot('),
+            (r'e\.LINE\(', 'e.Line('),
+            
+            # Method call fixes
+            (r'd\.add\(', 'd +='),
+            (r'schem\.Drawing', 'schemdraw.Drawing'),
+            (r'import SchemDraw', 'import schemdraw'),
+            (r'import SchemDraw as schem', 'import schemdraw'),
+            
+            # Parameter fixes
+            (r'clk=', ''),
+            (r'D=', ''),
+            (r'Q=', ''),
+            (r'reseta=', ''),
+            (r'resetb=', ''),
+            
+            # Label method fixes
+            (r'\.labelloc\(', '.label(loc='),
+            (r'\.labelcolor\(', '.label(color='),
+            (r'\.label\(([^)]+)\)\.label\(', r'.label(\1, '),
+            (r'\.label\(([^)]+)\)\.labelloc\(', r'.label(\1, loc='),
+            (r'\.label\(([^)]+)\)\.labelcolor\(', r'.label(\1, color='),
+            
+            # Invalid method removals
+            (r'\.left\(\)\.left\(\)', '.left()'),
+            (r'\.right\(\)\.right\(\)', '.right()'),
+            (r'\.up\(\)\.up\(\)', '.up()'),
+            (r'\.down\(\)\.down\(\)', '.down()'),
+            
+            # Fix malformed parentheses
+            (r'\(\.label\(', '(.label('),
+            (r'\(\.left\(', '(.left('),
+            (r'\(\.right\(', '(.right('),
+            (r'\(\.up\(', '(.up('),
+            (r'\(\.down\(', '(.down('),
+            
+            # Fix decimal literal errors
+            (r'w=4\.label\(', 'w=4).label('),
+            (r'h=4\.label\(', 'h=4).label('),
+            
+            # Fix invalid element attributes
+            (r'\.label\(([^)]+), loc=([^)]+)\)', r'.label(\1, loc=\2)'),
+            (r'\.label\(([^)]+), color=([^)]+)\)', r'.label(\1, color=\2)'),
+            
+            # Remove invalid parameters
+            (r', loc=([^)]+)', ''),
+            (r', color=([^)]+)', ''),
+            
+            # Fix basic syntax errors
+            (r'\.label\(\)', '.label("")'),
+            (r'\.label\(([^)]*)\)\.label\(', r'.label(\1, '),
+        ]
+        
+        for pattern, replacement in fixes:
+            code = re.sub(pattern, replacement, code)
+    
+    elif library_name == 'matplotlib':
+        # Matplotlib-specific fixes
+        fixes = [
+            (r'np\.factorial', 'scipy.special.factorial'),
+            (r'seaborn-darkgrid', 'seaborn-v0_8-darkgrid'),
+            (r'seaborn-whitegrid', 'seaborn-v0_8-whitegrid'),
+            (r'seaborn-dark', 'seaborn-v0_8-dark'),
+            (r'seaborn-white', 'seaborn-v0_8-white'),
+            (r'seaborn-ticks', 'seaborn-v0_8-ticks'),
+            (r'locolor=', ''),
+            (r'color=', ''),
+            (r'facecolor=', ''),
+            (r'edgecolor=', ''),
+        ]
+        
+        for pattern, replacement in fixes:
+            code = re.sub(pattern, replacement, code)
+    
+    elif library_name == 'seaborn':
+        # Seaborn-specific fixes (similar to matplotlib)
+        fixes = [
+            (r'seaborn-darkgrid', 'seaborn-v0_8-darkgrid'),
+            (r'seaborn-whitegrid', 'seaborn-v0_8-whitegrid'),
+            (r'seaborn-dark', 'seaborn-v0_8-dark'),
+            (r'seaborn-white', 'seaborn-v0_8-white'),
+            (r'seaborn-ticks', 'seaborn-v0_8-ticks'),
+            (r'locolor=', ''),
+            (r'color=', ''),
+            (r'facecolor=', ''),
+            (r'edgecolor=', ''),
+        ]
+        
+        for pattern, replacement in fixes:
+            code = re.sub(pattern, replacement, code)
+    
+    return code

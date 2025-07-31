@@ -6,6 +6,10 @@ import ast
 import traceback
 import io
 from PIL import Image
+import re
+import glob
+import shutil
+from ..openai_service import ai_correct_diagram_code
 
 def render(code: str, output_path: str):
     """Render matplotlib diagram with improved error handling and retry mechanism"""
@@ -32,7 +36,6 @@ def render(code: str, output_path: str):
             return None
 
     # Post-process code for common AI mistakes
-    import re
     
     # Fix color specifications for matplotlib
     code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
@@ -96,7 +99,6 @@ def render(code: str, output_path: str):
     code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
     
     # Fix hardcoded PNG filenames in plt.savefig() calls
-    import re
     # Replace any hardcoded .png filename in plt.savefig() with our proper filename
     code = re.sub(r'plt\.savefig\([\'"][^\'"]*.png[\'"]', f'plt.savefig("{filename}"', code)
     
@@ -120,8 +122,13 @@ def render(code: str, output_path: str):
     if 'plt.show()' in code:
         code = code.replace('plt.show()', '# plt.show()  # Not needed for saving')
     
-    # Save code to temp file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+    # Save code to temp file in a more isolated location
+    
+    # Create temp file in a subdirectory to avoid triggering Flask watchdog
+    temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=temp_dir, encoding='utf-8') as f:
         temp_path = f.name
         f.write(code)
 
@@ -177,8 +184,29 @@ def render(code: str, output_path: str):
 
     # Fix face+edge parameter combinations that cause errors (second pass)
     code = re.sub(r'facedgedgecolor=', 'facecolor=', code)  # Fix facedgedgecolor
-    code = re.sub(r'faceedgecolor=', 'facecolor=', code)    # Fix faceedgecolor
-    code = re.sub(r'edgefacecolor=', 'edgecolor=', code)    # Fix edgefacecolor
+    code = re.sub(r'faceedgecolor=', 'facecolor=', code)     # Fix faceedgecolor
+    code = re.sub(r'edgefacecolor=', 'edgecolor=', code)     # Fix edgefacecolor
+    code = re.sub(r'edgedgedgecolor=', 'edgecolor=', code)   # Fix edgedgedgecolor
+    
+    # Fix deprecated matplotlib styles
+    code = re.sub(r"plt\.style\.use\('seaborn-darkgrid'\)", "plt.style.use('seaborn-v0_8-darkgrid')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-whitegrid'\)", "plt.style.use('seaborn-v0_8-whitegrid')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-dark'\)", "plt.style.use('seaborn-v0_8-dark')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-white'\)", "plt.style.use('seaborn-v0_8-white')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-ticks'\)", "plt.style.use('seaborn-v0_8-ticks')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-paper'\)", "plt.style.use('seaborn-v0_8-paper')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-talk'\)", "plt.style.use('seaborn-v0_8-talk')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-poster'\)", "plt.style.use('seaborn-v0_8-poster')", code)
+    code = re.sub(r"plt\.style\.use\('seaborn-notebook'\)", "plt.style.use('seaborn-v0_8-notebook')", code)
+    
+    # Fix invalid legend parameters
+    code = re.sub(r'legend\(locolor=[^)]*\)', 'legend()', code)
+    code = re.sub(r'legend\(color=[^)]*\)', 'legend()', code)
+    code = re.sub(r'legend\(facecolor=[^)]*\)', 'legend()', code)
+    code = re.sub(r'legend\(edgecolor=[^)]*\)', 'legend()', code)
+    
+    # Remove any problematic style.use calls that might cause errors
+    code = re.sub(r"plt\.style\.use\([^)]*\)", "# Style use removed to prevent errors", code)
     
     # Write the fixed code back
     with open(temp_path, 'w', encoding='utf-8') as f:
@@ -199,7 +227,7 @@ def render(code: str, output_path: str):
                 return os.path.basename(output_path)
             else:
                 # Look for any newly created PNG files
-                import glob
+                
                 # IMPROVED VERSION: Check both current and output directories
                 output_dir = os.path.dirname(output_path) if output_path else ""
                 current_dir = os.getcwd()
@@ -221,7 +249,6 @@ def render(code: str, output_path: str):
                 print(f"🔍 Debug: Found PNG files: current={len(png_files_current)}, output={len(png_files_output)}")
                 if png_files:
                     # Move the first PNG file found to the output path
-                    import shutil
                     source_file = png_files[0]
                     shutil.move(source_file, output_path)
                     print(f"✅ Matplotlib diagram found and moved: {os.path.basename(output_path)}")
@@ -245,7 +272,6 @@ def render(code: str, output_path: str):
                 
                 # Try AI-powered error correction
                 try:
-                    from ..openai_service import ai_correct_diagram_code
                     
                     # Extract subject and topic from the code context (simple heuristic)
                     subject = "General"  # Default
@@ -305,7 +331,6 @@ def render(code: str, output_path: str):
 
 def fix_common_syntax_errors(code: str) -> str:
     """Fix common syntax errors in matplotlib code"""
-    import re
     
     # Fix missing colons after for loops (only at start of line, not comments)
     code = re.sub(r'^(\s*)for\s+([^:\n#]+)\s*\n(\s*)', r'\1for \2:\n\3', code, flags=re.MULTILINE)
@@ -359,8 +384,6 @@ def fix_common_syntax_errors(code: str) -> str:
 
 def apply_matplotlib_fixes(code, output_path):
     """Apply standard matplotlib code fixes and transformations"""
-    import re
-    import os
     
     # Remove BytesIO import if present (not needed for file saving)
     code = code.replace('from io import BytesIO', '')

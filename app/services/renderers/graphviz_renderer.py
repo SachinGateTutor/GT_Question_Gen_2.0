@@ -5,6 +5,9 @@ import time
 import uuid
 import graphviz
 import re
+import glob
+import shutil
+from ..openai_service import ai_correct_diagram_code
 
 def is_python_code(code: str) -> bool:
     """Check if the code is Python code"""
@@ -24,7 +27,7 @@ def render(code: str, output_path: str):
     if not is_python_code(code):
         print(f"❌ Debug: Code is not Python code, skipping graphviz rendering")
         return None
-    
+
     print(f"🔍 Debug: Rendering graphviz diagram...")
     
     # Apply graphviz-specific fixes
@@ -40,7 +43,6 @@ def render(code: str, output_path: str):
     for attempt in range(max_retries + 1):
         try:
             # Record files before execution
-            import glob
             
             # Get the output directory for proper file tracking
             output_dir = os.path.dirname(output_path) if output_path else ""
@@ -127,23 +129,21 @@ def render(code: str, output_path: str):
             
             if generated_file:
                 # Move the file to the output path
-                import shutil
                 if os.path.exists(generated_file):
                     shutil.move(generated_file, output_path)
-                    print(f"✅ Graphviz diagram saved as: {os.path.basename(output_path)}")
-                    # Clean up temp file only after successful execution
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-                    return os.path.basename(output_path)
-                else:
-                    print(f"❌ Debug: Generated file {generated_file} not found")
+                print(f"✅ Graphviz diagram saved as: {os.path.basename(output_path)}")
+                # Clean up temp file only after successful execution
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                return os.path.basename(output_path)
             else:
+                print(f"❌ Debug: Generated file {generated_file} not found")
                 print(f"❌ Debug: No graphviz diagram file generated")
                 # Clean up temp file
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 return None
-                
+                    
         except Exception as e:
             error_message = str(e)
             print(f"❌ Graphviz diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
@@ -153,8 +153,6 @@ def render(code: str, output_path: str):
                 
                 # Try AI-powered error correction
                 try:
-                    from ..openai_service import ai_correct_diagram_code
-                    
                     # Extract context from code comments or use defaults
                     subject = "General"
                     topic = "Data Visualization"
@@ -212,8 +210,6 @@ def render(code: str, output_path: str):
 
 def apply_graphviz_fixes(code, output_path):
     """Apply standard graphviz code fixes and transformations"""
-    import re
-    import os
     
     # Remove BytesIO import if present (not needed for file saving)
     code = code.replace('from io import BytesIO', '')
@@ -238,7 +234,6 @@ def apply_graphviz_fixes(code, output_path):
 
 def fix_common_syntax_errors(code: str) -> str:
     """Fix common syntax errors in graphviz code"""
-    import re
     
     # Fix missing colons after for loops (only at start of line, not comments)
     code = re.sub(r'^(\s*)for\s+([^:\n#]+)\s*\n(\s*)', r'\1for \2:\n\3', code, flags=re.MULTILINE)
@@ -282,7 +277,7 @@ def fix_common_syntax_errors(code: str) -> str:
     if open_brackets > close_brackets:
         code += ']' * (open_brackets - close_brackets)
     
-    # Fix unmatched braces by adding missing closing braces  
+    # Fix unmatched braces by adding missing closing braces
     open_braces = code.count('{')
     close_braces = code.count('}')
     if open_braces > close_braces:

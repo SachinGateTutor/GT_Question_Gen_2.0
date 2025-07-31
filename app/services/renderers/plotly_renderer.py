@@ -3,6 +3,10 @@ import plotly.graph_objects as go
 import os
 import traceback
 import re
+import numpy as np
+import pandas as pd
+from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
+from ..openai_service import ai_correct_diagram_code
 
 def render(code: str, output_path: str):
     """Render plotly diagram with AI-powered self-healing"""
@@ -18,9 +22,6 @@ def render(code: str, output_path: str):
             
             # Add common imports to namespace
             try:
-                import numpy as np
-                import pandas as pd
-                from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve
                 namespace.update({
                     'np': np,
                     'pd': pd,
@@ -51,8 +52,6 @@ def render(code: str, output_path: str):
                 
                 # Try AI-powered error correction
                 try:
-                    from ..openai_service import ai_correct_diagram_code
-                    
                     # Extract context from code comments or use defaults
                     subject = "General"
                     topic = "Data Visualization"
@@ -100,8 +99,6 @@ def render(code: str, output_path: str):
 
 def apply_plotly_fixes(code, output_path):
     """Apply standard plotly code fixes and transformations"""
-    import re
-    import os
     
     # Fix color specifications for plotly
     code = re.sub(r'color=[\'"]([^\'"]*)[\'"]', r'color="\1"', code)
@@ -119,7 +116,7 @@ def apply_plotly_fixes(code, output_path):
     code = code.replace('pio.write_image(fig, buffer', f'pio.write_image(fig, "{filename}"')
     
     # Fix hardcoded PNG filenames in pio.write_image() calls
-    code = re.sub(r'pio\.write_image\([^,]+,\s*[\'"][^\'"]*.png[\'"]', f'pio.write_image(fig, "{filename}"', code)
+    code = re.sub(r'pio\.write_image\(fig, [\'"][^\'"]*.png[\'"]', f'pio.write_image(fig, "{filename}"', code)
     
     # Add missing imports if needed
     if 'import plotly.graph_objects as go' not in code and 'go.' in code:
@@ -135,7 +132,6 @@ def apply_plotly_fixes(code, output_path):
 
 def fix_common_syntax_errors(code: str) -> str:
     """Fix common syntax errors in plotly code"""
-    import re
     
     # Fix missing colons after for loops (only at start of line, not comments)
     code = re.sub(r'^(\s*)for\s+([^:\n#]+)\s*\n(\s*)', r'\1for \2:\n\3', code, flags=re.MULTILINE)

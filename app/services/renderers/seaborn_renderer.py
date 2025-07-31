@@ -9,6 +9,7 @@ import traceback
 import re
 import io
 from PIL import Image
+from ..openai_service import ai_correct_diagram_code
 
 def render(code: str, output_path: str):
     """Render seaborn diagram with improved error handling"""
@@ -42,6 +43,26 @@ def render(code: str, output_path: str):
         
         # Fix deprecated sklearn imports
         code = code.replace('from sklearn.metrics import plot_confusion_matrix', '# from sklearn.metrics import plot_confusion_matrix  # Deprecated')
+        
+        # Fix deprecated matplotlib styles
+        code = re.sub(r"plt\.style\.use\('seaborn-darkgrid'\)", "plt.style.use('seaborn-v0_8-darkgrid')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-whitegrid'\)", "plt.style.use('seaborn-v0_8-whitegrid')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-dark'\)", "plt.style.use('seaborn-v0_8-dark')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-white'\)", "plt.style.use('seaborn-v0_8-white')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-ticks'\)", "plt.style.use('seaborn-v0_8-ticks')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-paper'\)", "plt.style.use('seaborn-v0_8-paper')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-talk'\)", "plt.style.use('seaborn-v0_8-talk')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-poster'\)", "plt.style.use('seaborn-v0_8-poster')", code)
+        code = re.sub(r"plt\.style\.use\('seaborn-notebook'\)", "plt.style.use('seaborn-v0_8-notebook')", code)
+        
+        # Fix invalid legend parameters
+        code = re.sub(r'legend\(locolor=[^)]*\)', 'legend()', code)
+        code = re.sub(r'legend\(color=[^)]*\)', 'legend()', code)
+        code = re.sub(r'legend\(facecolor=[^)]*\)', 'legend()', code)
+        code = re.sub(r'legend\(edgecolor=[^)]*\)', 'legend()', code)
+        
+        # Remove any problematic style.use calls that might cause errors
+        code = re.sub(r"plt\.style\.use\([^)]*\)", "# Style use removed to prevent errors", code)
         
         # Fix cmapalette typo
         code = code.replace('cmapalette', 'cmap')
@@ -144,8 +165,6 @@ def render(code: str, output_path: str):
                     
                     # Try AI-powered error correction
                     try:
-                        from ..openai_service import ai_correct_diagram_code
-                        
                         # Extract context from code comments or use defaults
                         subject = "General"
                         topic = "Data Visualization"
@@ -193,8 +212,6 @@ def render(code: str, output_path: str):
 
 def apply_seaborn_fixes(code, output_path):
     """Apply standard seaborn code fixes and transformations"""
-    import re
-    import os
     
     # Fix common seaborn color issues
     code = re.sub(r'c=[\'"][^\'\"]*[\'"]', r'color="blue"', code)

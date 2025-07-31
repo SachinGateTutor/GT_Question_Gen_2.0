@@ -1,7 +1,10 @@
 import os
 import threading
 import uuid
+import shutil
+import time
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, abort
 from services.openai_service import generate_mcq_and_diagram, ai_analyze_topic, generate_replacement_question
 from services.diagram_service_new import render_diagram
@@ -18,15 +21,108 @@ from services.db_service import (
 )
 from services.ai_explanation_service import ai_explanation_service
 from flask_cors import CORS
+import traceback
 
 # Global storage for active generations
 active_generations = {}
+
+# Image monitoring variables
+image_monitor_running = False
+image_monitor_thread = None
 
 # Removed fallback diagram generation - let it be None when diagram generation fails
 
 app = Flask(__name__)
 CORS(app)
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'static', 'images')
+
+def start_image_monitoring():
+    """Start image monitoring in background thread"""
+    global image_monitor_running, image_monitor_thread
+    
+    if image_monitor_running:
+        return
+    
+    def monitor_images():
+        global image_monitor_running
+        # Get the project root directory (one level up from app directory)
+        project_root = Path(__file__).parent.parent
+        images_dir = project_root / "app" / "static" / "images"
+        
+        # Ensure images directory exists
+        images_dir.mkdir(parents=True, exist_ok=True)
+        
+        print("🚀 Starting integrated image monitoring...")
+        print(f"📁 Monitoring: {project_root}")
+        print(f"📁 Destination: {images_dir}")
+        
+        image_monitor_running = True
+        
+        while image_monitor_running:
+            try:
+                # Find PNG files in project root directory (excluding app/static/images)
+                png_files = []
+                for file_path in project_root.rglob("*.png"):
+                    if file_path.is_file() and not str(file_path).startswith(str(images_dir)):
+                        # Skip if file is already in the images directory
+                        if file_path.parent == images_dir:
+                            continue
+                        png_files.append(file_path)
+                
+                # Move files
+                for source_path in png_files:
+                    filename = source_path.name
+                    dest_path = images_dir / filename
+                    
+                    try:
+                        # Skip if file is already in destination
+                        if source_path.parent == images_dir:
+                            continue
+                            
+                        # Check if destination file exists
+                        if dest_path.exists():
+                            # Replace the existing file
+                            dest_path.unlink()
+                            print(f"🔄 Replaced existing: {filename}")
+                        else:
+                            print(f"📁 New file: {filename}")
+                        
+                        # Move the file
+                        shutil.move(str(source_path), str(dest_path))
+                        print(f"✅ Moved: {filename} -> static/images/")
+                        
+                    except Exception as e:
+                        print(f"❌ Error moving {filename}: {e}")
+                
+                # Sleep before next check
+                time.sleep(2)
+                
+            except Exception as e:
+                print(f"❌ Image monitoring error: {e}")
+                time.sleep(5)
+    
+    # Start monitoring thread
+    image_monitor_thread = threading.Thread(target=monitor_images, daemon=True)
+    image_monitor_thread.start()
+    print("✅ Image monitoring started successfully")
+
+def stop_image_monitoring():
+    """Stop image monitoring"""
+    global image_monitor_running
+    image_monitor_running = False
+    print("🛑 Image monitoring stopped")
+
+# Start image monitoring when app starts
+def initialize_app():
+    """Initialize the application and start image monitoring"""
+    try:
+        start_image_monitoring()
+    except Exception as e:
+        print(f"⚠️  Could not start image monitoring: {e}")
+
+# Initialize app when Flask starts
+with app.app_context():
+    initialize_app()
 
 # Serve the main HTML file
 @app.route('/')
@@ -38,7 +134,7 @@ def index():
 def serve_static(filename):
     # Check if it's an image file in static/images
     if filename.startswith('static/images/'):
-        # Serve from app directory
+        # Serve from app directory (images are in app/static/images/)
         return send_from_directory('.', filename)
     else:
         # Serve other static files from root directory
@@ -72,174 +168,177 @@ def generate():
     
     # Generate multiple questions
     all_questions = []
-    for i in range(num_questions):
-        # Prepare data for OpenAI
-        data_for_openai = data.copy()
-        data_for_openai['subject'] = subject_for_prompt
-        data_for_openai['topic'] = topic_for_prompt
-    
-        # Call OpenAI to get question and diagram code with library selection
-        result = generate_mcq_and_diagram(data_for_openai)
-    
-        image_url = None
-        option_images = []
+    question_id = None  # Ensure question_id is always defined
+    try:
+        for i in range(num_questions):
+            # Prepare data for OpenAI
+            data_for_openai = data.copy()
+            data_for_openai['subject'] = subject_for_prompt
+            data_for_openai['topic'] = topic_for_prompt
         
-        # Handle main question diagram with self-healing system
-        if result.get('diagram_code'):
-            library_used = result.get('library_used', 'schemdraw')
-            image_filename = render_diagram(
-                result['diagram_code'], 
-                library_used, 
-                app.config['UPLOAD_FOLDER']
-            )
+            # Call OpenAI to get question and diagram code with library selection
+            result = generate_mcq_and_diagram(data_for_openai)
+        
+            image_url = None
+            option_images = []
             
-            # Self-healing: If diagram generation failed, try replacement question
-            if image_filename:
-                image_url = f"/static/images/{image_filename}"
-                print(f"✅ Diagram generated successfully: {image_filename}")
-            else:
-                print(f"❌ Diagram generation failed completely for {library_used}")
-                print(f"🔄 Attempting to generate replacement question...")
+            # Handle main question diagram with self-healing system
+            if result.get('diagram_code'):
+                library_used = result.get('library_used', 'schemdraw')
+                image_filename = render_diagram(
+                    result['diagram_code'], 
+                    library_used, 
+                    app.config['UPLOAD_FOLDER']
+                )
                 
-                # Generate replacement question if diagram was required
-                if data.get('requires_diagram', False):
-                    try:
-                        replacement_data = generate_replacement_question(
-                            subject=subject_for_prompt,
-                            topic=topic_for_prompt,
-                            difficulty_level=data.get('difficulty_level', 'Medium'),
-                            bloom_level=data.get('bloom_level_id', 3),
-                            requires_diagram=True,
-                            library_name=library_used
-                        )
-                        
-                        if replacement_data:
-                            print(f"✅ Generated replacement question successfully")
-                            # Update result with replacement data
-                            result.update(replacement_data)
+                # Self-healing: If diagram generation failed, try replacement question
+                if image_filename:
+                    image_url = f"/static/images/{image_filename}"
+                    print(f"✅ Diagram generated successfully: {image_filename}")
+                else:
+                    print(f"❌ Diagram generation failed completely for {library_used}")
+                    print(f"🔄 Attempting to generate replacement question...")
+                    
+                    # Generate replacement question if diagram was required
+                    if data.get('requires_diagram', False):
+                        try:
+                            replacement_data = generate_replacement_question(
+                                subject=subject_for_prompt,
+                                topic=topic_for_prompt,
+                                difficulty_level=data.get('difficulty_level', 'Medium'),
+                                bloom_level=data.get('bloom_level_id', 3),
+                                requires_diagram=True,
+                                library_name=library_used
+                            )
                             
-                            # Try to generate diagram for replacement question
-                            if replacement_data.get('diagram_code'):
-                                replacement_image_filename = render_diagram(
-                                    replacement_data['diagram_code'],
-                                    library_used,
-                                    app.config['UPLOAD_FOLDER']
-                                )
-                                if replacement_image_filename:
-                                    image_url = f"/static/images/{replacement_image_filename}"
-                                    print(f"✅ Replacement question diagram generated: {replacement_image_filename}")
+                            if replacement_data:
+                                print(f"✅ Generated replacement question successfully")
+                                # Update result with replacement data
+                                result.update(replacement_data)
+                                
+                                # Try to generate diagram for replacement question
+                                if replacement_data.get('diagram_code'):
+                                    replacement_image_filename = render_diagram(
+                                        replacement_data['diagram_code'],
+                                        library_used,
+                                        app.config['UPLOAD_FOLDER']
+                                    )
+                                    if replacement_image_filename:
+                                        image_url = f"/static/images/{replacement_image_filename}"
+                                        print(f"✅ Replacement question diagram generated: {replacement_image_filename}")
+                                    else:
+                                        print(f"❌ Replacement question diagram also failed, proceeding without diagram")
+                                        print(f"📝 Note: No misleading diagram will be shown - better for educational accuracy")
+                                        image_url = None
                                 else:
-                                    print(f"❌ Replacement question diagram also failed, proceeding without diagram")
+                                    print(f"❌ Replacement question has no diagram code")
                                     image_url = None
                             else:
-                                print(f"❌ Replacement question has no diagram code")
+                                print(f"❌ Failed to generate replacement question, proceeding with original")
                                 image_url = None
-                        else:
-                            print(f"❌ Failed to generate replacement question, proceeding with original")
+                        except Exception as replacement_error:
+                            print(f"❌ Replacement question generation failed: {replacement_error}")
                             image_url = None
-                    except Exception as replacement_error:
-                        print(f"❌ Replacement question generation failed: {replacement_error}")
-                        image_url = None
-                else:
-                    print(f"⚠️ Diagram not required, proceeding without diagram")
-                    image_url = None
-        
-        # Handle option diagrams - only if user requested them
-        requires_option_diagrams = data.get('requires_option_diagrams', False)
-        if requires_option_diagrams and result.get('option_diagram_codes'):
-            library_used = result.get('library_used', 'schemdraw')
-            option_diagram_codes = result.get('option_diagram_codes', {})
-            
-            for option in ['A', 'B', 'C', 'D']:
-                option_code = option_diagram_codes.get(option)
-                if option_code:
-                    option_image_filename = render_diagram(
-                        option_code,
-                        library_used,
-                        app.config['UPLOAD_FOLDER']
-                    )
-                    if option_image_filename:
-                        option_images.append(f"/static/images/{option_image_filename}")
                     else:
-                        # Fallback: generate a default diagram
-                        print(f"⚠️ Debug: Failed to render option {option} diagram, generating fallback")
-                        # Fallback: generate a default diagram
+                        print(f"⚠️ Diagram not required, proceeding without diagram")
+                        image_url = None
+            
+            # Handle option diagrams - only if user requested them
+            requires_option_diagrams = data.get('requires_option_diagrams', False)
+            if requires_option_diagrams and result.get('option_diagram_codes'):
+                library_used = result.get('library_used', 'schemdraw')
+                option_diagram_codes = result.get('option_diagram_codes', {})
+                
+                for option in ['A', 'B', 'C', 'D']:
+                    option_code = option_diagram_codes.get(option)
+                    if option_code:
+                        option_image_filename = render_diagram(
+                            option_code,
+                            library_used,
+                            app.config['UPLOAD_FOLDER']
+                        )
+                        if option_image_filename:
+                            option_images.append(f"/static/images/{option_image_filename}")
+                        else:
+                            # Fallback: generate a default diagram
+                            print(f"⚠️ Debug: Failed to render option {option} diagram, generating fallback")
+                            # Fallback: generate a default diagram
+                            option_images.append(None)
+                    else:
+                        # Generate fallback diagram for missing option
+                        print(f"⚠️ Debug: No code for option {option}, generating fallback")
                         option_images.append(None)
-                else:
-                    # Generate fallback diagram for missing option
-                    print(f"⚠️ Debug: No code for option {option}, generating fallback")
-                    option_images.append(None)
-        else:
-            # If option diagrams are not requested, set all to None
-            option_images = [None, None, None, None]
-        
-        question_data = {
-            'question_text': result.get('question_text'),
-            'options': result.get('options'),
-            'correct_answer': result.get('correct_answer'),
-            'explanation': result.get('explanation'),
-            'diagram_code': result.get('diagram_code'),
-            'diagram_image_url': image_url,
-            'library_used': result.get('library_used', 'schemdraw'),
-            'option_images': option_images if option_images else None
-        }
-        
-        # Store the generated question in database
-        if result.get('question_text'):
-            # Handle Bloom level detection if 'auto_detect' is selected
-            bloom_level = data.get('bloom_level')
-            detected_bloom_level = None
-            
-            if bloom_level == 'auto_detect':
-                print("🔍 Auto-detecting Bloom level for question...")
-                detected_bloom_level = detect_bloom_level(
-                    result.get('question_text'),
-                    result.get('options', []),
-                    result.get('explanation', '')
-                )
-                if detected_bloom_level:
-                    bloom_level_id = detected_bloom_level
-                    print(f"✅ Bloom level auto-detected: {detected_bloom_level}")
-                else:
-                    bloom_level_id = None  # Default to None if detection fails
-                    print("⚠️ Bloom level detection failed, using None")
             else:
-                # Convert bloom level name to ID
-                bloom_level_id = None
-                if bloom_level:
-                    # Get bloom level ID from name
-                    bloom_levels = get_reference_data('BloomLevel')
-                    for level in bloom_levels:
-                        if level.get('LevelName') == bloom_level:
-                            bloom_level_id = level.get('BloomLevelID')
-                            break
+                # If option diagrams are not requested, set all to None
+                option_images = [None, None, None, None]
             
-            db_data = {
-                'subject_id': data.get('subject_id'),
-                'topic_id': data.get('topic_id'),
-                'question_type_id': data.get('question_type_id', 1),  # Default to MCQ
-                'bloom_level_id': bloom_level_id,
-                'difficulty_level_id': data.get('difficulty_level_id'),
+            question_data = {
                 'question_text': result.get('question_text'),
-                'options': result.get('options', []),
+                'options': result.get('options'),
                 'correct_answer': result.get('correct_answer'),
                 'explanation': result.get('explanation'),
+                'diagram_code': result.get('diagram_code'),
                 'diagram_image_url': image_url,
                 'library_used': result.get('library_used', 'schemdraw'),
-                'option_images': option_images,
-                'diagram_code': result.get('diagram_code')  # Add diagram code
+                'option_images': option_images if option_images else None
             }
             
             # Store the generated question in database
-            question_id = store_generated_question(db_data)
+            if result.get('question_text'):
+                # Handle Bloom level detection if 'auto_detect' is selected
+                bloom_level = data.get('bloom_level')
+                detected_bloom_level = None
+                
+                if bloom_level == 'auto_detect':
+                    print("🔍 Auto-detecting Bloom level for question...")
+                    detected_bloom_level = detect_bloom_level(
+                        result.get('question_text'),
+                        result.get('options', []),
+                        result.get('explanation', '')
+                    )
+                    if detected_bloom_level:
+                        bloom_level_id = detected_bloom_level
+                        print(f"✅ Bloom level auto-detected: {detected_bloom_level}")
+                    else:
+                        bloom_level_id = None  # Default to None if detection fails
+                        print("⚠️ Bloom level detection failed, using None")
+                else:
+                    # Convert bloom level name to ID
+                    bloom_level_id = None
+                    if bloom_level:
+                        # Get bloom level ID from name
+                        bloom_levels = get_reference_data('BloomLevel')
+                        for level in bloom_levels:
+                            if level.get('LevelName') == bloom_level:
+                                bloom_level_id = level.get('BloomLevelID')
+                                break
+                
+                db_data = {
+                    'subject_id': data.get('subject_id'),
+                    'topic_id': data.get('topic_id'),
+                    'question_type_id': data.get('question_type_id', 1),  # Default to MCQ
+                    'bloom_level_id': bloom_level_id,
+                    'difficulty_level_id': data.get('difficulty_level_id'),
+                    'question_text': result.get('question_text'),
+                    'options': result.get('options', []),
+                    'correct_answer': result.get('correct_answer'),
+                    'explanation': result.get('explanation'),
+                    'diagram_image_url': image_url,
+                    'library_used': result.get('library_used', 'schemdraw'),
+                    'option_images': option_images,
+                    'diagram_code': result.get('diagram_code')  # Add diagram code
+                }
+                
+                # Store the generated question in database
+                question_id = store_generated_question(db_data)
+                
+                # If Bloom level was auto-detected, update the question with the detected level
+                if data.get('bloom_level') == 'auto_detect' and detected_bloom_level and question_id:
+                    update_question_bloom_level(question_id, detected_bloom_level)
             
-            # If Bloom level was auto-detected, update the question with the detected level
-            if data.get('bloom_level') == 'auto_detect' and detected_bloom_level and question_id:
-                update_question_bloom_level(question_id, detected_bloom_level)
+            all_questions.append(question_data)
         
-        all_questions.append(question_data)
-    
-            # Return the first question for backward compatibility, but also include all questions
+        # Return the first question for backward compatibility, but also include all questions
         if all_questions:
             first_question = all_questions[0].copy()
             response = {
@@ -271,6 +370,22 @@ def generate():
                 'all_questions': [],
                 'total_generated': 0
             }
+    
+    except Exception as e:
+        print(f"❌ Error in generate endpoint: {str(e)}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'question_id': question_id if 'question_id' in locals() else None,
+            'library_used': None,
+            'diagram_image_url': None,
+            'question_text': None,
+            'options': [],
+            'correct_answer': None,
+            'explanation': None,
+            'bloom_level': None
+        }), 500
     
     return jsonify(response)
 
@@ -838,7 +953,8 @@ if __name__ == '__main__':
     
     print(f"🚀 Starting Flask server on {host}:{port}")
     print(f"📱 Access the application from other devices using your computer's IP address")
-    print(f"🌐 Local access: http://localhost:{port}")
+    # print(f"🌐 Local access: http://localhost:{port}")
     print(f"📋 To find your IP address, run: ipconfig (Windows) or ifconfig (Mac/Linux)")
     
-    app.run(host=host, port=port, debug=True) 
+    # Disable watchdog to prevent restarts during question generation
+    app.run(host=host, port=port, debug=True, use_reloader=False) 
