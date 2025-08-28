@@ -3,107 +3,2051 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI MCQ Generator</title>
+    <title>AI MCQ Generator powered by PragyaAI</title>
+    
+    <!-- MathJax for mathematical equation rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- Remove Prism.js includes -->
+    <!-- <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script> -->
+    
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: #667eea; color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
-        .form-section, .result-section { background: #f8f9fa; padding: 20px; border-radius: 8px; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        .btn { background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .question-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #667eea; }
-        .option { padding: 8px; margin: 5px 0; background: white; border: 1px solid #ddd; border-radius: 4px; }
-        .correct-answer { background: #d4edda; border-color: #c3e6cb; color: #155724; }
-        .diagram-image { max-width: 100%; max-height: 250px; border-radius: 4px; }
-        .hidden { display: none; }
-        @media (max-width: 768px) { .content { grid-template-columns: 1fr; } }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1); 
+            overflow: hidden;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 40px; 
+            text-align: center; 
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .header h1 { 
+            margin: 0 0 10px 0; 
+            font-size: 3rem; 
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h2 { 
+            margin: 0 0 5px 0; 
+            font-size: 1.4rem; 
+            opacity: 0.9;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p { 
+            margin: 0; 
+            opacity: 0.8; 
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 30px; 
+            padding: 40px; 
+            min-height: 600px;
+        }
+
+        .form-section, .result-section { 
+            background: #f8f9fa; 
+            padding: 30px; 
+            border-radius: 15px; 
+            border: 1px solid #e9ecef;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .form-section:hover, .result-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .form-section h2, .result-section h2 {
+            color: #495057;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group { 
+            margin-bottom: 20px; 
+        }
+
+        .form-group label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            color: #495057;
+            font-size: 0.95rem;
+        }
+
+        .form-group input, .form-group select, .form-group textarea { 
+            width: 100%; 
+            padding: 12px 15px; 
+            border: 2px solid #e9ecef; 
+            border-radius: 10px; 
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { 
+            outline: none; 
+            border-color: #667eea; 
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea { 
+            height: 100px; 
+            resize: vertical; 
+            font-family: inherit;
+        }
+
+        .form-row { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px; 
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-group:hover {
+            border-color: #667eea;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #667eea;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none; 
+            padding: 15px 30px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            width: 100%; 
+            font-size: 16px; 
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled { 
+            opacity: 0.6; 
+            cursor: not-allowed; 
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Random Generation Styles */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .random-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .random-btn.random-active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+        }
+
+        .random-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .ai-analysis-modal {
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .breakdown-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .breakdown-item label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .breakdown-item input {
+            padding: 8px;
+            border: 2px solid #e1e5e9;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .generation-progress {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .progress-summary {
+            margin-bottom: 20px;
+        }
+
+        .total-progress {
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .detailed-progress {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        /* Generated Questions Container Styles */
+        .generated-questions-container {
+            margin-top: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .generated-question-card {
+            transition: all 0.3s ease;
+        }
+
+        .generated-question-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .generated-questions-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .generated-questions-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .generated-questions-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .generated-questions-container::-webkit-scrollbar-thumb:hover {
+            background: #5a6fd8;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s ease;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .question-card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 15px; 
+            margin-bottom: 20px; 
+            border-left: 5px solid #667eea;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .question-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .option { 
+            padding: 15px; 
+            margin: 10px 0; 
+            background: #f8f9fa; 
+            border: 2px solid #e9ecef; 
+            border-radius: 10px; 
+            transition: all 0.3s ease;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .option:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .correct-answer { 
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
+            border-color: #28a745; 
+            color: #155724; 
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(40, 167, 69, 0.2);
+        }
+
+        .explanation { 
+            background: linear-gradient(135deg, #e2e3e5 0%, #d6d8db 100%); 
+            padding: 20px; 
+            border-radius: 12px; 
+            font-style: italic; 
+            margin-bottom: 20px; 
+            border-left: 4px solid #667eea;
+            color: #495057;
+        }
+
+        .diagram-image { 
+            max-width: 100%; 
+            max-height: 300px; 
+            border-radius: 12px; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .diagram-image:hover {
+            transform: scale(1.02);
+            cursor: pointer;
+        }
+
+        /* Diagram Popup Styles */
+        .diagram-popup {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .diagram-popup-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+            text-align: center;
+        }
+
+        .diagram-popup img {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .diagram-popup-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            background: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .diagram-popup-close:hover {
+            color: #333;
+            transform: scale(1.1);
+        }
+
+        .diagram-popup-title {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .library-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+        }
+
+        .hidden { display: none !important; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 15px;
+        }
+
+
+
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error { 
+            color: #721c24; 
+            padding: 15px; 
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
+            border-radius: 10px; 
+            margin: 15px 0; 
+            border-left: 4px solid #dc3545;
+        }
+
+        .nav-links { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .nav-links a { 
+            color: #667eea; 
+            text-decoration: none; 
+            margin: 0 20px; 
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            background: white;
+            border: 2px solid #e9ecef;
+            display: inline-block;
+        }
+
+        .nav-links a:hover { 
+            color: #764ba2; 
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stats-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .form-section {
+            position: relative;
+        }
+
+        .form-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px 15px 0 0;
+        }
+
+        .result-section {
+            position: relative;
+        }
+
+        .result-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border-radius: 15px 15px 0 0;
+        }
+
+        @media (max-width: 768px) { 
+            .content { 
+                grid-template-columns: 1fr; 
+                gap: 20px;
+                padding: 20px;
+            } 
+            .form-row { 
+                grid-template-columns: 1fr; 
+                gap: 15px;
+            }
+            .header h1 {
+                font-size: 2rem;
+            }
+            .header h2 {
+                font-size: 1.1rem;
+            }
+            .header p {
+                font-size: 1rem;
+            }
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            /* Footer responsiveness */
+            .nav-links {
+                padding: 20px;
+            }
+        }
+        
+        /* Code syntax highlighting styles */
+        .code-block {
+            background: #2d3748;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        .code-block pre {
+            margin: 0;
+            color: #e2e8f0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .code-block code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+        
+        /* Programming question specific styles */
+        .programming-question {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 5px solid #ff6b6b;
+        }
+        
+        .code-snippet {
+            background: #f5f5f5;
+            color: #222;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+        }
+        .code-snippet pre {
+            margin: 0;
+            background: none;
+            color: inherit;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+        }
+        .code-snippet code {
+            background: none;
+            color: inherit;
+            padding: 0;
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+        }
+        
+        .language-label {
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        
+        .nav-links a {
+                display: block;
+                margin: 10px 0;
+                padding: 15px 20px;
+                text-align: center;
+                width: 100%;
+                max-width: 300px;
+                margin-left: auto;
+                margin-right: auto;
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 30px 20px;
+            }
+            .content {
+                padding: 20px 15px;
+            }
+            .form-section, .result-section {
+                padding: 20px;
+            }
+            
+            /* Footer responsiveness for small screens */
+            .nav-links {
+                padding: 15px;
+            }
+            .nav-links a {
+                font-size: 0.9rem;
+                padding: 12px 16px;
+                margin: 8px 0;
+            }
+        }
+    </style>
+    <!-- Explanation Popup Modal -->
+    <div id="explanation-popup" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeExplanationPopup()">&times;</span>
+        <div id="explanation-popup-content"></div>
+      </div>
+    </div>
+
+    <!-- Diagram Popup Modal -->
+    <div id="diagram-popup" class="diagram-popup">
+        <div class="diagram-popup-content">
+            <span class="diagram-popup-close" onclick="closeDiagramPopup()">&times;</span>
+            <div class="diagram-popup-title" id="diagram-popup-title"></div>
+            <img id="diagram-popup-image" src="" alt="Diagram">
+      </div>
+    </div>
+    <style>
+    .modal {
+      display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+      overflow: auto; background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px; position: relative;
+    }
+    .close {
+      color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer;
+    }
+    .close:hover { color: #000; }
+    
+    /* Modal Overlay Styles for Random Generation */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .modal-overlay.hidden {
+      display: none;
+    }
+    
+    .ai-analysis-modal {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+    
+    .analysis-summary {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .analysis-summary p {
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    
+    .question-breakdown {
+      margin: 20px 0;
+    }
+    
+    .question-breakdown h4 {
+      color: #495057;
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+    }
+    
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .breakdown-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    
+    .breakdown-item label {
+      font-weight: 600;
+      color: #333;
+      font-size: 0.9rem;
+    }
+    
+    .breakdown-item input {
+      padding: 10px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    .breakdown-item input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 25px;
+      flex-wrap: wrap;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(108, 117, 125, 0.3);
+    }
+    
+    .btn-cancel {
+      background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-cancel:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3);
+    }
+    
+    /* Generation Progress Styles */
+    .generation-progress {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 25px;
+      border-radius: 12px;
+      margin: 20px 0;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      border: 1px solid #e9ecef;
+    }
+    
+    .generation-progress.hidden {
+      display: none;
+    }
+    
+    .progress-summary {
+      margin-bottom: 20px;
+    }
+    
+    .total-progress {
+      font-size: 18px;
+      margin-bottom: 15px;
+      text-align: center;
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .detailed-progress {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      font-size: 14px;
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .detailed-progress div {
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    
+    .progress-controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 20px 0;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      transition: width 0.3s ease;
+      border-radius: 10px;
+    }
+    
+    .btn-stop {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-stop:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+    }
+    
+    .btn-stop:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .generation-complete {
+      text-align: center;
+      margin-top: 20px;
+      padding: 20px;
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      border-radius: 10px;
+      border: 1px solid #28a745;
+    }
+    
+    .generation-complete h4 {
+      color: #155724;
+      margin-bottom: 15px;
+      font-size: 1.2rem;
+    }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🤖 AI MCQ Generator</h1>
-            <p>Generate intelligent multiple choice questions with diagrams</p>
+            <h2>Powered by PragyaAI</h2>
+            <p>Generate intelligent multiple choice questions with dynamic diagrams</p>
         </div>
 
         <div class="content">
             <div class="form-section">
                 <h2>📝 Generate Question</h2>
                 <form id="mcqForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="course">🎓 Course:</label>
+                            <select id="course" name="course" required>
+                                <option value="">Select Course</option>
+                            </select>
+                        </div>
                     <div class="form-group">
-                        <label for="stream">Stream:</label>
+                            <label for="stream">📚 Stream:</label>
                         <select id="stream" name="stream" required>
-                            <option value="CS">Computer Science</option>
-                            <option value="IT">Information Technology</option>
-                            <option value="ECE">Electronics & Communication</option>
+                                <option value="">Select Stream</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="subject">📖 Subject:</label>
+                            <select id="subject" name="subject" required>
+                                <option value="">Select Subject</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="topic">📋 Topic:</label>
+                            <select id="topic" name="topic" required>
+                                <option value="">Select Topic</option>
                         </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="questionType">❓ Question Type:</label>
+                            <select id="questionType" name="questionType" required>
+                                <option value="">Select Type</option>
+                            </select>
+                        </div>
+                    <div class="form-group">
+                            <label for="difficultyLevel">🎯 Difficulty Level:</label>
+                            <select id="difficultyLevel" name="difficultyLevel">
+                                <option value="">Select Difficulty</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bloomLevel">🧠 Bloom Level (Optional):</label>
+                            <select id="bloomLevel" name="bloomLevel">
+                                <option value="">Auto-detect</option>
+                            </select>
+                        </div>
+                    <div class="form-group">
+                            <label for="numQuestions">📊 Number of Questions:</label>
+                            <input type="number" id="numQuestions" name="numQuestions" min="1" max="10" value="1" required>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="subject">Subject:</label>
-                        <input type="text" id="subject" name="subject" value="Digital Logic" required>
+                        <label for="customPrompt">Custom Prompt (Optional):</label>
+                        <textarea id="customPrompt" name="customPrompt" placeholder="Add any specific requirements or instructions for question generation..."></textarea>
                     </div>
 
                     <div class="form-group">
-                        <label for="topic">Topic:</label>
-                        <input type="text" id="topic" name="topic" value="Logic Gates" required>
+                        <div class="button-group">
+                            <button type="submit" id="generateBtn" class="btn">
+                                🚀 Generate Question
+                            </button>
+                            <button type="button" id="randomBtn" class="btn random-btn">
+                                🎲 Random
+                            </button>
+                        </div>
+                    </div>
+
+
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="requiresDiagram" name="requiresDiagram" unchecked>
+                            <label for="requiresDiagram">📊 Include Question Diagram</label>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="questionType">Question Type:</label>
-                        <select id="questionType" name="questionType" required>
-                            <option value="MCQ">Multiple Choice Question</option>
-                        </select>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="requiresOptionDiagrams" name="requiresOptionDiagrams">
+                            <label for="requiresOptionDiagrams">🖼️ Include Diagrams in Options (A, B, C, D)</label>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="requiresDiagram" name="requiresDiagram">
-                            Include Diagram
-                        </label>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="isProgrammingQuestion" name="isProgrammingQuestion">
+                            <label for="isProgrammingQuestion">💻 Programming Question (with code snippets)</label>
+                        </div>
                     </div>
 
-                    <button type="submit" class="btn" id="generateBtn">🚀 Generate Question</button>
                 </form>
             </div>
 
             <div class="result-section">
-                <h2>📋 Generated Question</h2>
-                <div id="loading" class="hidden">
-                    <p>🔄 Generating question...</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>📋 Generated Questions</h2>
+
+                </div>
+                <div id="loading" class="loading hidden">
+                    <p>🔄 Generating questions...</p>
                 </div>
                 
-                <div id="error" class="hidden" style="color: red; padding: 10px;"></div>
+                <div id="error" class="error hidden"></div>
                 
                 <div id="result" class="hidden">
                     <div class="question-card">
-                        <div id="questionText" style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px;"></div>
-                        <div id="options" style="margin-bottom: 15px;"></div>
-                        <div id="explanation" style="background: #e2e3e5; padding: 10px; border-radius: 4px; font-style: italic;"></div>
+                        <div id="difficultyIndicator" style="margin-bottom: 10px; font-size: 0.9rem; font-weight: 500;"></div>
+                        <div id="questionText" style="font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: #212529; line-height: 1.5;"></div>
+                        <div id="options" style="margin-bottom: 20px;"></div>
+                        <div id="explanation" class="explanation"></div>
                     </div>
                     
-                    <div id="diagramContainer" style="text-align: center; margin-top: 15px;">
+                    <div id="diagramContainer" style="text-align: center; margin-top: 20px;">
+                        <div id="libraryInfo" class="library-info hidden"></div>
                         <img id="diagramImage" class="diagram-image hidden" alt="Generated Diagram">
+                    </div>
+                </div>
+
+                <!-- Generation Progress Display -->
+                <div id="generationProgress" class="generation-progress hidden">
+                    <h3>🔄 Generating Questions...</h3>
+                    
+                    <div class="progress-summary">
+                        <div class="total-progress">
+                            <strong>Overall Progress: <span id="current-count">0</span>/<span id="total-count">0</span> questions</strong>
+                        </div>
+                        
+                        <div class="detailed-progress">
+                            <div>📊 With Diagrams: <span id="diagram-progress">0</span>/<span id="diagram-total">0</span></div>
+                            <div>🎯 Option Diagrams: <span id="option-progress">0</span>/<span id="option-total">0</span></div>
+                            <div>📝 Text Only: <span id="text-progress">0</span>/<span id="text-total">0</span></div>
+                            <div>💻 Code Snippets: <span id="code-progress">0</span>/<span id="code-total">0</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-controls">
+                        <button id="stop-generation" class="btn-stop">🛑 Stop Generation</button>
+                    </div>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div id="statsPreview" class="stats-preview">
+                    <div class="stat-item">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Total Questions</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Pending Review</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Approved</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Discarded</div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="nav-links">
+            <a href="#" onclick="showReviewPage()">📋 Review Questions</a>
+            <a href="#" onclick="showStats()">📊 Statistics</a>
+            <a href="admin.html" id="adminPageBtn">🛠️ Admin Panel</a>
+        </div>
     </div>
 
+    <!-- AI Analysis Modal -->
+    <div id="analysisModal" class="modal-overlay hidden">
+        <div class="modal-content ai-analysis-modal">
+            <h3>📊 AI Topic Analysis Results</h3>
+            
+            <div class="analysis-summary">
+                <p><strong>Topic:</strong> <span id="analysis-topic-name"></span></p>
+                <p><strong>AI Reasoning:</strong> <span id="analysis-reasoning"></span></p>
+            </div>
+            
+            <div class="question-breakdown">
+                <h4>📈 Recommended Question Distribution:</h4>
+                <div class="breakdown-grid">
+                    <div class="breakdown-item">
+                        <label>Total Questions:</label>
+                        <input type="number" id="modal-total" min="1" max="100" />
+                    </div>
+                    <div class="breakdown-item">
+                        <label>With Diagrams:</label>
+                        <input type="number" id="modal-diagram" min="0" />
+                    </div>
+                    <div class="breakdown-item">
+                        <label>Option Diagrams:</label>
+                        <input type="number" id="modal-option" min="0" />
+                    </div>
+                    <div class="breakdown-item">
+                        <label>Text Only:</label>
+                        <input type="number" id="modal-text" min="0" />
+                    </div>
+                    <div class="breakdown-item">
+                        <label>Code Snippets:</label>
+                        <input type="number" id="modal-code" min="0" />
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button id="confirm-generation" class="btn-primary">✅ Confirm & Generate</button>
+                <button id="switch-manual" class="btn-secondary">✏️ Switch to Manual</button>
+                <button id="cancel-analysis" class="btn-cancel">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+    <script src="config.js"></script>
     <script>
-        const API_URL = 'http://127.0.0.1:5000/api/generate';
+        // Global variables to store dropdown data
+        let subjects = [];
+        let topics = [];
+        let questionTypes = [];
+        let difficultyLevels = [];
+        let bloomLevels = [];
+
+        // Load all dropdown data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDropdownData();
+            loadStatsPreview();
+        });
+
+        // Load all reference data for dropdowns
+        async function loadDropdownData() {
+            try {
+                // Load subjects
+                const subjectsResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/subjects')}`);
+                subjects = await subjectsResponse.json();
+                populateDropdown('subject', subjects, 'SubjectName', 'SubjectID');
+
+                // Load question types
+                const questionTypesResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/QuestionType')}`);
+                questionTypes = await questionTypesResponse.json();
+                populateDropdown('questionType', questionTypes, 'TypeName', 'QuestionTypeID');
+
+                // Load difficulty levels
+                const difficultyResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/DifficultyLevel')}`);
+                difficultyLevels = await difficultyResponse.json();
+                populateDropdown('difficultyLevel', difficultyLevels, 'LevelName', 'DifficultyLevelID');
+
+                // Load bloom levels
+                const bloomResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/BloomLevel')}`);
+                bloomLevels = await bloomResponse.json();
+                populateDropdown('bloomLevel', bloomLevels, 'LevelName', 'BloomLevelID');
+                
+                // Add Auto Detect option to bloom level dropdown
+                const bloomSelect = document.getElementById('bloomLevel');
+                const autoDetectOption = document.createElement('option');
+                autoDetectOption.value = 'auto';
+                autoDetectOption.textContent = '🔍 Auto Detect';
+                bloomSelect.appendChild(autoDetectOption);
+
+            } catch (error) {
+                console.error('Error loading dropdown data:', error);
+            }
+        }
+
+        // Load stats preview
+        async function loadStatsPreview() {
+            try {
+                const response = await fetch(`${config.API_URL.replace('/api/generate', '/api/questions')}?status=all`);
+                const questions = await response.json();
+                
+                const stats = {
+                    total: questions.length,
+                    pending: questions.filter(q => !q.IsEnable && !q.IsDeleted).length,
+                    approved: questions.filter(q => q.IsEnable).length,
+                    discarded: questions.filter(q => q.IsDeleted).length
+                };
+                
+                document.querySelectorAll('.stat-number').forEach((el, index) => {
+                    const values = [stats.total, stats.pending, stats.approved, stats.discarded];
+                    el.textContent = values[index];
+                });
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Populate a dropdown with data
+        function populateDropdown(elementId, data, displayField, valueField) {
+            const select = document.getElementById(elementId);
+            if (!select) return;
+
+            // Clear existing options except the first one
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            // Add new options
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueField];
+                
+                option.textContent = item[displayField];
+                
+                select.appendChild(option);
+            });
+        }
+
+        // Load courses on page load
+        async function loadCourses() {
+            const response = await fetch(`${config.API_URL.replace('/api/generate', '/api/courses')}`);
+            const courses = await response.json();
+            populateDropdown('course', courses, 'CourseName', 'CourseID');
+        }
+
+        // Load streams when course changes
+        async function loadStreams(courseId) {
+            const streamSelect = document.getElementById('stream');
+            streamSelect.innerHTML = '<option value="">Select Stream</option>';
+            if (courseId) {
+                const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/streams/${courseId}`)}`);
+                const streams = await response.json();
+                populateDropdown('stream', streams, 'StreamName', 'StreamID');
+            }
+        }
+
+        // Load subjects when stream changes
+        async function loadSubjects(streamId) {
+            const subjectSelect = document.getElementById('subject');
+            subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+            if (streamId) {
+                const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/subjects?stream_id=${streamId}`)}`);
+                const subjects = await response.json();
+                populateDropdown('subject', subjects, 'SubjectName', 'SubjectID');
+            }
+        }
+
+        // On page load, load courses and set up event listeners
+        window.addEventListener('DOMContentLoaded', function() {
+            loadCourses();
+            // When course changes, load streams
+            document.getElementById('course').addEventListener('change', function() {
+                loadStreams(this.value);
+                // Clear subjects and topics
+                document.getElementById('subject').innerHTML = '<option value="">Select Subject</option>';
+                document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+            });
+            // When stream changes, load subjects
+            document.getElementById('stream').addEventListener('change', function() {
+                loadSubjects(this.value);
+                // Clear topics
+                document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+            });
+            // When subject changes, load topics (existing logic)
+            document.getElementById('subject').addEventListener('change', async function() {
+                const subjectId = this.value;
+                const topicSelect = document.getElementById('topic');
+                topicSelect.innerHTML = '<option value="">Select Topic</option>';
+                if (subjectId) {
+                    try {
+                        const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/topics/${subjectId}`)}`);
+                        topics = await response.json();
+                        populateDropdown('topic', topics, 'TopicName', 'TopicID');
+                    } catch (error) {
+                        console.error('Error loading topics:', error);
+                    }
+                }
+            });
+        });
+
+        // Form submission - use the generateQuestions function
+        document.getElementById('mcqForm').addEventListener('submit', generateQuestions);
+
+        // Close popup when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const diagramPopup = document.getElementById('diagram-popup');
+            diagramPopup.addEventListener('click', function(e) {
+                if (e.target === diagramPopup) {
+                    closeDiagramPopup();
+                }
+            });
+        });
+
+        function showError(message) {
+            const error = document.getElementById('error');
+            error.textContent = message;
+            error.classList.remove('hidden');
+        }
+
+        function displayResult(data, isCDQ = false) {
+            const result = document.getElementById('result');
+            const questionText = document.getElementById('questionText');
+            const options = document.getElementById('options');
+            const explanation = document.getElementById('explanation');
+            const diagramImage = document.getElementById('diagramImage');
+            const libraryInfo = document.getElementById('libraryInfo');
+            
+            // Clear previous content
+            result.innerHTML = '';
+            
+            if (isCDQ) {
+                // Handle CDQ results - they have a different structure
+                displayCDQResult(data, result);
+            } else {
+                // Handle regular MCQ results
+                displayMCQResult(data, result);
+            }
+            
+            result.classList.remove('hidden');
+            
+            // Make sure progress display is hidden when showing manual results
+            const progressDiv = document.getElementById('generationProgress');
+            if (progressDiv) {
+                progressDiv.classList.add('hidden');
+            }
+                
+            // Trigger MathJax to render equations (robust check)
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
+        }
         
-        document.getElementById('mcqForm').addEventListener('submit', async (e) => {
+        function displayCDQResult(data, result) {
+            // Add CDQ header
+            const header = document.createElement('div');
+            header.style.cssText = `
+                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                color: #1565c0;
+                padding: 15px 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                font-weight: 600;
+                text-align: center;
+            `;
+            header.textContent = `📖 CDQ (Common Database Question) Generated Successfully!`;
+            result.appendChild(header);
+            
+            // Display the passage
+            if (data.passage_text) {
+                const passageCard = document.createElement('div');
+                passageCard.className = 'question-card';
+                passageCard.style.cssText = `
+                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                    border-left: 4px solid #007bff;
+                    margin-bottom: 30px;
+                `;
+                
+                const passageTitle = document.createElement('h3');
+                passageTitle.style.cssText = 'color: #007bff; margin-bottom: 15px; font-size: 1.3rem;';
+                passageTitle.textContent = '📖 Passage:';
+                passageCard.appendChild(passageTitle);
+                
+                const passageText = document.createElement('div');
+                passageText.style.cssText = `
+                    font-size: 1.1rem;
+                    line-height: 1.6;
+                    color: #495057;
+                    padding: 15px;
+                    background: white;
+                    border-radius: 8px;
+                    border: 1px solid #dee2e6;
+                `;
+                passageText.innerHTML = processMathEquations(data.passage_text);
+                passageCard.appendChild(passageText);
+                
+                result.appendChild(passageCard);
+            }
+            
+            // Display questions
+            if (data.questions && data.questions.length > 0) {
+                const questionsTitle = document.createElement('h3');
+                questionsTitle.style.cssText = 'color: #28a745; margin: 30px 0 20px 0; font-size: 1.3rem;';
+                questionsTitle.textContent = `❓ Questions (${data.questions.length}):`;
+                result.appendChild(questionsTitle);
+                
+                data.questions.forEach((question, index) => {
+                    const questionCard = document.createElement('div');
+                    questionCard.className = 'question-card';
+                    questionCard.style.cssText = `
+                        background: white;
+                        border: 1px solid #dee2e6;
+                        border-radius: 10px;
+                        padding: 20px;
+                        margin-bottom: 20px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    `;
+                    
+                    // Add question number
+                    const questionNumber = document.createElement('div');
+                    questionNumber.style.cssText = `
+                        font-weight: 600;
+                        color: #495057;
+                        margin-bottom: 15px;
+                        font-size: 1.1rem;
+                    `;
+                    questionNumber.textContent = `Question ${index + 1}:`;
+                    questionCard.appendChild(questionNumber);
+                    
+                    // Add question text
+                    const questionTextDiv = document.createElement('div');
+                    questionTextDiv.style.cssText = `
+                        font-size: 1.1rem;
+                        margin-bottom: 20px;
+                        color: #212529;
+                        line-height: 1.5;
+                    `;
+                    questionTextDiv.innerHTML = processMathEquations(question.question_text || 'No question text');
+                    questionCard.appendChild(questionTextDiv);
+                    
+                    // Add options
+                    if (question.options && question.options.length > 0) {
+                        const optionsContainer = document.createElement('div');
+                        optionsContainer.style.cssText = 'margin-bottom: 20px;';
+                        optionsContainer.className = 'options-container';
+                        optionsContainer.innerHTML = generateOptionsHTML(question.options, question.correct_answer);
+                        questionCard.appendChild(optionsContainer);
+                    }
+                    
+                    // Add explanation button
+                    if (question.explanation) {
+                        const explanationBtn = document.createElement('button');
+                        explanationBtn.className = 'explanation-btn btn';
+                        explanationBtn.textContent = 'View Explanation';
+                        explanationBtn.style.marginBottom = '10px';
+                        explanationBtn.onclick = function() {
+                            showExplanationPopup(processMathEquations(question.explanation));
+                        };
+                        questionCard.appendChild(explanationBtn);
+                    }
+                    
+                    result.appendChild(questionCard);
+                    
+                    // Add separator between questions
+                    if (index < data.questions.length - 1) {
+                        const separator = document.createElement('hr');
+                        separator.style.cssText = `
+                            border: none;
+                            height: 2px;
+                            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+                            margin: 20px 0;
+                            border-radius: 1px;
+                        `;
+                        result.appendChild(separator);
+                    }
+                });
+            }
+        }
+        
+        function displayMCQResult(data, result) {
+            // Check if we have multiple questions
+            const allQuestions = data.all_questions || [data];
+            const totalGenerated = data.total_generated || 1;
+            
+            // Add a header showing how many questions were generated
+            if (totalGenerated > 1) {
+                const header = document.createElement('div');
+                header.style.cssText = `
+                    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+                    color: #155724;
+                    padding: 15px 20px;
+                    border-radius: 10px;
+                    margin-bottom: 20px;
+                    font-weight: 600;
+                    text-align: center;
+                `;
+                header.textContent = `✅ Successfully generated ${totalGenerated} questions!`;
+                result.appendChild(header);
+            }
+            
+            // Display each question
+            allQuestions.forEach((question, index) => {
+                const questionCard = document.createElement('div');
+                questionCard.className = 'question-card';
+                
+                // Add question number if multiple questions
+                const questionNumber = totalGenerated > 1 ? `Question ${index + 1}: ` : '';
+                
+                // Process mathematical equations in question text
+                let processedQuestionText = processMathEquations(question.question_text || 'No question generated');
+                
+                // Check if this is a programming question with code snippet
+                let codeSnippet = null;
+                let language = 'text';
+                
+                if (processedQuestionText.includes('```')) {
+                    const codeMatch = processedQuestionText.match(/```(?:([\w-]+))?\n([\s\S]*?)```/);
+                    if (codeMatch) {
+                        language = codeMatch[1] || 'text';
+                        codeSnippet = codeMatch[2];
+                        
+                        // Remove code snippet from question text to avoid duplication
+                        processedQuestionText = processedQuestionText.replace(/```[\s\S]*?```/g, '').trim();
+                    }
+                }
+                
+                // Add difficulty indicator
+                const difficultyIndicator = document.createElement('div');
+                difficultyIndicator.style.cssText = 'margin-bottom: 10px; font-size: 0.9rem; font-weight: 500; padding: 5px 10px; border-radius: 5px; display: inline-block;';
+                
+                // Get difficulty level from the form data or default
+                const selectedDifficultyId = parseInt(document.getElementById('difficultyLevel').value) || 2;
+                const difficultyMapping = {
+                    1: { name: 'Easy', color: '🟢', bgColor: '#d4edda', textColor: '#155724' },
+                    2: { name: 'Medium', color: '🟡', bgColor: '#fff3cd', textColor: '#856404' },
+                    3: { name: 'Hard', color: '🔴', bgColor: '#f8d7da', textColor: '#721c24' },
+                    4: { name: 'Expert', color: '⚫', bgColor: '#d1ecf1', textColor: '#0c5460' }
+                };
+                
+                const difficulty = difficultyMapping[selectedDifficultyId] || difficultyMapping[2];
+                difficultyIndicator.style.backgroundColor = difficulty.bgColor;
+                difficultyIndicator.style.color = difficulty.textColor;
+                difficultyIndicator.innerHTML = `${difficulty.color} ${difficulty.name} Difficulty`;
+                questionCard.appendChild(difficultyIndicator);
+                
+                // Create question text div FIRST
+                const questionTextDiv = document.createElement('div');
+                questionTextDiv.style.cssText = 'font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; color: #212529; line-height: 1.5;';
+                questionTextDiv.innerHTML = `${questionNumber}${processedQuestionText}`;
+                questionCard.appendChild(questionTextDiv);
+                
+                // Add code snippet display BELOW the question text
+                if (codeSnippet) {
+                    const codeDiv = document.createElement('div');
+                    codeDiv.className = 'code-snippet';
+                    codeDiv.innerHTML = `
+                        <pre><code class="language-${language}">${escapeHtml(codeSnippet)}</code></pre>
+                    `;
+                    questionCard.appendChild(codeDiv);
+                }
+                
+                // Add diagram if present (between question and options)
+                if (question.diagram_image_url) {
+                  const diagramDiv = document.createElement('div');
+                  diagramDiv.style.textAlign = 'center';
+                  diagramDiv.style.marginBottom = '20px';
+                  const diagramSrc = `${config.API_URL.replace(/\/api\/generate$/, '')}${question.diagram_image_url}`;
+                  diagramDiv.innerHTML = `
+                    <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
+                        📊 Diagram generated using: ${question.library_used || 'schemdraw'}
+                    </div>
+                    <img src="${diagramSrc}" 
+                         class="diagram-image" alt="Generated Diagram" 
+                         style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer;"
+                         onclick="showDiagramPopup('${diagramSrc}', 'Question Diagram')">
+                  `;
+                  questionCard.appendChild(diagramDiv);
+                }
+                
+                // Create options container
+                const optionsContainer = document.createElement('div');
+                optionsContainer.style.cssText = 'margin-bottom: 20px;';
+                optionsContainer.className = 'options-container';
+                optionsContainer.innerHTML = generateOptionsHTML(question.options, question.correct_answer, question.option_images);
+                questionCard.appendChild(optionsContainer);
+                
+                // Add Explanation button
+                const explanationBtn = document.createElement('button');
+                explanationBtn.className = 'explanation-btn btn';
+                explanationBtn.textContent = 'View Explanation';
+                explanationBtn.style.marginBottom = '20px';
+                explanationBtn.onclick = function() {
+                  showExplanationPopup(processMathEquations(question.explanation || 'No explanation provided'));
+                };
+                questionCard.appendChild(explanationBtn);
+                
+                result.appendChild(questionCard);
+                
+                // Add separator between questions
+                if (index < allQuestions.length - 1) {
+                    const separator = document.createElement('hr');
+                    separator.style.cssText = `
+                        border: none;
+                        height: 2px;
+                        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+                        margin: 30px 0;
+                        border-radius: 1px;
+                    `;
+                    result.appendChild(separator);
+                }
+            });
+            
+            result.classList.remove('hidden');
+                
+            // Trigger MathJax to render equations (robust check)
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            }
+        }
+        
+        function generateOptionsHTML(options, correctAnswer, optionImages = null) {
+            if (!options || options.length === 0) return '';
+            
+            return options.map((option, index) => {
+                const isCorrect = correctAnswer && 
+                               (correctAnswer === String.fromCharCode(65 + index) || 
+                                correctAnswer === option);
+                const optionClass = isCorrect ? 'option correct-answer' : 'option';
+                
+                // Process mathematical equations in options
+                const processedOption = processMathEquations(option);
+                
+                // Check if this option has an image
+                const optionImage = optionImages && optionImages[index];
+                
+                if (optionImage) {
+                    const optionImageSrc = `${config.API_URL.replace(/\/api\/generate$/, '')}${optionImage}`;
+                    return `<div class="${optionClass}">
+                        <strong>${String.fromCharCode(65 + index)}.</strong>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="flex: 1;">
+                                ${processedOption}
+                            </div>
+                            <div style="flex-shrink: 0;">
+                                <img src="${optionImageSrc}" 
+                                     alt="Option ${String.fromCharCode(65 + index)} Diagram"
+                                     style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
+                                     onclick="showDiagramPopup('${optionImageSrc}', 'Option ${String.fromCharCode(65 + index)} Diagram')">
+                            </div>
+                        </div>
+                    </div>`;
+                } else {
+                    return `<div class="${optionClass}">
+                        <strong>${String.fromCharCode(65 + index)}.</strong> ${processedOption}
+                    </div>`;
+                }
+            }).join('');
+        }
+        
+        function cleanLatex(text) {
+            if (!text) return '';
+            // 1. Replace x^{d} with x^d for single digits/letters
+            text = text.replace(/([a-zA-Z])\^\{([a-zA-Z0-9])\}/g, '$1^$2');
+            text = text.replace(/([a-zA-Z])_\{([a-zA-Z0-9])\}/g, '$1_$2');
+            // 2. Replace all $$...$$ with $...$ unless it's a block (line only)
+            text = text.replace(/\$\$([^$\n]+)\$\$/g, function(match, p1) {
+                if (match.trim() === `$$${p1}$$`) return `$$${p1}$$`;
+                return `$${p1}$`;
+            });
+            // 3. Remove extra spaces inside math
+            text = text.replace(/\$\s+/g, '$');
+            text = text.replace(/\s+\$/g, '$');
+            // 4. Remove duplicate newlines
+            text = text.replace(/\n{2,}/g, '\n');
+            // 5. Remove any malformed LaTeX (e.g., missing arguments for \frac, \sqrt)
+            text = text.replace(/\frac\{\}/g, '');
+            text = text.replace(/\sqrt\{\}/g, '');
+            text = text.replace(/\sqrt(?!\{)/g, '');
+            text = text.replace(/\frac(?!\{)/g, '');
+            // 6. Remove any remaining lone $$ (unmatched)
+            text = text.replace(/\${2,}/g, '$');
+            // 7. Add spaces around inline math if missing
+            text = text.replace(/([^\s])\$([^\$]+)\$([^\s.,;:!?)])/g, '$1 $${2}$ $3');
+            // 8. Remove any highlighted MathJax error messages
+            text = text.replace(/Missing argument for \\sqrt\{[^}]*\}\$\$/g, '');
+            // 9. Remove any trailing or leading $ if not paired
+            text = text.replace(/(^|\s)\$([^$]+)($|\s)/g, function(match, p1, p2, p3) {
+                if (p2.trim().length === 0) return '';
+                // Remove trailing $ if not paired
+                let cleaned = p2;
+                if (cleaned.endsWith('$')) cleaned = cleaned.slice(0, -1);
+                if (cleaned.startsWith('$')) cleaned = cleaned.slice(1);
+                return p1 + '$' + cleaned + '$' + p3;
+            });
+            // 10. Remove repeated numbers/expressions outside math (e.g., '2 x^2 2 f(x)' -> '2 x^2 f(x)')
+            text = text.replace(/(\b\d+\b)(\s+\1\b)+/g, '$1');
+            // 11. Remove double-wrapped $...$ (e.g., '$$x^2$$' -> '$x^2$')
+            text = text.replace(/\$\$([^$]+)\$\$/g, '$$$1$');
+            // 12. Remove any $ at the end of a line if not paired
+            text = text.replace(/([^$])\$(\s|$)/g, '$1$2');
+            // 13. Remove any $ at the start of a line if not paired
+            text = text.replace(/(^|\s)\$([^$])/g, '$1$2');
+            return text;
+        }
+
+        function processMathEquations(text) {
+            if (!text) return '';
+            let processedText = text;
+            processedText = processedText.replace(/f\s*\(\s*x\s*\)\s*=\s*([^,\s]+)/g, 'f(x) = $1');
+            processedText = processedText.replace(/x\^(\d+)/g, 'x^{$1}');
+            processedText = processedText.replace(/y\^(\d+)/g, 'y^{$1}');
+            processedText = processedText.replace(/z\^(\d+)/g, 'z^{$1}');
+            processedText = processedText.replace(/(\d+)\^(\d+)/g, '$1^{$2}');
+            processedText = processedText.replace(/(\w+)\^(\d+)/g, '$1^{$2}');
+            processedText = processedText.replace(/(\w+)\/(\w+)/g, '\\frac{$1}{$2}');
+            processedText = processedText.replace(/(\d+)\/(\d+)/g, '\\frac{$1}{$2}');
+            processedText = processedText.replace(/sqrt\s*\(\s*([^)]+)\s*\)/g, '\\sqrt{$1}');
+            processedText = processedText.replace(/√\s*\(\s*([^)]+)\s*\)/g, '\\sqrt{$1}');
+            processedText = processedText.replace(/pi/g, '\\pi');
+            processedText = processedText.replace(/theta/g, '\\theta');
+            processedText = processedText.replace(/alpha/g, '\\alpha');
+            processedText = processedText.replace(/beta/g, '\\beta');
+            processedText = processedText.replace(/gamma/g, '\\gamma');
+            processedText = processedText.replace(/delta/g, '\\delta');
+            processedText = processedText.replace(/sigma/g, '\\sigma');
+            processedText = processedText.replace(/mu/g, '\\mu');
+            processedText = processedText.replace(/lambda/g, '\\lambda');
+            processedText = processedText.replace(/infinity/g, '\\infty');
+            processedText = processedText.replace(/∞/g, '\\infty');
+            processedText = processedText.replace(/<=/g, '\\leq');
+            processedText = processedText.replace(/>=/g, '\\geq');
+            processedText = processedText.replace(/!=/g, '\\neq');
+            processedText = processedText.replace(/±/g, '\\pm');
+            processedText = processedText.replace(/×/g, '\\times');
+            processedText = processedText.replace(/÷/g, '\\div');
+            processedText = processedText.replace(/(\w+)_(\w+)/g, '$1_{$2}');
+            processedText = processedText.replace(/(\w+)_(\d+)/g, '$1_{$2}');
+            const mathPatterns = [
+                /\\frac\{[^}]+\}\{[^}]+\}/g,
+                /\\sqrt\{[^}]+\}/g,
+                /[a-zA-Z]+\^\{[^}]+\}/g,
+                /[a-zA-Z]+\^[a-zA-Z0-9]+/g,
+                /[a-zA-Z]+_[a-zA-Z0-9]+/g,
+                /\\[a-zA-Z]+/g
+            ];
+            mathPatterns.forEach(pattern => {
+                processedText = processedText.replace(pattern, (match) => {
+                    if (match.startsWith('$') && match.endsWith('$')) {
+                        return match;
+                    }
+                    return `$${match}$`;
+                });
+            });
+            processedText = processedText.replace(/\$([^$]+)\$(?![\s.,;:!?)])/g, '$$$1$ ');
+            processedText = processedText.replace(/([^\s(])\$([^$]+)\$/g, '$1 $$$2$');
+            // Remove repeated numbers/expressions outside math (e.g., '2 x^2 2 f(x)' -> '2 x^2 f(x)')
+            processedText = processedText.replace(/(\b\d+\b)(\s+\1\b)+/g, '$1');
+            // Remove double-wrapped $...$ (e.g., '$$x^2$$' -> '$x^2$')
+            processedText = processedText.replace(/\$\$([^$]+)\$\$/g, '$$$1$');
+            // Remove any $ at the end of a line if not paired
+            processedText = processedText.replace(/([^$])\$(\s|$)/g, '$1$2');
+            // Remove any $ at the start of a line if not paired
+            processedText = processedText.replace(/(^|\s)\$([^$])/g, '$1$2');
+            return cleanLatex(processedText);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function triggerMathJax() {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise();
+            } else {
+                setTimeout(triggerMathJax, 100);
+            }
+        }
+
+        // Navigation functions
+        function showReviewPage() {
+            window.location.href = 'review.html';
+        }
+
+        function showStats() {
+            alert('Statistics page will be implemented next!');
+        }
+
+        function showExplanationPopup(explanation) {
+          document.getElementById('explanation-popup-content').innerHTML = explanation || '<em>No explanation provided</em>';
+          document.getElementById('explanation-popup').style.display = 'block';
+          if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('explanation-popup-content')]);
+            }
+        }
+        function closeExplanationPopup() {
+          document.getElementById('explanation-popup').style.display = 'none';
+        }
+
+        // Diagram popup functions
+        function showDiagramPopup(imageSrc, title = 'Diagram') {
+            document.getElementById('diagram-popup-image').src = imageSrc;
+            document.getElementById('diagram-popup-title').textContent = title;
+            document.getElementById('diagram-popup').style.display = 'block';
+        }
+
+        function closeDiagramPopup() {
+            document.getElementById('diagram-popup').style.display = 'none';
+        }
+
+        // Random Generation Variables
+        let isRandomMode = false;
+        let currentGenerationId = null;
+        let currentSessionQuestions = []; // Track questions from current generation session
+
+        // Random mode toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const randomBtn = document.getElementById('randomBtn');
+            if (randomBtn) {
+                randomBtn.addEventListener('click', toggleRandomMode);
+            }
+        });
+
+        function toggleRandomMode() {
+            isRandomMode = !isRandomMode;
+            const randomBtn = document.getElementById('randomBtn');
+            const generateBtn = document.getElementById('generateBtn');
+            
+            if (isRandomMode) {
+                randomBtn.textContent = 'Manual';
+                randomBtn.classList.add('random-active');
+                enableRandomMode();
+                generateBtn.onclick = handleRandomGeneration;
+            } else {
+                randomBtn.textContent = '🎲 Random';
+                randomBtn.classList.remove('random-active');
+                enableManualMode();
+                generateBtn.onclick = generateQuestions; // Original function
+            }
+        }
+
+        function enableRandomMode() {
+            // Disable certain fields
+            const disabledFields = ['difficultyLevel', 'bloomLevel', 'numQuestions'];
+            disabledFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.disabled = true;
+                    field.placeholder = 'Auto';
+                    field.value = '';
+                }
+            });
+        }
+
+        function enableManualMode() {
+            // Enable all fields
+            const fields = ['difficultyLevel', 'bloomLevel', 'numQuestions'];
+            fields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.disabled = false;
+                    field.placeholder = '';
+                }
+            });
+        }
+
+        // Manual question generation function
+        async function generateQuestions(e) {
             e.preventDefault();
             
             const generateBtn = document.getElementById('generateBtn');
             const loading = document.getElementById('loading');
             const result = document.getElementById('result');
             const error = document.getElementById('error');
+            
+            // Clear previous content from the right panel
+            clearRightPanelContent();
+            
+            // Hide progress display if it's showing
+            const progressDiv = document.getElementById('generationProgress');
+            if (progressDiv) {
+                progressDiv.classList.add('hidden');
+            }
             
             loading.classList.remove('hidden');
             result.classList.add('hidden');
@@ -113,16 +2057,39 @@
             
             try {
                 const formData = new FormData(e.target);
+                const numQuestions = parseInt(formData.get('numQuestions'));
+                const questionTypeId = parseInt(formData.get('questionType'));
+                
+                // Check if this is a CDQ question (CDQ has ID 6)
+                const isCDQ = questionTypeId === 6;
+                
                 const data = {
-                    stream: formData.get('stream'),
-                    subject: formData.get('subject'),
-                    topic: formData.get('topic'),
-                    question_type: formData.get('questionType'),
+                    course_id: parseInt(formData.get('course')),
+                    stream_id: parseInt(formData.get('stream')),
+                    subject_id: parseInt(formData.get('subject')),
+                    topic_id: parseInt(formData.get('topic')),
+                    question_type_id: questionTypeId,
+                    difficulty_level_id: formData.get('difficultyLevel') ? parseInt(formData.get('difficultyLevel')) : null,
+                    bloom_level_id: formData.get('bloomLevel') && formData.get('bloomLevel') !== 'auto' ? parseInt(formData.get('bloomLevel')) : 'auto',
+                    question_type: isCDQ ? 'CDQ' : 'MCQ',
                     requires_diagram: formData.get('requiresDiagram') === 'on',
-                    custom_prompt: ''
+                    requires_option_diagrams: formData.get('requiresOptionDiagrams') === 'on',
+                    is_programming_question: formData.get('isProgrammingQuestion') === 'on',
+                    custom_prompt: formData.get('customPrompt'),
+                    num_questions: numQuestions
                 };
                 
-                const response = await fetch(API_URL, {
+                // Update button text based on question type and number
+                if (isCDQ) {
+                    generateBtn.textContent = `🔄 Generating CDQ with ${numQuestions} questions...`;
+                } else if (numQuestions > 1) {
+                    generateBtn.textContent = `🔄 Generating ${numQuestions} questions...`;
+                }
+                
+                // Use different API endpoint for CDQ
+                const apiUrl = isCDQ ? config.API_URL.replace('/api/generate', '/api/generate_cdq') : config.API_URL;
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -133,7 +2100,10 @@
                 }
                 
                 const resultData = await response.json();
-                displayResult(resultData);
+                displayResult(resultData, isCDQ);
+                
+                // Reload stats after generating questions
+                loadStatsPreview();
                 
             } catch (err) {
                 console.error('Error:', err);
@@ -144,43 +2114,674 @@
                 generateBtn.disabled = false;
                 generateBtn.textContent = '🚀 Generate Question';
             }
-        });
-        
-        function displayResult(data) {
-            const result = document.getElementById('result');
-            const questionText = document.getElementById('questionText');
-            const options = document.getElementById('options');
-            const explanation = document.getElementById('explanation');
-            const diagramImage = document.getElementById('diagramImage');
+        }
+
+        async function handleRandomGeneration(e) {
+            e.preventDefault();
             
-            questionText.textContent = data.question_text || 'No question generated';
+            if (!validateRandomFields()) {
+                return;
+            }
             
-            options.innerHTML = '';
-            if (data.options && data.options.length > 0) {
-                data.options.forEach((option, index) => {
-                    const optionDiv = document.createElement('div');
-                    optionDiv.className = 'option';
-                    const isCorrect = data.correct_answer && 
-                                   (data.correct_answer === String.fromCharCode(65 + index) || 
-                                    data.correct_answer === option);
-                    if (isCorrect) {
-                        optionDiv.classList.add('correct-answer');
-                    }
-                    optionDiv.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
-                    options.appendChild(optionDiv);
+            try {
+                showLoading('Analyzing topic with AI...');
+                
+                // Get AI analysis
+                const analysisData = {
+                    course_id: parseInt(document.getElementById('course').value),
+                    stream_id: parseInt(document.getElementById('stream').value),
+                    subject_id: parseInt(document.getElementById('subject').value),
+                    topic_id: parseInt(document.getElementById('topic').value),
+                    question_type: document.getElementById('questionType').value
+                };
+                
+                const response = await fetch('/api/analyze-topic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(analysisData)
                 });
+                
+                const result = await response.json();
+                hideLoading();
+                
+                if (result.success) {
+                    showAnalysisModal(result.analysis, result.topic_info);
+                } else {
+                    alert('AI analysis failed: ' + result.error);
+                    enableManualMode();
+                }
+                
+            } catch (error) {
+                hideLoading();
+                alert('Error during topic analysis. Please try manual input.');
+                enableManualMode();
+            }
+        }
+
+        function validateRandomFields() {
+            const requiredFields = ['course', 'stream', 'subject', 'topic', 'questionType'];
+            for (let fieldId of requiredFields) {
+                const field = document.getElementById(fieldId);
+                if (!field.value) {
+                    alert(`Please select ${fieldId.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function showAnalysisModal(analysis, topicInfo) {
+            const modal = document.getElementById('analysisModal');
+            
+            // Populate modal with AI results
+            document.getElementById('analysis-topic-name').textContent = topicInfo.topic_name;
+            document.getElementById('analysis-reasoning').textContent = analysis.reasoning;
+            document.getElementById('modal-total').value = analysis.total_questions;
+            document.getElementById('modal-diagram').value = analysis.diagram_questions;
+            document.getElementById('modal-option').value = analysis.option_diagram_questions;
+            document.getElementById('modal-text').value = analysis.text_only_questions;
+            document.getElementById('modal-code').value = analysis.code_questions;
+            
+            // Add event listeners
+            document.getElementById('confirm-generation').onclick = confirmRandomGeneration;
+            document.getElementById('switch-manual').onclick = switchToManual;
+            document.getElementById('cancel-analysis').onclick = () => modal.classList.add('hidden');
+            
+            modal.classList.remove('hidden');
+        }
+
+        async function confirmRandomGeneration() {
+            // Get user-modified values
+            const questionPlan = {
+                total_questions: parseInt(document.getElementById('modal-total').value),
+                diagram_questions: parseInt(document.getElementById('modal-diagram').value),
+                option_diagram_questions: parseInt(document.getElementById('modal-option').value),
+                text_only_questions: parseInt(document.getElementById('modal-text').value),
+                code_questions: parseInt(document.getElementById('modal-code').value)
+            };
+            
+            // Validate totals match
+            const sum = questionPlan.diagram_questions + questionPlan.option_diagram_questions + 
+                        questionPlan.text_only_questions + questionPlan.code_questions;
+            
+            if (sum !== questionPlan.total_questions) {
+                alert('The sum of individual question types must equal the total questions.');
+                return;
             }
             
-            explanation.textContent = data.explanation || 'No explanation provided';
+            // Close modal and start generation
+            document.getElementById('analysisModal').classList.add('hidden');
+            await startRandomGeneration(questionPlan);
+        }
+
+        async function startRandomGeneration(questionPlan) {
+            try {
+                // Clear previous session questions
+                currentSessionQuestions = [];
+                
+                // Prepare generation data
+                const generationData = {
+                    question_plan: questionPlan,
+                    course_id: parseInt(document.getElementById('course').value),
+                    stream_id: parseInt(document.getElementById('stream').value),
+                    subject_id: parseInt(document.getElementById('subject').value),
+                    topic_id: parseInt(document.getElementById('topic').value),
+                    question_type: document.getElementById('questionType').value
+                };
+                
+                // Start generation
+                const response = await fetch('/api/generate-random', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(generationData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentGenerationId = result.generation_id;
+                    showProgressDisplay(questionPlan);
+                    startProgressPolling();
+                } else {
+                    alert('Failed to start generation: ' + result.error);
+                }
+                
+            } catch (error) {
+                alert('Error starting generation: ' + error.message);
+            }
+        }
+
+        function showProgressDisplay(questionPlan) {
+            // FIRST: Clear all previous content from the right panel
+            clearRightPanelContent();
             
-            if (data.diagram_image_url) {
-                diagramImage.src = `http://127.0.0.1:5000${data.diagram_image_url}`;
-                diagramImage.classList.remove('hidden');
+            const progressDiv = document.getElementById('generationProgress');
+            progressDiv.classList.remove('hidden');
+            
+            // Reset progress display to initial state
+            resetProgressDisplay();
+            
+            // Initialize progress counters
+            document.getElementById('total-count').textContent = questionPlan.total_questions;
+            document.getElementById('diagram-total').textContent = questionPlan.diagram_questions;
+            document.getElementById('option-total').textContent = questionPlan.option_diagram_questions;
+            document.getElementById('text-total').textContent = questionPlan.text_only_questions;
+            document.getElementById('code-total').textContent = questionPlan.code_questions;
+            
+            // Reset current counters to 0
+            document.getElementById('current-count').textContent = '0';
+            document.getElementById('diagram-progress').textContent = '0';
+            document.getElementById('option-progress').textContent = '0';
+            document.getElementById('text-progress').textContent = '0';
+            document.getElementById('code-progress').textContent = '0';
+            
+            // Reset progress bar
+            document.querySelector('.progress-fill').style.width = '0%';
+            
+            // Reset stop button
+            const stopBtn = document.getElementById('stop-generation');
+            stopBtn.disabled = false;
+            stopBtn.textContent = '🛑 Stop Generation';
+            stopBtn.onclick = stopGeneration;
+            
+            // Reset title
+            const progressTitle = progressDiv.querySelector('h3');
+            if (progressTitle) {
+                progressTitle.textContent = '🔄 Generating Questions...';
+                progressTitle.style.color = '#495057';
+            }
+        }
+
+        function resetProgressDisplay() {
+            // Remove any completion messages
+            const completeDivs = document.querySelectorAll('.generation-complete');
+            completeDivs.forEach(div => div.remove());
+        }
+
+        function clearRightPanelContent() {
+            // Hide previous results
+            const result = document.getElementById('result');
+            if (result) {
+                result.classList.add('hidden');
+            }
+            
+            // Clear loading and error states
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            if (loading) loading.classList.add('hidden');
+            if (error) error.classList.add('hidden');
+            
+            // Clear any generated questions container
+            const generatedQuestionsContainer = document.getElementById('generatedQuestionsContainer');
+            if (generatedQuestionsContainer) {
+                generatedQuestionsContainer.remove();
+            }
+            
+            // Clear any existing question cards or content that might be showing
+            const questionCards = document.querySelectorAll('.question-card');
+            questionCards.forEach(card => card.remove());
+            
+            // Clear any diagram containers
+            const diagramContainers = document.querySelectorAll('#diagramContainer');
+            diagramContainers.forEach(container => {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+            });
+            
+            console.log('✅ Cleared right panel content for new generation');
+        }
+
+        async function startProgressPolling() {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/generation-progress/${currentGenerationId}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Add status to progress object
+                        result.progress.status = result.status;
+                        updateProgressDisplay(result.progress);
+                        
+                        // Track generated questions for current session
+                        if (result.generated_questions && result.generated_questions.length > 0) {
+                            console.log('🔍 Debug: Raw generated questions from backend:', result.generated_questions);
+                            
+                            // Transform backend question format to frontend format
+                            const transformedQuestions = result.generated_questions.map(q => {
+                                const questionData = q.question || q;
+                                return {
+                                    QuestionID: q.id || questionData.question_id,
+                                    QuestionText: questionData.question_text || '',
+                                    Options: JSON.stringify(questionData.options || []),
+                                    CorrectAnswer: questionData.correct_answer || 'A',
+                                    DiagramImageURL: questionData.diagram_image_url,
+                                    Explanation: questionData.explanation || '',
+                                    IsEnable: false,  // New questions are pending by default
+                                    IsDeleted: false,
+                                    QuestionType: q.type || 'mcq',
+                                    CreatedDate: new Date().toISOString()  // Add current timestamp
+                                };
+                            });
+                            
+                            console.log('🔍 Debug: Transformed questions for display:', transformedQuestions);
+                            currentSessionQuestions = transformedQuestions;
+                            
+                            // Show questions in real-time as they are generated
+                            displaySessionQuestions(currentSessionQuestions, 'Current Session Questions');
+                        }
+                        
+                        if (result.status === 'completed' || result.status === 'stopped') {
+                            clearInterval(pollInterval);
+                            handleGenerationComplete(result.status);
+                        }
+                    } else {
+                        console.error('Progress polling failed:', result.error);
+                    }
+                } catch (error) {
+                    console.error('Progress polling error:', error);
+                    // Continue polling unless it's a critical error
+                }
+            }, 1000); // Poll every second
+        }
+
+        function updateProgressDisplay(progress) {
+            // Update counters
+            document.getElementById('current-count').textContent = progress.current || 0;
+            document.getElementById('diagram-progress').textContent = progress.diagram_current || 0;
+            document.getElementById('option-progress').textContent = progress.option_current || 0;
+            document.getElementById('text-progress').textContent = progress.text_current || 0;
+            document.getElementById('code-progress').textContent = progress.code_current || 0;
+            
+            // Update progress bar
+            const percentage = ((progress.current || 0) / (progress.total || 1)) * 100;
+            document.querySelector('.progress-fill').style.width = percentage + '%';
+            
+            // Update button text based on status
+            const stopBtn = document.getElementById('stop-generation');
+            if (progress.status === 'stopped') {
+                stopBtn.textContent = '⏹️ Generation Stopped';
+                stopBtn.disabled = true;
+            } else if (progress.status === 'completed') {
+                stopBtn.textContent = '✅ Generation Complete';
+                stopBtn.disabled = true;
+            }
+        }
+
+        async function stopGeneration() {
+            if (currentGenerationId) {
+                try {
+                    const stopBtn = document.getElementById('stop-generation');
+                    stopBtn.disabled = true;
+                    stopBtn.textContent = '⏹️ Stopping...';
+                    
+                    const response = await fetch(`/api/stop-generation/${currentGenerationId}`, { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        console.log('Generation stop request sent successfully');
+                        // The polling will handle the final UI update when status changes to 'stopped'
+                    } else {
+                        console.error('Failed to stop generation:', result.error);
+                        // Re-enable button if stop failed
+                        stopBtn.disabled = false;
+                        stopBtn.textContent = '🛑 Stop Generation';
+                    }
+                } catch (error) {
+                    console.error('Error stopping generation:', error);
+                    // Re-enable button if there was an error
+                    const stopBtn = document.getElementById('stop-generation');
+                    stopBtn.disabled = false;
+                    stopBtn.textContent = '🛑 Stop Generation';
+                }
+            }
+        }
+
+        function handleGenerationComplete(status) {
+            const progressDiv = document.getElementById('generationProgress');
+            const stopBtn = document.getElementById('stop-generation');
+            
+            // Update the progress title
+            const progressTitle = progressDiv.querySelector('h3');
+            if (progressTitle) {
+                progressTitle.textContent = status === 'completed' ? '✅ Generation Complete!' : '⏹️ Generation Stopped';
+                progressTitle.style.color = status === 'completed' ? '#27ae60' : '#e74c3c';
+            }
+            
+            // Update stop button
+            stopBtn.disabled = true;
+            stopBtn.textContent = status === 'completed' ? '✅ Complete' : '⏹️ Stopped';
+            
+            // Add completion message if not already present
+            if (!progressDiv.querySelector('.generation-complete')) {
+                const completeDiv = document.createElement('div');
+                completeDiv.className = 'generation-complete';
+                completeDiv.innerHTML = `
+                    <h4>${status === 'completed' ? '✅ All questions generated successfully!' : '⏹️ Generation was stopped by user'}</h4>
+                    <p>Generated ${currentSessionQuestions.length} questions total</p>
+                `;
+                progressDiv.appendChild(completeDiv);
+            }
+            
+            // Update progress bar to 100% if completed
+            if (status === 'completed') {
+                document.querySelector('.progress-fill').style.width = '100%';
+            }
+            
+            // Ensure questions are displayed when generation completes
+            if (currentSessionQuestions && currentSessionQuestions.length > 0) {
+                console.log(`🔍 Debug: Displaying final ${currentSessionQuestions.length} questions`);
+                displaySessionQuestions(currentSessionQuestions, status === 'completed' ? 'Generated Questions' : 'Questions Generated Before Stop');
             } else {
-                diagramImage.classList.add('hidden');
+                console.log('⚠️ Debug: No questions available to display');
+                // Try to fetch questions from the API one more time
+                fetchFinalQuestions();
             }
             
-            result.classList.remove('hidden');
+            console.log(`Generation ${status} with ${currentSessionQuestions.length} questions`);
+        }
+
+        async function fetchFinalQuestions() {
+            // Fallback function to fetch questions when generation completes but no questions were captured
+            try {
+                console.log('🔍 Debug: Attempting to fetch final questions from API');
+                const response = await fetch(`/api/generation-progress/${currentGenerationId}`);
+                const result = await response.json();
+                
+                if (result.success && result.generated_questions && result.generated_questions.length > 0) {
+                    console.log('🔍 Debug: Successfully fetched final questions from API');
+                    
+                    // Transform and display questions
+                    const transformedQuestions = result.generated_questions.map(q => {
+                        const questionData = q.question || q;
+                        return {
+                            QuestionID: q.id || questionData.question_id,
+                            QuestionText: questionData.question_text || '',
+                            Options: JSON.stringify(questionData.options || []),
+                            CorrectAnswer: questionData.correct_answer || 'A',
+                            DiagramImageURL: questionData.diagram_image_url,
+                            Explanation: questionData.explanation || '',
+                            IsEnable: false,
+                            IsDeleted: false,
+                            QuestionType: q.type || 'mcq',
+                            CreatedDate: new Date().toISOString()  // Add current timestamp
+                        };
+                    });
+                    
+                    currentSessionQuestions = transformedQuestions;
+                    displaySessionQuestions(currentSessionQuestions, 'Generated Questions');
+                } else {
+                    console.log('⚠️ Debug: No questions found in final fetch');
+                }
+            } catch (error) {
+                console.error('❌ Error fetching final questions:', error);
+            }
+        }
+
+        function switchToManual() {
+            document.getElementById('analysisModal').classList.add('hidden');
+            toggleRandomMode(); // Switch back to manual mode
+        }
+
+        async function showGeneratedQuestions() {
+            try {
+                // Check if we have current session questions
+                if (currentSessionQuestions && currentSessionQuestions.length > 0) {
+                    // Display current session questions
+                    displaySessionQuestions(currentSessionQuestions);
+                } else {
+                    // Fallback: fetch recent questions from database
+                    const response = await fetch('/api/questions?status=all');
+                    const questions = await response.json();
+                    
+                    // Filter for recently generated questions (last 20 questions)
+                    const recentQuestions = questions.slice(0, 20);
+                    
+                    if (recentQuestions.length > 0) {
+                        displaySessionQuestions(recentQuestions, 'Recently Generated Questions');
+                    } else {
+                        alert('No questions found. Please generate some questions first.');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error fetching generated questions:', error);
+                alert('Error loading generated questions. Please try again.');
+            }
+        }
+
+        function displaySessionQuestions(questions, title = 'Current Session Questions') {
+            // Display questions in the result section
+            const resultSection = document.getElementById('result');
+            let generatedQuestionsContainer = document.getElementById('generatedQuestionsContainer');
+            
+            // Create container if it doesn't exist (it may have been removed during cleanup)
+            if (!generatedQuestionsContainer) {
+                const container = document.createElement('div');
+                container.id = 'generatedQuestionsContainer';
+                container.className = 'generated-questions-container';
+                resultSection.appendChild(container);
+                generatedQuestionsContainer = container;
+            }
+            
+            // Make sure the result section is visible
+            resultSection.classList.remove('hidden');
+            
+            // Clear previous content
+            document.getElementById('generatedQuestionsContainer').innerHTML = '';
+            
+            // Categorize questions by type for better progress tracking
+            const questionTypes = categorizeQuestions(questions);
+            updateProgressCountersFromQuestions(questionTypes);
+            
+            // Add header with generation status
+            const header = document.createElement('h3');
+            const isGenerating = document.getElementById('generationProgress') && 
+                                !document.getElementById('generationProgress').classList.contains('hidden');
+            
+            if (isGenerating) {
+                header.textContent = `🔄 Generating Questions... (${questions.length} questions so far)`;
+                header.style.color = '#f39c12'; // Orange for generating
+            } else {
+                header.textContent = `✅ Generated Questions (${questions.length} questions)`;
+                header.style.color = '#27ae60'; // Green for completed
+            }
+            header.style.marginBottom = '20px';
+            document.getElementById('generatedQuestionsContainer').appendChild(header);
+            
+            // Display each question
+            questions.forEach((question, index) => {
+                const questionCard = createQuestionCard(question, index);
+                document.getElementById('generatedQuestionsContainer').appendChild(questionCard);
+            });
+            
+            // Show the result section
+            resultSection.classList.remove('hidden');
+            
+            // Scroll to the questions (only if not already scrolling)
+            if (!isGenerating) {
+                resultSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function categorizeQuestions(questions) {
+            const types = {
+                diagram: 0,
+                option: 0,
+                text: 0,
+                code: 0
+            };
+
+            questions.forEach(question => {
+                // Check if question has diagrams
+                if (question.DiagramImageURL || question.diagram_image_url) {
+                    types.diagram++;
+                }
+                // Check if question has option diagrams
+                else if (question.OptionImages || question.option_images) {
+                    const optionImages = question.OptionImages || question.option_images;
+                    if (optionImages && optionImages.some(img => img !== null)) {
+                        types.option++;
+                    } else {
+                        types.text++;
+                    }
+                }
+                // Check if question has code snippets
+                else if (question.QuestionText && (question.QuestionText.includes('```') || question.QuestionText.includes('code') || question.QuestionText.includes('programming'))) {
+                    types.code++;
+                }
+                // Default to text only
+                else {
+                    types.text++;
+                }
+            });
+
+            return types;
+        }
+
+        function updateProgressCountersFromQuestions(questionTypes) {
+            // Update the progress counters based on actual question categorization
+            document.getElementById('diagram-progress').textContent = questionTypes.diagram;
+            document.getElementById('option-progress').textContent = questionTypes.option;
+            document.getElementById('text-progress').textContent = questionTypes.text;
+            document.getElementById('code-progress').textContent = questionTypes.code;
+            document.getElementById('current-count').textContent = 
+                questionTypes.diagram + questionTypes.option + questionTypes.text + questionTypes.code;
+        }
+
+        function createQuestionCard(question, index) {
+            const card = document.createElement('div');
+            card.className = 'question-card generated-question-card';
+            card.style.marginBottom = '20px';
+            card.style.padding = '20px';
+            card.style.border = '1px solid #e0e0e0';
+            card.style.borderRadius = '10px';
+            card.style.backgroundColor = '#f8f9fa';
+            
+            // Question header with status
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.alignItems = 'center';
+            header.style.marginBottom = '15px';
+            header.style.paddingBottom = '10px';
+            header.style.borderBottom = '1px solid #e0e0e0';
+            
+            const questionNumber = document.createElement('span');
+            questionNumber.textContent = `Question ${index + 1}`;
+            questionNumber.style.fontWeight = 'bold';
+            questionNumber.style.color = '#667eea';
+            
+            const status = document.createElement('span');
+            status.textContent = question.IsEnable ? '✅ Approved' : question.IsDeleted ? '❌ Discarded' : '⏳ Pending';
+            status.style.fontSize = '0.9rem';
+            status.style.padding = '4px 8px';
+            status.style.borderRadius = '4px';
+            status.style.backgroundColor = question.IsEnable ? '#d4edda' : question.IsDeleted ? '#f8d7da' : '#fff3cd';
+            status.style.color = question.IsEnable ? '#155724' : question.IsDeleted ? '#721c24' : '#856404';
+            
+            header.appendChild(questionNumber);
+            header.appendChild(status);
+            card.appendChild(header);
+            
+            // Question text
+            const questionText = document.createElement('div');
+            questionText.innerHTML = question.QuestionText;
+            questionText.style.fontSize = '1.1rem';
+            questionText.style.fontWeight = '600';
+            questionText.style.marginBottom = '15px';
+            questionText.style.lineHeight = '1.5';
+            card.appendChild(questionText);
+            
+            // Options
+            if (question.Options) {
+                const options = JSON.parse(question.Options);
+                const optionsContainer = document.createElement('div');
+                optionsContainer.style.marginBottom = '15px';
+                
+                options.forEach((option, optIndex) => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.style.marginBottom = '8px';
+                    optionDiv.style.padding = '8px 12px';
+                    optionDiv.style.backgroundColor = '#ffffff';
+                    optionDiv.style.border = '1px solid #e0e0e0';
+                    optionDiv.style.borderRadius = '5px';
+                    optionDiv.style.fontSize = '0.95rem';
+                    
+                    const optionLabel = String.fromCharCode(65 + optIndex); // A, B, C, D
+                    optionDiv.innerHTML = `<strong>${optionLabel}.</strong> ${option}`;
+                    
+                    // Highlight correct answer
+                    if (question.CorrectAnswer === optionLabel) {
+                        optionDiv.style.backgroundColor = '#d4edda';
+                        optionDiv.style.borderColor = '#28a745';
+                        optionDiv.style.color = '#155724';
+                    }
+                    
+                    optionsContainer.appendChild(optionDiv);
+                });
+                
+                card.appendChild(optionsContainer);
+            }
+            
+            // Explanation
+            if (question.Explanation) {
+                const explanation = document.createElement('div');
+                explanation.className = 'explanation';
+                explanation.innerHTML = `<strong>Explanation:</strong> ${question.Explanation}`;
+                explanation.style.marginTop = '15px';
+                explanation.style.padding = '10px';
+                explanation.style.backgroundColor = '#e7f3ff';
+                explanation.style.borderRadius = '5px';
+                explanation.style.fontSize = '0.9rem';
+                card.appendChild(explanation);
+            }
+            
+            // Diagram image (if exists)
+            if (question.DiagramImageURL) {
+                const diagramContainer = document.createElement('div');
+                diagramContainer.style.textAlign = 'center';
+                diagramContainer.style.marginTop = '15px';
+                
+                const diagramImage = document.createElement('img');
+                diagramImage.src = question.DiagramImageURL;
+                diagramImage.alt = 'Question Diagram';
+                diagramImage.style.maxWidth = '100%';
+                diagramImage.style.maxHeight = '300px';
+                diagramImage.style.borderRadius = '5px';
+                diagramImage.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                
+                diagramContainer.appendChild(diagramImage);
+                card.appendChild(diagramContainer);
+            }
+            
+            // Question metadata
+            const metadata = document.createElement('div');
+            metadata.style.marginTop = '15px';
+            metadata.style.paddingTop = '10px';
+            metadata.style.borderTop = '1px solid #e0e0e0';
+            metadata.style.fontSize = '0.8rem';
+            metadata.style.color = '#666';
+            
+            const metadataText = `Generated on: ${new Date(question.CreatedDate).toLocaleString()}`;
+            metadata.textContent = metadataText;
+            card.appendChild(metadata);
+            
+            return card;
+        }
+
+        // Loading functions for random generation
+        function showLoading(message) {
+            const loading = document.getElementById('loading');
+            const loadingText = loading.querySelector('p');
+            if (loadingText) {
+                loadingText.textContent = message || '🔄 Generating questions...';
+            }
+            loading.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            loading.classList.add('hidden');
         }
     </script>
 </body>

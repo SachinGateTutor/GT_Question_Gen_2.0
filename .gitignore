@@ -52,4 +52,7 @@ Thumbs.db
 # API keys and sensitive data
 *.key
 api_keys.txt
-secrets.txt 
+secrets.txt
+
+# Generated images and temporary files
+app/static/images/
