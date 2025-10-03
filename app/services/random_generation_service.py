@@ -4,12 +4,13 @@ import os
 import sys
 from datetime import datetime
 from .openai_service import generate_mcq_and_diagram
-from .db_service import store_generated_question
 from .diagram_service_new import render_diagram
+from .net_backend_service import NetBackendService
 
 class RandomGenerationService:
     def __init__(self):
         self.active_generations = {}
+        self.net_backend = NetBackendService()
     
     def analyze_topic(self, topic_info, question_type):
         """Analyze topic and return AI recommendations for question distribution"""
@@ -66,10 +67,19 @@ class RandomGenerationService:
                     # Generate single question
                     question_data = self.generate_single_question(request_data, question_type)
                     
-                    # Store in database
+                    # Store in .NET backend
                     if question_data:
-                        store_generated_question(question_data)
-                        self.active_generations[generation_id]['generated_questions'].append(question_data)
+                        try:
+                            # Store question in .NET backend
+                            storage_result = self.net_backend.store_question(question_data)
+                            if storage_result.get('success'):
+                                print(f"✅ Question stored successfully with ID: {storage_result.get('question_id')}")
+                                question_data['question_id'] = storage_result.get('question_id')
+                                self.active_generations[generation_id]['generated_questions'].append(question_data)
+                            else:
+                                print(f"❌ Failed to store question: {storage_result.get('error', 'Unknown error')}")
+                        except Exception as e:
+                            print(f"❌ Error storing question in .NET backend: {e}")
                     
                     # Update progress
                     self.active_generations[generation_id]['progress']['current'] += 1

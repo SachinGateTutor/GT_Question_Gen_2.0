@@ -10,13 +10,13 @@ def get_db_connection():
 
         # for local system
 
-        conn = pyodbc.connect(
-            'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=localhost;'
-            # 'DATABASE=MCQGen;'
-            'DATABASE=GTQuestionDBS;'
-            'Trusted_Connection=yes;'
-        )
+        # conn = pyodbc.connect(
+        #     'DRIVER={ODBC Driver 17 for SQL Server};'
+        #     'SERVER=localhost;'
+        #     # 'DATABASE=MCQGen;'
+        #     'DATABASE=GTQuestionDBS;'
+        #     'Trusted_Connection=yes;'
+        # )
 
         # for main system
         

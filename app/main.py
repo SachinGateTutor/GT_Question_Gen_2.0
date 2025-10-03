@@ -733,13 +733,18 @@ def analyze_topic():
         topic_id = data.get('topic_id')
         question_type = data.get('question_type')
         
-        # Get topic details from database
-        topic_info = get_topic_details(topic_id, subject_id, stream_id, course_id)
-        if not topic_info:
-            return jsonify({
-                'success': False,
-                'error': 'Topic information not found'
-            }), 404
+        # Create topic info from the provided data (since we don't have local DB)
+        topic_info = {
+            'topic_id': topic_id,
+            'subject_id': subject_id,
+            'stream_id': stream_id,
+            'course_id': course_id,
+            'topic_name': f"Topic {topic_id}",  # We'll use the ID as name since we don't have DB access
+            'subject_name': f"Subject {subject_id}",
+            'stream_name': f"Stream {stream_id}",
+            'course_name': f"Course {course_id}",
+            'bloom_level_name': 'Intermediate'  # Default bloom level for AI analysis
+        }
         
         # Call AI analysis service
         analysis_result = ai_analyze_topic(topic_info, question_type)
@@ -945,6 +950,208 @@ def generate_single_question(request_data, question_type):
             generated_data['option_images'] = option_images
     
     return generated_data
+
+# ============================================================================
+# .NET BACKEND INTEGRATION ENDPOINTS
+# ============================================================================
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for .NET backend integration"""
+    try:
+        # Check if our service is healthy
+        from services.net_backend_service import net_backend_service
+        
+        # Check .NET backend health
+        net_health = net_backend_service.health_check()
+        
+        if net_health['success']:
+            return jsonify({
+                "status": "healthy",
+                "python_service": "running",
+                "net_backend": "connected",
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "status": "degraded",
+                "python_service": "running", 
+                "net_backend": "unavailable",
+                "error": net_health.get('error', 'Unknown error'),
+                "timestamp": datetime.now().isoformat()
+            }), 200  # Still return 200 as our service is healthy
+            
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "python_service": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/generate-question', methods=['POST'])
+def generate_single_question_endpoint():
+    """Generate single question for .NET backend integration"""
+    try:
+        # Get request data
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "error_message": "No request data provided",
+                "data": None
+            }), 400
+        
+        # Extract required fields
+        generation_id = data.get('generation_id')
+        subject_id = data.get('subject_id')
+        topic_id = data.get('topic_id')
+        section_id = data.get('section_id', 0)  # Add section_id with default 0
+        question_type_id = data.get('question_type_id', 1)
+        bloom_level_id = data.get('bloom_level_id', 2)
+        difficulty_level_id = data.get('difficulty_level_id', 3)
+        marks = data.get('marks', 1)
+        generation_prompt = data.get('generation_prompt', '')
+        include_diagram = data.get('include_diagram', False)
+        
+        # Validate required fields
+        if not all([generation_id, subject_id, topic_id]):
+            return jsonify({
+                "success": False,
+                "error_message": "Missing required fields: generation_id, subject_id, topic_id",
+                "data": None
+            }), 400
+        
+        # Map to our AI service format
+        ai_request_data = {
+            'subject_id': subject_id,
+            'topic_id': topic_id,
+            'question_type_id': question_type_id,
+            'bloom_level_id': bloom_level_id,
+            'difficulty_level_id': difficulty_level_id,
+            'marks': marks,
+            'custom_prompt': generation_prompt,  # Map generation_prompt to custom_prompt
+            'requires_diagram': include_diagram,  # Map include_diagram to requires_diagram
+            'requires_option_diagrams': False,
+            'is_programming_question': False,
+            'num_questions': 1
+        }
+        
+        # Generate question using existing AI logic
+        from services.openai_service import generate_mcq_and_diagram
+        ai_result = generate_mcq_and_diagram(ai_request_data)
+        
+        if not ai_result or 'error' in ai_result:
+            error_msg = ai_result.get('error', 'Failed to generate question') if ai_result else 'No result from AI service'
+            return jsonify({
+                "success": False,
+                "error_message": error_msg,
+                "data": None
+            }), 500
+        
+        # Handle diagram generation if required
+        diagram_code = None
+        if include_diagram and ai_result.get('diagram_code'):
+            try:
+                from services.diagram_service_new import render_diagram
+                image_filename = render_diagram(
+                    ai_result['diagram_code'],
+                    ai_result.get('library_used', 'schemdraw'),
+                    app.config['UPLOAD_FOLDER']
+                )
+                if image_filename:
+                    diagram_code = ai_result['diagram_code']
+            except Exception as e:
+                print(f"Diagram generation failed: {e}")
+                diagram_code = None
+        
+        # Prepare response data in .NET expected format
+        response_data = {
+            "question_text": ai_result.get('question_text', ''),
+            "options": ai_result.get('options', []),
+            "correct_answer": ai_result.get('correct_answer', ''),
+            "explanation": ai_result.get('explanation', ''),
+            "diagram_code": diagram_code,
+            "subject_id": subject_id,
+            "topic_id": topic_id,
+            "section_id": section_id,  # Add section_id
+            "question_type_id": question_type_id,
+            "bloom_level_id": bloom_level_id,
+            "difficulty_level_id": difficulty_level_id,
+            "marks": marks,
+            "generation_prompt": generation_prompt
+        }
+        
+        # Store question in .NET backend database
+        from services.net_backend_service import net_backend_service
+        
+        # Add generation_id to the data for storage
+        storage_data = response_data.copy()
+        storage_data['generation_id'] = generation_id
+        
+        storage_result = net_backend_service.store_question(storage_data)
+        
+        print(f"🔍 Storage result: {storage_result}")
+        
+        if not storage_result['success']:
+            print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
+            # Continue anyway as the question was generated successfully
+        else:
+            # Extract question_id from storage result and add it to response data
+            if storage_result.get('question_id'):
+                response_data['question_id'] = storage_result['question_id']
+                print(f"✅ Question stored successfully with ID: {storage_result['question_id']}")
+        
+        return jsonify({
+            "success": True,
+            "error_message": None,
+            "data": response_data
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in generate_single_question: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return jsonify({
+            "success": False,
+            "error_message": f"Internal server error: {str(e)}",
+            "data": None
+        }), 500
+
+@app.route('/api/generation-status/<generation_id>', methods=['GET'])
+def get_generation_status(generation_id):
+    """Get generation status for a specific generation ID"""
+    try:
+        from services.net_backend_service import net_backend_service
+        
+        # Get status from .NET backend
+        status_result = net_backend_service.get_generation_status(generation_id)
+        
+        if status_result['success']:
+            return jsonify(status_result['status_data']), 200
+        else:
+            # If .NET backend is not available, return a basic status
+            return jsonify({
+                "status": "unknown",
+                "progress": 0,
+                "error_message": status_result.get('error', 'Unable to retrieve status'),
+                "started_at": None,
+                "completed_at": None,
+                "question_data": None
+            }), 200
+            
+    except Exception as e:
+        print(f"Error in get_generation_status: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "progress": 0,
+            "error_message": f"Internal server error: {str(e)}",
+            "started_at": None,
+            "completed_at": None,
+            "question_data": None
+        }), 500
 
 if __name__ == '__main__':
     # Get host and port from environment variables or use defaults
