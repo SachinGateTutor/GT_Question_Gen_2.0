@@ -5,11 +5,19 @@ import re
 import json
 import time
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def get_openai_client():
-    # Hardcoded API key for limited use
-    api_key = "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"
-    print(f"Debug: Using hardcoded API key: {api_key[:20]}...")
+    # Get API key from environment variables
+    api_key = os.getenv('OPENAI_API_KEY')
+    
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY not found in environment variables. Please check your .env file.")
+    
+    print(f"Debug: Using API key from environment: {api_key[:20]}...")
     print("Debug: Creating OpenAI client with valid API key")
     return openai.OpenAI(api_key=api_key)
 

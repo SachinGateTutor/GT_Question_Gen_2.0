@@ -1,8 +1,13 @@
 import requests
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -11,8 +16,9 @@ logger = logging.getLogger(__name__)
 class NetBackendService:
     """Service to communicate with .NET backend API"""
     
-    def __init__(self, base_url: str = "http://192.168.0.102:5125"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        # Get base URL from environment variable or use default
+        self.base_url = base_url or os.getenv('NET_BACKEND_URL', 'http://192.168.0.102:5125')
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',

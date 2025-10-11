@@ -11,7 +11,6 @@ import re
 
 # Import the new modular renderers
 from .renderers import (
-    plantuml_renderer,
     graphviz_renderer, 
     schemdraw_renderer,
     matplotlib_renderer,
@@ -67,9 +66,7 @@ def render_diagram(code, library_name=None, output_folder=None):
     
     try:
         # Use the modular renderer approach
-        if library_name == 'plantuml':
-            return plantuml_renderer.render(code, filepath)
-        elif library_name == 'schemdraw':
+        if library_name == 'schemdraw':
             return schemdraw_renderer.render(code, filepath)
         elif library_name == 'matplotlib':
             return matplotlib_renderer.render(code, filepath)
