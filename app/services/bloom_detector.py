@@ -1,9 +1,18 @@
 import openai
 import re
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def get_openai_client():
-    """Get OpenAI client with API key"""
-    api_key = "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"
+    """Get OpenAI client with API key from environment variables"""
+    api_key = os.getenv('OPENAI_API_KEY')
+    
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY not found in environment variables. Please check your .env file.")
+    
     return openai.OpenAI(api_key=api_key)
 
 def detect_bloom_level(question_text, options, explanation):

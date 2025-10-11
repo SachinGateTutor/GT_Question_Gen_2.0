@@ -1092,6 +1092,14 @@
                             </select>
                         </div>
                     <div class="form-group">
+                            <label for="section">📚 Section:</label>
+                            <select id="section" name="section" required>
+                                <option value="">Select Section</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                    <div class="form-group">
                             <label for="stream">📚 Stream:</label>
                         <select id="stream" name="stream" required>
                                 <option value="">Select Stream</option>
@@ -1319,6 +1327,15 @@
         let difficultyLevels = [];
         let bloomLevels = [];
 
+        // Generate UUID for .NET backend
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
         // Load all dropdown data when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadDropdownData();
@@ -1328,25 +1345,29 @@
         // Load all reference data for dropdowns
         async function loadDropdownData() {
             try {
-                // Load subjects
-                const subjectsResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/subjects')}`);
-                subjects = await subjectsResponse.json();
-                populateDropdown('subject', subjects, 'SubjectName', 'SubjectID');
+                // Load courses from .NET backend
+                loadCourses();
+                
+                // Note: Sections will be loaded when stream changes
+                // Note: Subjects will be loaded when section changes
 
-                // Load question types
-                const questionTypesResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/QuestionType')}`);
-                questionTypes = await questionTypesResponse.json();
-                populateDropdown('questionType', questionTypes, 'TypeName', 'QuestionTypeID');
+                // Load question types from .NET backend
+                const questionTypesResponse = await fetch(config.NET_QUESTION_TYPES_ENDPOINT);
+                const questionTypesData = await questionTypesResponse.json();
+                questionTypes = questionTypesData.data || questionTypesData; // Handle wrapper format
+                populateDropdown('questionType', questionTypes, 'typeName', 'questionTypeID');
 
-                // Load difficulty levels
-                const difficultyResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/DifficultyLevel')}`);
-                difficultyLevels = await difficultyResponse.json();
-                populateDropdown('difficultyLevel', difficultyLevels, 'LevelName', 'DifficultyLevelID');
+                // Load difficulty levels from .NET backend
+                const difficultyResponse = await fetch(config.NET_DIFFICULTY_LEVELS_ENDPOINT);
+                const difficultyData = await difficultyResponse.json();
+                difficultyLevels = difficultyData.data || difficultyData; // Handle wrapper format
+                populateDropdown('difficultyLevel', difficultyLevels, 'levelName', 'difficultyLevelID');
 
-                // Load bloom levels
-                const bloomResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/BloomLevel')}`);
-                bloomLevels = await bloomResponse.json();
-                populateDropdown('bloomLevel', bloomLevels, 'LevelName', 'BloomLevelID');
+                // Load bloom levels from .NET backend
+                const bloomResponse = await fetch(config.NET_BLOOM_LEVELS_ENDPOINT);
+                const bloomData = await bloomResponse.json();
+                bloomLevels = bloomData.data || bloomData; // Handle wrapper format
+                populateDropdown('bloomLevel', bloomLevels, 'levelName', 'bloomLevelID');
                 
                 // Add Auto Detect option to bloom level dropdown
                 const bloomSelect = document.getElementById('bloomLevel');
@@ -1363,14 +1384,35 @@
         // Load stats preview
         async function loadStatsPreview() {
             try {
-                const response = await fetch(`${config.API_URL.replace('/api/generate', '/api/questions')}?status=all`);
-                const questions = await response.json();
+                const response = await fetch(config.NET_QUESTIONS_ENDPOINT);
+                
+                // Check if response is ok
+                if (!response.ok) {
+                    console.warn('Stats endpoint returned error:', response.status);
+                    return;
+                }
+                
+                // Try to parse JSON, but handle non-JSON responses
+                let questions;
+                const text = await response.text();
+                try {
+                    questions = JSON.parse(text);
+                } catch (parseError) {
+                    console.warn('Stats endpoint returned non-JSON response:', text.substring(0, 100));
+                    return;
+                }
+                
+                // Check if questions is an array
+                if (!Array.isArray(questions)) {
+                    console.warn('Stats endpoint returned non-array data:', questions);
+                    return;
+                }
                 
                 const stats = {
                     total: questions.length,
-                    pending: questions.filter(q => !q.IsEnable && !q.IsDeleted).length,
-                    approved: questions.filter(q => q.IsEnable).length,
-                    discarded: questions.filter(q => q.IsDeleted).length
+                    pending: questions.filter(q => !q.isEnable && !q.isDeleted).length,
+                    approved: questions.filter(q => q.isEnable).length,
+                    discarded: questions.filter(q => q.isDeleted).length
                 };
                 
                 document.querySelectorAll('.stat-number').forEach((el, index) => {
@@ -1382,10 +1424,22 @@
             }
         }
 
+        // Flag to prevent change events during population
+        let isPopulatingDropdown = false;
+
         // Populate a dropdown with data
         function populateDropdown(elementId, data, displayField, valueField) {
             const select = document.getElementById(elementId);
             if (!select) return;
+
+            // Check if data is an array
+            if (!Array.isArray(data)) {
+                console.error(`Data for ${elementId} is not an array:`, data);
+                return;
+            }
+
+            // Set flag to prevent change events during population
+            isPopulatingDropdown = true;
 
             // Clear existing options except the first one
             while (select.options.length > 1) {
@@ -1393,42 +1447,185 @@
             }
 
             // Add new options
-            data.forEach(item => {
+            data.forEach((item, index) => {
                 const option = document.createElement('option');
-                option.value = item[valueField];
-                
-                option.textContent = item[displayField];
-                
+                const value = item[valueField];
+                const text = item[displayField];
+                option.value = value;
+                option.textContent = text;
                 select.appendChild(option);
+                
+                // Debug logging for first few items
+                if (index < 3) {
+                    console.log(`Adding option ${index}: value="${value}", text="${text}"`);
+                    console.log(`  item[${valueField}]:`, item[valueField]);
+                    console.log(`  item[${displayField}]:`, item[displayField]);
+                }
             });
+
+            // Set default values for testing - only for difficulty and bloom level
+            if (elementId === 'difficultyLevel') {
+                select.value = '1'; // Default difficulty level to 1
+            } else if (elementId === 'bloomLevel') {
+                select.value = '1'; // Default bloom level to 1
+            }
+            // Note: Other fields (subject, topic, question type) should be selected by user
+
+            // Reset flag after population
+            isPopulatingDropdown = false;
         }
 
         // Load courses on page load
         async function loadCourses() {
-            const response = await fetch(`${config.API_URL.replace('/api/generate', '/api/courses')}`);
+            const response = await fetch(config.NET_COURSES_ENDPOINT);
             const courses = await response.json();
-            populateDropdown('course', courses, 'CourseName', 'CourseID');
+            // Courses use courseId (lowercase d) per API
+            populateDropdown('course', courses, 'courseName', 'courseId');
+        }
+
+        // Load sections by stream ID
+        async function loadSections(streamId) {
+            if (!streamId) {
+                console.log('No stream ID provided for loading sections');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${config.NET_BACKEND_URL}/api/Section/by-stream/${streamId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const sections = await response.json();
+                console.log('Sections API response for stream', streamId, ':', sections);
+                
+                // Handle wrapper format (similar to other endpoints)
+                const sectionsData = sections.data || sections;
+                console.log('Sections data after wrapper handling:', sectionsData);
+                
+                // Try to detect the correct field names
+                if (Array.isArray(sectionsData) && sectionsData.length > 0) {
+                    const firstSection = sectionsData[0];
+                    const possibleNameFields = ['sectionName', 'section_Name', 'name', 'section_name', 'section'];
+                    const possibleIdFields = ['sectionID', 'section_ID', 'id', 'section_id', 'sectionId'];
+                    
+                    let displayField = 'sectionName';
+                    let valueField = 'sectionID';
+                    
+                    // Find the actual field names
+                    for (const field of possibleNameFields) {
+                        if (firstSection.hasOwnProperty(field)) {
+                            displayField = field;
+                            break;
+                        }
+                    }
+                    
+                    for (const field of possibleIdFields) {
+                        if (firstSection.hasOwnProperty(field)) {
+                            valueField = field;
+                            break;
+                        }
+                    }
+                    
+                    console.log('Detected fields - displayField:', displayField, 'valueField:', valueField);
+                    console.log('Using fields:', { displayField, valueField });
+                    
+                    // Sections use detected field names
+                    populateDropdown('section', sectionsData, displayField, valueField);
+                } else {
+                    console.error('No sections data found or invalid format');
+                }
+            } catch (error) {
+                console.error('Error loading sections:', error);
+            }
         }
 
         // Load streams when course changes
         async function loadStreams(courseId) {
             const streamSelect = document.getElementById('stream');
             streamSelect.innerHTML = '<option value="">Select Stream</option>';
-            if (courseId) {
-                const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/streams/${courseId}`)}`);
-                const streams = await response.json();
-                populateDropdown('stream', streams, 'StreamName', 'StreamID');
+            
+            // Validate courseId
+            if (!courseId || courseId === 'undefined' || courseId === '') {
+                console.warn('Invalid courseId:', courseId);
+                return;
+            }
+            
+            try {
+                console.log('Loading streams for course ID:', courseId);
+                // Use the correct endpoint for getting streams by course
+                const response = await fetch(`${config.NET_BACKEND_URL}/api/Stream/course/${courseId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const streamsData = await response.json();
+                console.log('Streams response for course', courseId, ':', streamsData);
+                
+                // Handle wrapper format
+                const streams = streamsData.data || streamsData;
+                
+                // Check if streams is an array
+                if (!Array.isArray(streams)) {
+                    console.error('Streams response is not an array:', streams);
+                    return;
+                }
+                
+                console.log('Populating stream dropdown with:', streams.length, 'streams');
+                console.log('First stream object:', streams[0]);
+                console.log('Available fields in first stream:', Object.keys(streams[0]));
+                // Streams use streamID (uppercase ID) per API
+                populateDropdown('stream', streams, 'streamName', 'streamID');
+                
+                // Clear sections, subjects and topics after populating streams
+                document.getElementById('section').innerHTML = '<option value="">Select Section</option>';
+                document.getElementById('subject').innerHTML = '<option value="">Select Subject</option>';
+                document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+            } catch (error) {
+                console.error('Error loading streams:', error);
             }
         }
 
-        // Load subjects when stream changes
-        async function loadSubjects(streamId) {
+        // Load subjects when section changes - use section-specific endpoint
+        async function loadSubjects(sectionId) {
+            console.log('=== loadSubjects called with sectionId:', sectionId, 'type:', typeof sectionId);
+            
             const subjectSelect = document.getElementById('subject');
             subjectSelect.innerHTML = '<option value="">Select Subject</option>';
-            if (streamId) {
-                const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/subjects?stream_id=${streamId}`)}`);
+            
+            // Validate sectionId - more strict validation
+            if (!sectionId || sectionId === 'undefined' || sectionId === '' || sectionId === undefined || sectionId === null) {
+                console.warn('Invalid sectionId:', sectionId, 'type:', typeof sectionId);
+                console.warn('loadSubjects called without valid sectionId - this should not happen');
+                console.trace('Stack trace for debugging'); // Add stack trace
+                return;
+            }
+            
+            // Additional check to ensure sectionId is a valid number or string
+            if (isNaN(sectionId) && typeof sectionId !== 'string') {
+                console.warn('sectionId is not a valid number or string:', sectionId, 'type:', typeof sectionId);
+                return;
+            }
+            
+            try {
+                console.log('Loading subjects for section ID:', sectionId);
+                const url = `${config.NET_BACKEND_URL}/api/SubjectNew/section/${sectionId}`;
+                console.log('Making request to URL:', url);
+                
+                // Use the section-specific endpoint for direct filtering
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const subjects = await response.json();
-                populateDropdown('subject', subjects, 'SubjectName', 'SubjectID');
+                console.log('Subjects for section', sectionId, ':', subjects);
+                
+                // Subjects use subjectId (lowercase d) per API
+                populateDropdown('subject', subjects, 'subjectName', 'subjectId');
+            } catch (error) {
+                console.error('Error loading subjects:', error);
             }
         }
 
@@ -1437,30 +1634,125 @@
             loadCourses();
             // When course changes, load streams
             document.getElementById('course').addEventListener('change', function() {
+                console.log('Course changed to:', this.value);
                 loadStreams(this.value);
-                // Clear subjects and topics
-                document.getElementById('subject').innerHTML = '<option value="">Select Subject</option>';
-                document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+                // Note: Subjects and topics will be cleared in loadStreams function
             });
-            // When stream changes, load subjects
+            // When stream changes, load sections
             document.getElementById('stream').addEventListener('change', function() {
-                loadSubjects(this.value);
-                // Clear topics
-                document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+                console.log('=== Stream change event triggered');
+                console.log('isPopulatingDropdown:', isPopulatingDropdown);
+                console.log('this.value:', this.value, 'type:', typeof this.value);
+                console.log('this.options.length:', this.options.length);
+                console.log('this.selectedIndex:', this.selectedIndex);
+                
+                // Log all options for debugging
+                console.log('All stream options:');
+                for (let i = 0; i < this.options.length; i++) {
+                    console.log(`  Option ${i}: value="${this.options[i].value}", text="${this.options[i].text}"`);
+                }
+                
+                // Temporarily disable the isPopulatingDropdown check for debugging
+                // if (isPopulatingDropdown) {
+                //     console.log('Skipping stream change event during population');
+                //     return;
+                // }
+                
+                const streamValue = this.value;
+                console.log('Stream changed to:', streamValue, 'type:', typeof streamValue);
+                
+                // Only load sections if a valid stream is selected
+                if (streamValue && streamValue !== '' && streamValue !== 'undefined') {
+                    console.log('Calling loadSections with:', streamValue);
+                    loadSections(streamValue);
+                } else {
+                    console.log('Invalid stream value, clearing dropdowns');
+                    // Clear sections, subjects and topics if no valid stream is selected
+                    document.getElementById('section').innerHTML = '<option value="">Select Section</option>';
+                    document.getElementById('subject').innerHTML = '<option value="">Select Subject</option>';
+                    document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+                }
             });
-            // When subject changes, load topics (existing logic)
+            
+            // When section changes, load subjects
+            document.getElementById('section').addEventListener('change', function() {
+                console.log('=== Section change event triggered');
+                console.log('this.value:', this.value, 'type:', typeof this.value);
+                
+                const sectionValue = this.value;
+                console.log('Section changed to:', sectionValue, 'type:', typeof sectionValue);
+                
+                // Only load subjects if a valid section is selected
+                if (sectionValue && sectionValue !== '' && sectionValue !== 'undefined') {
+                    console.log('Calling loadSubjects with:', sectionValue);
+                    loadSubjects(sectionValue);
+                } else {
+                    console.log('Invalid section value, clearing dropdowns');
+                    // Clear subjects and topics if no valid section is selected
+                    document.getElementById('subject').innerHTML = '<option value="">Select Subject</option>';
+                    document.getElementById('topic').innerHTML = '<option value="">Select Topic</option>';
+                }
+            });
+            
+            // Add a manual trigger for testing
+            console.log('Setting up manual trigger for stream change');
+            setTimeout(() => {
+                const streamSelect = document.getElementById('stream');
+                console.log('Manual trigger check - streamSelect:', streamSelect);
+                if (streamSelect) {
+                    console.log('Manual trigger - streamSelect.value:', streamSelect.value);
+                    console.log('Manual trigger - streamSelect.options.length:', streamSelect.options.length);
+                    if (streamSelect.value && streamSelect.value !== '') {
+                        console.log('Manual trigger: Stream has value:', streamSelect.value);
+                        loadSubjects(streamSelect.value);
+                    } else {
+                        console.log('Manual trigger: No stream value found');
+                    }
+                }
+            }, 3000);
+            // When subject changes, load topics - filter by subject and section
             document.getElementById('subject').addEventListener('change', async function() {
+                // Skip if we're currently populating dropdowns
+                if (isPopulatingDropdown) {
+                    console.log('Skipping subject change event during population');
+                    return;
+                }
+                
                 const subjectId = this.value;
                 const topicSelect = document.getElementById('topic');
                 topicSelect.innerHTML = '<option value="">Select Topic</option>';
-                if (subjectId) {
-                    try {
-                        const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/topics/${subjectId}`)}`);
-                        topics = await response.json();
-                        populateDropdown('topic', topics, 'TopicName', 'TopicID');
+                
+                if (!subjectId || subjectId === 'undefined' || subjectId === '') {
+                    console.warn('Invalid subjectId:', subjectId);
+                    return;
+                }
+                
+                // Get the selected section ID for filtering
+                const sectionId = document.getElementById('section').value;
+                if (!sectionId || sectionId === 'undefined' || sectionId === '') {
+                    console.warn('Invalid sectionId:', sectionId);
+                    return;
+                }
+                
+                try {
+                    console.log('Loading topics for subject ID:', subjectId, 'and section ID:', sectionId);
+                    
+                    // Use the new endpoint with both subject and section parameters
+                    const url = `${config.NET_BACKEND_URL}/api/Topic/get-by-subject-and-section?subjectId=${subjectId}&sectionId=${sectionId}`;
+                    console.log('Making request to URL:', url);
+                    
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const topics = await response.json();
+                    console.log('Topics for subject', subjectId, 'and section', sectionId, ':', topics);
+                    
+                    populateDropdown('topic', topics, 'topicName', 'topicID');
                     } catch (error) {
                         console.error('Error loading topics:', error);
-                    }
                 }
             });
         });
@@ -1644,9 +1936,22 @@
         }
         
         function displayMCQResult(data, result) {
-            // Check if we have multiple questions
-            const allQuestions = data.all_questions || [data];
-            const totalGenerated = data.total_generated || 1;
+            // Handle .NET backend response format
+            let allQuestions, totalGenerated;
+            
+            if (data.success && data.data) {
+                // .NET backend response format
+                allQuestions = [data.data];
+                totalGenerated = 1;
+            } else if (data.all_questions) {
+                // Python service response format
+                allQuestions = data.all_questions;
+                totalGenerated = data.total_generated || 1;
+            } else {
+                // Single question format
+                allQuestions = [data];
+                totalGenerated = 1;
+            }
             
             // Add a header showing how many questions were generated
             if (totalGenerated > 1) {
@@ -1730,7 +2035,17 @@
                   const diagramDiv = document.createElement('div');
                   diagramDiv.style.textAlign = 'center';
                   diagramDiv.style.marginBottom = '20px';
-                  const diagramSrc = `${config.API_URL.replace(/\/api\/generate$/, '')}${question.diagram_image_url}`;
+                  
+                  // Handle diagram URL based on source
+                  let diagramSrc;
+                  if (question.diagram_image_url.startsWith('http')) {
+                    // Full URL from .NET backend
+                    diagramSrc = question.diagram_image_url;
+                  } else {
+                    // Relative URL from Python service
+                    diagramSrc = `${config.PYTHON_BASE_URL}${question.diagram_image_url}`;
+                  }
+                  
                   diagramDiv.innerHTML = `
                     <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
                         📊 Diagram generated using: ${question.library_used || 'schemdraw'}
@@ -1800,7 +2115,15 @@
                 const optionImage = optionImages && optionImages[index];
                 
                 if (optionImage) {
-                    const optionImageSrc = `${config.API_URL.replace(/\/api\/generate$/, '')}${optionImage}`;
+                    // Handle option image URL based on source
+                    let optionImageSrc;
+                    if (optionImage.startsWith('http')) {
+                        // Full URL from .NET backend
+                        optionImageSrc = optionImage;
+                    } else {
+                        // Relative URL from Python service
+                        optionImageSrc = `${config.PYTHON_BASE_URL}${optionImage}`;
+                    }
                     return `<div class="${optionClass}">
                         <strong>${String.fromCharCode(65 + index)}.</strong>
                         <div style="display: flex; align-items: center; gap: 15px;">
@@ -2063,14 +2386,25 @@
                 // Check if this is a CDQ question (CDQ has ID 6)
                 const isCDQ = questionTypeId === 6;
                 
+                // Debug form data
+                console.log('Form data - course:', formData.get('course'));
+                console.log('Form data - stream:', formData.get('stream'));
+                console.log('Form data - section:', formData.get('section'));
+                console.log('Form data - subject:', formData.get('subject'));
+                console.log('Form data - topic:', formData.get('topic'));
+                console.log('Form data - questionType:', formData.get('questionType'));
+                console.log('Form data - difficultyLevel:', formData.get('difficultyLevel'));
+                console.log('Form data - bloomLevel:', formData.get('bloomLevel'));
+                
                 const data = {
                     course_id: parseInt(formData.get('course')),
+                    section_id: parseInt(formData.get('section')),
                     stream_id: parseInt(formData.get('stream')),
                     subject_id: parseInt(formData.get('subject')),
                     topic_id: parseInt(formData.get('topic')),
                     question_type_id: questionTypeId,
-                    difficulty_level_id: formData.get('difficultyLevel') ? parseInt(formData.get('difficultyLevel')) : null,
-                    bloom_level_id: formData.get('bloomLevel') && formData.get('bloomLevel') !== 'auto' ? parseInt(formData.get('bloomLevel')) : 'auto',
+                    difficulty_level_id: formData.get('difficultyLevel') ? parseInt(formData.get('difficultyLevel')) : 1, // Default to 1 for testing
+                    bloom_level_id: formData.get('bloomLevel') && formData.get('bloomLevel') !== 'auto' ? parseInt(formData.get('bloomLevel')) : 1, // Default to 1 for testing
                     question_type: isCDQ ? 'CDQ' : 'MCQ',
                     requires_diagram: formData.get('requiresDiagram') === 'on',
                     requires_option_diagrams: formData.get('requiresOptionDiagrams') === 'on',
@@ -2079,6 +2413,8 @@
                     num_questions: numQuestions
                 };
                 
+                console.log('Processed data:', data);
+                
                 // Update button text based on question type and number
                 if (isCDQ) {
                     generateBtn.textContent = `🔄 Generating CDQ with ${numQuestions} questions...`;
@@ -2086,13 +2422,61 @@
                     generateBtn.textContent = `🔄 Generating ${numQuestions} questions...`;
                 }
                 
-                // Use different API endpoint for CDQ
-                const apiUrl = isCDQ ? config.API_URL.replace('/api/generate', '/api/generate_cdq') : config.API_URL;
+                // Use .NET backend for question generation, Python service for CDQ
+                let apiUrl;
+                let requestData = data;
+                
+                if (isCDQ) {
+                    // CDQ still uses Python service
+                    apiUrl = config.PYTHON_API_URL.replace('/api/generate', '/api/generate_cdq');
+                } else {
+                    // Regular questions use .NET backend
+                    apiUrl = config.NET_GENERATE_ENDPOINT;
+                    
+                                    // Validate required fields for .NET backend
+                if (!data.course_id || isNaN(data.course_id)) {
+                    throw new Error('Please select a Course');
+                }
+                if (!data.stream_id || isNaN(data.stream_id)) {
+                    throw new Error('Please select a Stream');
+                }
+                if (!data.section_id || isNaN(data.section_id)) {
+                    throw new Error('Please select a Section');
+                }
+                if (!data.subject_id || isNaN(data.subject_id)) {
+                    throw new Error('Please select a Subject');
+                }
+                if (!data.topic_id || isNaN(data.topic_id)) {
+                    throw new Error('Please select a Topic');
+                }
+                if (!data.question_type_id || isNaN(data.question_type_id)) {
+                    throw new Error('Please select a Question Type');
+                }
+
+                // Transform data to .NET backend format
+                requestData = {
+                    generation_id: generateUUID(),
+                    course_id: data.course_id,
+                    stream_id: data.stream_id,
+                    subject_id: data.subject_id,
+                    topic_id: data.topic_id,
+                    question_type_id: data.question_type_id,
+                    section_id: data.section_id,
+                    bloom_level_id: data.bloom_level_id,
+                    difficulty_level_id: data.difficulty_level_id,
+                    marks: 1, // Default to 1 mark
+                    num_questions: data.num_questions,
+                    generation_prompt: data.custom_prompt || `Generate a question about ${document.getElementById('topic').options[document.getElementById('topic').selectedIndex]?.text || 'selected topic'}`,
+                    include_diagram: data.requires_diagram,  // Map requires_diagram to include_diagram
+                    requires_option_diagrams: data.requires_option_diagrams,
+                    is_programming_question: data.is_programming_question
+                };
+                }
                 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(requestData)
                 });
                 
                 if (!response.ok) {
@@ -2159,7 +2543,7 @@
         }
 
         function validateRandomFields() {
-            const requiredFields = ['course', 'stream', 'subject', 'topic', 'questionType'];
+            const requiredFields = ['course', 'section', 'stream', 'subject', 'topic', 'questionType'];
             for (let fieldId of requiredFields) {
                 const field = document.getElementById(fieldId);
                 if (!field.value) {

@@ -1103,25 +1103,28 @@
         // Load filter dropdown options
         async function loadFilterOptions() {
             try {
-                // Load courses for filter
-                const coursesResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/courses')}`);
+                // Load courses for filter using .NET backend
+                const coursesResponse = await fetch(config.NET_COURSES_ENDPOINT);
                 allCourses = await coursesResponse.json();
-                populateFilterDropdown('courseFilter', allCourses, 'CourseName');
+                populateFilterDropdown('courseFilter', allCourses, 'courseName');
 
-                // Load difficulty levels for filter
-                const difficultyResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/DifficultyLevel')}`);
-                const difficulties = await difficultyResponse.json();
-                populateFilterDropdown('difficultyFilter', difficulties, 'LevelName');
+                // Load difficulty levels for filter using .NET backend
+                const difficultyResponse = await fetch(config.NET_DIFFICULTY_LEVELS_ENDPOINT);
+                const difficultyData = await difficultyResponse.json();
+                const difficulties = difficultyData.data || difficultyData; // Handle both wrapped and direct responses
+                populateFilterDropdown('difficultyFilter', difficulties, 'levelName');
 
-                // Load Bloom levels for filter
-                const bloomResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/BloomLevel')}`);
-                const blooms = await bloomResponse.json();
-                populateFilterDropdown('bloomFilter', blooms, 'LevelName');
+                // Load Bloom levels for filter using .NET backend
+                const bloomResponse = await fetch(config.NET_BLOOM_LEVELS_ENDPOINT);
+                const bloomData = await bloomResponse.json();
+                const blooms = bloomData.data || bloomData; // Handle both wrapped and direct responses
+                populateFilterDropdown('bloomFilter', blooms, 'levelName');
 
-                // Load question types for filter
-                const questionTypeResponse = await fetch(`${config.API_URL.replace('/api/generate', '/api/reference/QuestionType')}`);
-                const questionTypes = await questionTypeResponse.json();
-                populateFilterDropdown('questionTypeFilter', questionTypes, 'TypeName');
+                // Load question types for filter using .NET backend
+                const questionTypeResponse = await fetch(config.NET_QUESTION_TYPES_ENDPOINT);
+                const questionTypeData = await questionTypeResponse.json();
+                const questionTypes = questionTypeData.data || questionTypeData; // Handle both wrapped and direct responses
+                populateFilterDropdown('questionTypeFilter', questionTypes, 'typeName');
 
             } catch (error) {
                 console.error('Error loading filter options:', error);
@@ -1146,16 +1149,16 @@
             
             try {
                 // Find the course ID
-                const course = allCourses.find(c => c.CourseName === selectedCourse);
+                const course = allCourses.find(c => c.courseName === selectedCourse);
                 if (!course) return;
                 
-                const streamsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/streams/${course.CourseID}`)}`);
+                const streamsResponse = await fetch(`${config.NET_BACKEND_URL}/api/Stream/course/${course.courseId}`);
                 allStreams = await streamsResponse.json();
                 
                 allStreams.forEach(stream => {
                     const option = document.createElement('option');
-                    option.value = stream.StreamName;
-                    option.textContent = stream.StreamName;
+                    option.value = stream.streamName;
+                    option.textContent = stream.streamName;
                     streamFilter.appendChild(option);
                 });
                 
@@ -1179,16 +1182,16 @@
             
             try {
                 // Find the stream ID
-                const stream = allStreams.find(s => s.StreamName === selectedStream);
+                const stream = allStreams.find(s => s.streamName === selectedStream);
                 if (!stream) return;
                 
-                const subjectsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/subjects?stream_id=${stream.StreamID}`)}`);
+                const subjectsResponse = await fetch(`${config.NET_BACKEND_URL}/api/SubjectNew/section/1`);
                 allSubjects = await subjectsResponse.json();
                 
                 allSubjects.forEach(subject => {
                     const option = document.createElement('option');
-                    option.value = subject.SubjectName;
-                    option.textContent = subject.SubjectName;
+                    option.value = subject.subjectName;
+                    option.textContent = subject.subjectName;
                     subjectFilter.appendChild(option);
                 });
                 
@@ -1210,16 +1213,16 @@
             
             try {
                 // Find the subject ID
-                const subject = allSubjects.find(s => s.SubjectName === selectedSubject);
+                const subject = allSubjects.find(s => s.subjectName === selectedSubject);
                 if (!subject) return;
                 
-                const topicsResponse = await fetch(`${config.API_URL.replace('/api/generate', `/api/topics/${subject.SubjectID}`)}`);
+                const topicsResponse = await fetch(`${config.NET_BACKEND_URL}/api/Topic/get-by-subject-and-section?subjectId=${subject.subjectId}&sectionId=1`);
                 allTopics = await topicsResponse.json();
                 
                 allTopics.forEach(topic => {
                     const option = document.createElement('option');
-                    option.value = topic.TopicName;
-                    option.textContent = topic.TopicName;
+                    option.value = topic.topicName;
+                    option.textContent = topic.topicName;
                     topicFilter.appendChild(option);
                 });
                 
@@ -1266,7 +1269,17 @@
                 const bloom = document.getElementById('bloomFilter').value;
                 const questionType = document.getElementById('questionTypeFilter').value;
 
-                let url = `${config.API_URL.replace('/api/generate', '/api/questions')}?status=${status}`;
+                let url = `${config.NET_BACKEND_URL}/api/QuestionRetrieval/filter?IsAIGenerated=true`;
+                
+                if (status !== 'all') {
+                    if (status === 'approved') {
+                        url += `&IsEnable=true`;
+                    } else if (status === 'discarded') {
+                        url += `&IsDeleted=true`;
+                    } else if (status === 'pending') {
+                        url += `&IsEnable=false&IsDeleted=false`;
+                    }
+                }
                 
                 if (course) url += `&course=${encodeURIComponent(course)}`;
                 if (stream) url += `&stream=${encodeURIComponent(stream)}`;
@@ -1340,15 +1353,45 @@
             const card = document.createElement('div');
             card.className = 'question-card';
 
-            const status = question.IsEnable ? 'approved' : (question.IsDeleted ? 'discarded' : 'pending');
-            const statusText = question.IsEnable ? 'Approved' : (question.IsDeleted ? 'Discarded' : 'Pending');
+            // Map the new API response fields to expected fields
+            const mappedQuestion = {
+                QuestionID: question.questionID,
+                IsEnable: question.isEnable || false,
+                IsDeleted: question.isDeleted || false,
+                QuestionTypeName: question.questionTypeName,
+                PassageText: question.passageText,
+                QuestionText: question.mcQ_QuestionText || question.msQ_QuestionText || question.nuM_QuestionText || question.desC_QuestionText,
+                OptionA: question.optionA || question.msQ_OptionA,
+                OptionB: question.optionB || question.msQ_OptionB,
+                OptionC: question.optionC || question.msQ_OptionC,
+                OptionD: question.optionD || question.msQ_OptionD,
+                OptionE: question.optionE || question.msQ_OptionE,
+                CorrectOption: question.correctOption,
+                ImgQuestion: question.imgQuestion,
+                ImgOptionA: question.imgOptionA,
+                ImgOptionB: question.imgOptionB,
+                ImgOptionC: question.imgOptionC,
+                ImgOptionD: question.imgOptionD,
+                ImgOptionE: question.imgOptionE,
+                ExplanationText: question.explanationText,
+                CourseName: question.courseName || 'Unknown Course',
+                StreamName: question.streamName || 'Unknown Stream',
+                SubjectName: question.subjectName,
+                TopicName: question.topicName,
+                DifficultyLevelName: question.difficultyLevelName,
+                BloomLevelName: question.bloomLevelName,
+                AddedDate: question.addedDate || new Date().toISOString()
+            };
+
+            const status = mappedQuestion.IsEnable ? 'approved' : (mappedQuestion.IsDeleted ? 'discarded' : 'pending');
+            const statusText = mappedQuestion.IsEnable ? 'Approved' : (mappedQuestion.IsDeleted ? 'Discarded' : 'Pending');
 
             // Check if this is a CDQ question
-            const isCDQ = question.QuestionTypeName === 'CDQ';
-            const hasPassage = question.PassageText && question.PassageText.trim() !== '';
+            const isCDQ = mappedQuestion.QuestionTypeName === 'CDQ';
+            const hasPassage = mappedQuestion.PassageText && mappedQuestion.PassageText.trim() !== '';
 
             // Process question text and extract code snippets
-            let questionText = question.QuestionText || '';
+            let questionText = mappedQuestion.QuestionText || '';
             let codeSnippet = null;
             let language = 'text';
             
@@ -1368,29 +1411,29 @@
                     <div>
                         <span class="status-badge status-${status}">${statusText}</span>
                         <div class="question-meta">
-                            <strong>${question.CourseName}</strong> > <strong>${question.StreamName}</strong> > <strong>${question.SubjectName}</strong> > <strong>${question.TopicName}</strong><br>
-                            📝 ${question.QuestionTypeName} | 
-                            🎯 ${question.DifficultyLevelName || 'Not set'} | 
-                            🧠 ${question.BloomLevelName || 'Auto-detected'}<br>
-                            📅 Added: ${new Date(question.AddedDate).toLocaleDateString()}
+                            <strong>${mappedQuestion.CourseName}</strong> > <strong>${mappedQuestion.StreamName}</strong> > <strong>${mappedQuestion.SubjectName}</strong> > <strong>${mappedQuestion.TopicName || 'No Topic'}</strong><br>
+                            📝 ${mappedQuestion.QuestionTypeName} | 
+                            🎯 ${mappedQuestion.DifficultyLevelName || 'Not set'} | 
+                            🧠 ${mappedQuestion.BloomLevelName || 'Auto-detected'}<br>
+                            📅 Added: ${new Date(mappedQuestion.AddedDate).toLocaleDateString()}
                         </div>
                     </div>
                     <div>
                         ${status === 'pending' ? `
-                            <button class="btn btn-approve" onclick="updateQuestionStatus(${question.QuestionID}, 'approved')">
+                            <button class="btn btn-approve" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'approved')">
                                 ✅ Approve
                             </button>
-                            <button class="btn btn-discard" onclick="updateQuestionStatus(${question.QuestionID}, 'discarded')">
+                            <button class="btn btn-discard" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'discarded')">
                                 ❌ Discard
                             </button>
                         ` : ''}
                         ${status === 'discarded' ? `
-                            <button class="btn btn-approve" onclick="updateQuestionStatus(${question.QuestionID}, 'approved')">
+                            <button class="btn btn-approve" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'approved')">
                                 🔄 Re-approve
                             </button>
                         ` : ''}
                         ${status === 'approved' ? `
-                            <button class="btn btn-discard" onclick="updateQuestionStatus(${question.QuestionID}, 'discarded')">
+                            <button class="btn btn-discard" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'discarded')">
                                 ❌ Discard
                             </button>
                         ` : ''}
@@ -1403,7 +1446,7 @@
                     <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-left: 4px solid #007bff; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
                         <h3 style="color: #007bff; margin-bottom: 15px; font-size: 1.3rem;">📖 CDQ Passage:</h3>
                         <div style="font-size: 1.1rem; line-height: 1.6; color: #495057; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dee2e6;">
-                            ${question.PassageText}
+                            ${mappedQuestion.PassageText}
                         </div>
                     </div>`;
             }
@@ -1411,15 +1454,15 @@
             cardContent += `<div class="question-text">${questionText}</div>`;
             
             cardContent += `
-                ${question.ImgQuestion ? `
+                ${mappedQuestion.ImgQuestion ? `
                     <div style="text-align: center; margin-bottom: 20px;">
                         <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
                             📊 Diagram generated using: schemdraw
                         </div>
-                        <img src="${question.ImgQuestion}" 
+                        <img src="${mappedQuestion.ImgQuestion}" 
                              class="diagram-image" alt="Question Diagram"
                              style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer;"
-                             onclick="showDiagramPopup('${question.ImgQuestion}', 'Question Diagram')"
+                             onclick="showDiagramPopup('${mappedQuestion.ImgQuestion}', 'Question Diagram')"
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                         <p style="display: none; color: #6c757d;">Diagram not available</p>
                     </div>
@@ -1432,72 +1475,72 @@
                 ` : ''}
                 
                 <div class="options">
-                    <div class="option ${question.CorrectOption === 'A' ? 'correct-answer' : ''}">
+                    <div class="option ${mappedQuestion.CorrectOption === 'A' ? 'correct-answer' : ''}">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="flex: 1;">
-                                <strong>A.</strong> ${question.OptionA || ''}
+                                <strong>A.</strong> ${mappedQuestion.OptionA || ''}
                             </div>
-                            ${question.ImgOptionA ? `
+                            ${mappedQuestion.ImgOptionA ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${question.ImgOptionA}" 
+                                    <img src="${mappedQuestion.ImgOptionA}" 
                                          alt="Option A Diagram"
                                          style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
-                                         onclick="showDiagramPopup('${question.ImgOptionA}', 'Option A Diagram')">
+                                         onclick="showDiagramPopup('${mappedQuestion.ImgOptionA}', 'Option A Diagram')">
                                 </div>
                             ` : ''}
                         </div>
                     </div>
-                    <div class="option ${question.CorrectOption === 'B' ? 'correct-answer' : ''}">
+                    <div class="option ${mappedQuestion.CorrectOption === 'B' ? 'correct-answer' : ''}">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="flex: 1;">
-                                <strong>B.</strong> ${question.OptionB || ''}
+                                <strong>B.</strong> ${mappedQuestion.OptionB || ''}
                             </div>
-                            ${question.ImgOptionB ? `
+                            ${mappedQuestion.ImgOptionB ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${question.ImgOptionB}" 
+                                    <img src="${mappedQuestion.ImgOptionB}" 
                                          alt="Option B Diagram"
                                          style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
-                                         onclick="showDiagramPopup('${question.ImgOptionB}', 'Option B Diagram')">
+                                         onclick="showDiagramPopup('${mappedQuestion.ImgOptionB}', 'Option B Diagram')">
                                 </div>
                             ` : ''}
                         </div>
                     </div>
-                    <div class="option ${question.CorrectOption === 'C' ? 'correct-answer' : ''}">
+                    <div class="option ${mappedQuestion.CorrectOption === 'C' ? 'correct-answer' : ''}">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="flex: 1;">
-                                <strong>C.</strong> ${question.OptionC || ''}
+                                <strong>C.</strong> ${mappedQuestion.OptionC || ''}
                             </div>
-                            ${question.ImgOptionC ? `
+                            ${mappedQuestion.ImgOptionC ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${question.ImgOptionC}" 
+                                    <img src="${mappedQuestion.ImgOptionC}" 
                                          alt="Option C Diagram"
                                          style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
-                                         onclick="showDiagramPopup('${question.ImgOptionC}', 'Option C Diagram')">
+                                         onclick="showDiagramPopup('${mappedQuestion.ImgOptionC}', 'Option C Diagram')">
                                 </div>
                             ` : ''}
                         </div>
                     </div>
-                    <div class="option ${question.CorrectOption === 'D' ? 'correct-answer' : ''}">
+                    <div class="option ${mappedQuestion.CorrectOption === 'D' ? 'correct-answer' : ''}">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="flex: 1;">
-                                <strong>D.</strong> ${question.OptionD || ''}
+                                <strong>D.</strong> ${mappedQuestion.OptionD || ''}
                             </div>
-                            ${question.ImgOptionD ? `
+                            ${mappedQuestion.ImgOptionD ? `
                                 <div style="flex-shrink: 0;">
-                                    <img src="${question.ImgOptionD}" 
+                                    <img src="${mappedQuestion.ImgOptionD}" 
                                          alt="Option D Diagram"
                                          style="max-width: 150px; max-height: 100px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer;"
-                                         onclick="showDiagramPopup('${question.ImgOptionD}', 'Option D Diagram')">
+                                         onclick="showDiagramPopup('${mappedQuestion.ImgOptionD}', 'Option D Diagram')">
                                 </div>
                             ` : ''}
                         </div>
                     </div>
                 </div>
                 
-                ${question.ExplanationText ? `
+                ${mappedQuestion.ExplanationText ? `
                     <div class="explanation">
                         <strong>💡 Explanation:</strong><br>
-                        ${question.ExplanationText}
+                        ${mappedQuestion.ExplanationText}
                     </div>
                 ` : ''}`;
 
@@ -1515,7 +1558,7 @@
             explanationBtn.className = 'explanation-btn btn';
             explanationBtn.textContent = 'View Explanation';
             explanationBtn.onclick = function() {
-              showExplanationPopup(question.ExplanationText);
+              showExplanationPopup(mappedQuestion.ExplanationText);
             };
             buttonContainer.appendChild(explanationBtn);
 
@@ -1524,7 +1567,7 @@
             pragyaAIBtn.className = 'pragya-ai-btn btn';
             pragyaAIBtn.innerHTML = '🤖 Ask PragyaAI';
             pragyaAIBtn.onclick = function() {
-              askPragyaAI(question);
+              askPragyaAI(mappedQuestion);
             };
             buttonContainer.appendChild(pragyaAIBtn);
 
@@ -1548,7 +1591,7 @@
                 }
                 button.textContent = loadingText;
                 
-                const response = await fetch(`${config.API_URL.replace('/api/generate', `/api/questions/${questionId}/status`)}`, {
+                const response = await fetch(`${config.NET_BACKEND_URL}/api/question-master/${questionId}/status`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status })
@@ -1820,8 +1863,8 @@
                     bloom_level: question.BloomLevelName
                 };
                 
-                // Call AI explanation API
-                const response = await fetch(`${config.API_URL.replace('/api/generate', '/api/explain-question')}`, {
+                // Call AI explanation API using Python backend
+                const response = await fetch(`${config.PYTHON_BASE_URL}/api/explain-question`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

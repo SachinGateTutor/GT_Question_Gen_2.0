@@ -6,6 +6,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, abort
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from services.openai_service import generate_mcq_and_diagram, ai_analyze_topic, generate_replacement_question
 from services.diagram_service_new import render_diagram
 from services.bloom_detector import detect_bloom_level, update_question_bloom_level
@@ -52,9 +56,9 @@ def start_image_monitoring():
         # Ensure images directory exists
         images_dir.mkdir(parents=True, exist_ok=True)
         
-        print("🚀 Starting integrated image monitoring...")
-        print(f"📁 Monitoring: {project_root}")
-        print(f"📁 Destination: {images_dir}")
+        print("[START] Starting integrated image monitoring...")
+        print(f"[INFO] Monitoring: {project_root}")
+        print(f"[INFO] Destination: {images_dir}")
         
         image_monitor_running = True
         
@@ -83,34 +87,34 @@ def start_image_monitoring():
                         if dest_path.exists():
                             # Replace the existing file
                             dest_path.unlink()
-                            print(f"🔄 Replaced existing: {filename}")
+                            print(f"[REPLACE] Replaced existing: {filename}")
                         else:
-                            print(f"📁 New file: {filename}")
+                            print(f"[NEW] New file: {filename}")
                         
                         # Move the file
                         shutil.move(str(source_path), str(dest_path))
-                        print(f"✅ Moved: {filename} -> static/images/")
+                        print(f"[OK] Moved: {filename} -> static/images/")
                         
                     except Exception as e:
-                        print(f"❌ Error moving {filename}: {e}")
+                        print(f"[ERROR] Error moving {filename}: {e}")
                 
                 # Sleep before next check
                 time.sleep(2)
                 
             except Exception as e:
-                print(f"❌ Image monitoring error: {e}")
+                print(f"[ERROR] Image monitoring error: {e}")
                 time.sleep(5)
     
     # Start monitoring thread
     image_monitor_thread = threading.Thread(target=monitor_images, daemon=True)
     image_monitor_thread.start()
-    print("✅ Image monitoring started successfully")
+    print("[OK] Image monitoring started successfully")
 
 def stop_image_monitoring():
     """Stop image monitoring"""
     global image_monitor_running
     image_monitor_running = False
-    print("🛑 Image monitoring stopped")
+    print("[STOP] Image monitoring stopped")
 
 # Start image monitoring when app starts
 def initialize_app():
@@ -118,7 +122,7 @@ def initialize_app():
     try:
         start_image_monitoring()
     except Exception as e:
-        print(f"⚠️  Could not start image monitoring: {e}")
+        print(f"[WARNING] Could not start image monitoring: {e}")
 
 # Initialize app when Flask starts
 with app.app_context():
@@ -194,10 +198,10 @@ def generate():
                 # Self-healing: If diagram generation failed, try replacement question
                 if image_filename:
                     image_url = f"/static/images/{image_filename}"
-                    print(f"✅ Diagram generated successfully: {image_filename}")
+                    print(f"[OK] Diagram generated successfully: {image_filename}")
                 else:
-                    print(f"❌ Diagram generation failed completely for {library_used}")
-                    print(f"🔄 Attempting to generate replacement question...")
+                    print(f"[ERROR] Diagram generation failed completely for {library_used}")
+                    print(f"[RETRY] Attempting to generate replacement question...")
                     
                     # Generate replacement question if diagram was required
                     if data.get('requires_diagram', False):
@@ -212,7 +216,7 @@ def generate():
                             )
                             
                             if replacement_data:
-                                print(f"✅ Generated replacement question successfully")
+                                print(f"[OK] Generated replacement question successfully")
                                 # Update result with replacement data
                                 result.update(replacement_data)
                                 
@@ -225,22 +229,22 @@ def generate():
                                     )
                                     if replacement_image_filename:
                                         image_url = f"/static/images/{replacement_image_filename}"
-                                        print(f"✅ Replacement question diagram generated: {replacement_image_filename}")
+                                        print(f"[OK] Replacement question diagram generated: {replacement_image_filename}")
                                     else:
-                                        print(f"❌ Replacement question diagram also failed, proceeding without diagram")
-                                        print(f"📝 Note: No misleading diagram will be shown - better for educational accuracy")
+                                        print(f"[ERROR] Replacement question diagram also failed, proceeding without diagram")
+                                        print(f"[NOTE] No misleading diagram will be shown - better for educational accuracy")
                                         image_url = None
                                 else:
-                                    print(f"❌ Replacement question has no diagram code")
+                                    print(f"[ERROR] Replacement question has no diagram code")
                                     image_url = None
                             else:
-                                print(f"❌ Failed to generate replacement question, proceeding with original")
+                                print(f"[ERROR] Failed to generate replacement question, proceeding with original")
                                 image_url = None
                         except Exception as replacement_error:
-                            print(f"❌ Replacement question generation failed: {replacement_error}")
+                            print(f"[ERROR] Replacement question generation failed: {replacement_error}")
                             image_url = None
                     else:
-                        print(f"⚠️ Diagram not required, proceeding without diagram")
+                        print(f"[INFO] Diagram not required, proceeding without diagram")
                         image_url = None
             
             # Handle option diagrams - only if user requested them
@@ -261,12 +265,12 @@ def generate():
                             option_images.append(f"/static/images/{option_image_filename}")
                         else:
                             # Fallback: generate a default diagram
-                            print(f"⚠️ Debug: Failed to render option {option} diagram, generating fallback")
+                            print(f"[DEBUG] Failed to render option {option} diagram, generating fallback")
                             # Fallback: generate a default diagram
                             option_images.append(None)
                     else:
                         # Generate fallback diagram for missing option
-                        print(f"⚠️ Debug: No code for option {option}, generating fallback")
+                        print(f"[DEBUG] No code for option {option}, generating fallback")
                         option_images.append(None)
             else:
                 # If option diagrams are not requested, set all to None
@@ -298,10 +302,10 @@ def generate():
                     )
                     if detected_bloom_level:
                         bloom_level_id = detected_bloom_level
-                        print(f"✅ Bloom level auto-detected: {detected_bloom_level}")
+                        print(f"[OK] Bloom level auto-detected: {detected_bloom_level}")
                     else:
                         bloom_level_id = None  # Default to None if detection fails
-                        print("⚠️ Bloom level detection failed, using None")
+                        print("[WARNING] Bloom level detection failed, using None")
                 else:
                     # Convert bloom level name to ID
                     bloom_level_id = None
@@ -372,7 +376,7 @@ def generate():
             }
     
     except Exception as e:
-        print(f"❌ Error in generate endpoint: {str(e)}")
+        print(f"[ERROR] Error in generate endpoint: {str(e)}")
         traceback.print_exc()
         return jsonify({
             'success': False,
@@ -733,13 +737,18 @@ def analyze_topic():
         topic_id = data.get('topic_id')
         question_type = data.get('question_type')
         
-        # Get topic details from database
-        topic_info = get_topic_details(topic_id, subject_id, stream_id, course_id)
-        if not topic_info:
-            return jsonify({
-                'success': False,
-                'error': 'Topic information not found'
-            }), 404
+        # Create topic info from the provided data (since we don't have local DB)
+        topic_info = {
+            'topic_id': topic_id,
+            'subject_id': subject_id,
+            'stream_id': stream_id,
+            'course_id': course_id,
+            'topic_name': f"Topic {topic_id}",  # We'll use the ID as name since we don't have DB access
+            'subject_name': f"Subject {subject_id}",
+            'stream_name': f"Stream {stream_id}",
+            'course_name': f"Course {course_id}",
+            'bloom_level_name': 'Intermediate'  # Default bloom level for AI analysis
+        }
         
         # Call AI analysis service
         analysis_result = ai_analyze_topic(topic_info, question_type)
@@ -909,11 +918,10 @@ def generate_single_question(request_data, question_type):
         # Handle diagram rendering if needed
         if generated_data.get('diagram_code'):
             try:
-                from services.renderers.random_generation_renderer import render_diagram_for_random
                 import os
                 # Set the output folder for diagram images
                 output_folder = app.config['UPLOAD_FOLDER']
-                diagram_result = render_diagram_for_random(generated_data['diagram_code'], generated_data['library_used'], output_folder)
+                diagram_result = render_diagram(generated_data['diagram_code'], generated_data.get('library_used'), output_folder)
                 if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
                     generated_data['diagram_image_url'] = diagram_result['image_url']
                 else:
@@ -928,11 +936,10 @@ def generate_single_question(request_data, question_type):
             for option, code in generated_data['option_diagram_codes'].items():
                 if code:
                     try:
-                        from services.renderers.random_generation_renderer import render_option_diagram_for_random
                         import os
                         # Set the output folder for diagram images
                         output_folder = app.config['UPLOAD_FOLDER']
-                        diagram_result = render_option_diagram_for_random(code, generated_data['library_used'], output_folder)
+                        diagram_result = render_diagram(code, generated_data.get('library_used'), output_folder)
                         if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
                             option_images.append(diagram_result['image_url'])
                         else:
@@ -946,15 +953,217 @@ def generate_single_question(request_data, question_type):
     
     return generated_data
 
+# ============================================================================
+# .NET BACKEND INTEGRATION ENDPOINTS
+# ============================================================================
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for .NET backend integration"""
+    try:
+        # Check if our service is healthy
+        from services.net_backend_service import net_backend_service
+        
+        # Check .NET backend health
+        net_health = net_backend_service.health_check()
+        
+        if net_health['success']:
+            return jsonify({
+                "status": "healthy",
+                "python_service": "running",
+                "net_backend": "connected",
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "status": "degraded",
+                "python_service": "running", 
+                "net_backend": "unavailable",
+                "error": net_health.get('error', 'Unknown error'),
+                "timestamp": datetime.now().isoformat()
+            }), 200  # Still return 200 as our service is healthy
+            
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "python_service": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/generate-question', methods=['POST'])
+def generate_single_question_endpoint():
+    """Generate single question for .NET backend integration"""
+    try:
+        # Get request data
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "success": False,
+                "error_message": "No request data provided",
+                "data": None
+            }), 400
+        
+        # Extract required fields
+        generation_id = data.get('generation_id')
+        subject_id = data.get('subject_id')
+        topic_id = data.get('topic_id')
+        section_id = data.get('section_id', 0)  # Add section_id with default 0
+        question_type_id = data.get('question_type_id', 1)
+        bloom_level_id = data.get('bloom_level_id', 2)
+        difficulty_level_id = data.get('difficulty_level_id', 3)
+        marks = data.get('marks', 1)
+        generation_prompt = data.get('generation_prompt', '')
+        include_diagram = data.get('include_diagram', False)
+        
+        # Validate required fields
+        if not all([generation_id, subject_id, topic_id]):
+            return jsonify({
+                "success": False,
+                "error_message": "Missing required fields: generation_id, subject_id, topic_id",
+                "data": None
+            }), 400
+        
+        # Map to our AI service format
+        ai_request_data = {
+            'subject_id': subject_id,
+            'topic_id': topic_id,
+            'question_type_id': question_type_id,
+            'bloom_level_id': bloom_level_id,
+            'difficulty_level_id': difficulty_level_id,
+            'marks': marks,
+            'custom_prompt': generation_prompt,  # Map generation_prompt to custom_prompt
+            'requires_diagram': include_diagram,  # Map include_diagram to requires_diagram
+            'requires_option_diagrams': False,
+            'is_programming_question': False,
+            'num_questions': 1
+        }
+        
+        # Generate question using existing AI logic
+        from services.openai_service import generate_mcq_and_diagram
+        ai_result = generate_mcq_and_diagram(ai_request_data)
+        
+        if not ai_result or 'error' in ai_result:
+            error_msg = ai_result.get('error', 'Failed to generate question') if ai_result else 'No result from AI service'
+            return jsonify({
+                "success": False,
+                "error_message": error_msg,
+                "data": None
+            }), 500
+        
+        # Handle diagram generation if required
+        diagram_code = None
+        if include_diagram and ai_result.get('diagram_code'):
+            try:
+                from services.diagram_service_new import render_diagram
+                image_filename = render_diagram(
+                    ai_result['diagram_code'],
+                    ai_result.get('library_used', 'schemdraw'),
+                    app.config['UPLOAD_FOLDER']
+                )
+                if image_filename:
+                    diagram_code = ai_result['diagram_code']
+            except Exception as e:
+                print(f"Diagram generation failed: {e}")
+                diagram_code = None
+        
+        # Prepare response data in .NET expected format
+        response_data = {
+            "question_text": ai_result.get('question_text', ''),
+            "options": ai_result.get('options', []),
+            "correct_answer": ai_result.get('correct_answer', ''),
+            "explanation": ai_result.get('explanation', ''),
+            "diagram_code": diagram_code,
+            "subject_id": subject_id,
+            "topic_id": topic_id,
+            "section_id": section_id,  # Add section_id
+            "question_type_id": question_type_id,
+            "bloom_level_id": bloom_level_id,
+            "difficulty_level_id": difficulty_level_id,
+            "marks": marks,
+            "generation_prompt": generation_prompt
+        }
+        
+        # Store question in .NET backend database
+        from services.net_backend_service import net_backend_service
+        
+        # Add generation_id to the data for storage
+        storage_data = response_data.copy()
+        storage_data['generation_id'] = generation_id
+        
+        storage_result = net_backend_service.store_question(storage_data)
+        
+        print(f"🔍 Storage result: {storage_result}")
+        
+        if not storage_result['success']:
+            print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
+            # Continue anyway as the question was generated successfully
+        else:
+            # Extract question_id from storage result and add it to response data
+            if storage_result.get('question_id'):
+                response_data['question_id'] = storage_result['question_id']
+                print(f"[OK] Question stored successfully with ID: {storage_result['question_id']}")
+        
+        return jsonify({
+            "success": True,
+            "error_message": None,
+            "data": response_data
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in generate_single_question: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return jsonify({
+            "success": False,
+            "error_message": f"Internal server error: {str(e)}",
+            "data": None
+        }), 500
+
+@app.route('/api/generation-status/<generation_id>', methods=['GET'])
+def get_generation_status(generation_id):
+    """Get generation status for a specific generation ID"""
+    try:
+        from services.net_backend_service import net_backend_service
+        
+        # Get status from .NET backend
+        status_result = net_backend_service.get_generation_status(generation_id)
+        
+        if status_result['success']:
+            return jsonify(status_result['status_data']), 200
+        else:
+            # If .NET backend is not available, return a basic status
+            return jsonify({
+                "status": "unknown",
+                "progress": 0,
+                "error_message": status_result.get('error', 'Unable to retrieve status'),
+                "started_at": None,
+                "completed_at": None,
+                "question_data": None
+            }), 200
+            
+    except Exception as e:
+        print(f"Error in get_generation_status: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "progress": 0,
+            "error_message": f"Internal server error: {str(e)}",
+            "started_at": None,
+            "completed_at": None,
+            "question_data": None
+        }), 500
+
 if __name__ == '__main__':
     # Get host and port from environment variables or use defaults
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
     port = int(os.environ.get('FLASK_PORT', 5000))
     
-    print(f"🚀 Starting Flask server on {host}:{port}")
-    print(f"📱 Access the application from other devices using your computer's IP address")
+    print(f"[START] Starting Flask server on {host}:{port}")
+    print(f"[INFO] Access the application from other devices using your computer's IP address")
     # print(f"🌐 Local access: http://localhost:{port}")
-    print(f"📋 To find your IP address, run: ipconfig (Windows) or ifconfig (Mac/Linux)")
+    print(f"[INFO] To find your IP address, run: ipconfig (Windows) or ifconfig (Mac/Linux)")
     
     # Disable watchdog to prevent restarts during question generation
     app.run(host=host, port=port, debug=True, use_reloader=False) 
