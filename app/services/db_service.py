@@ -28,7 +28,7 @@ def get_db_connection():
         #     'UID=sa;'
         #     'PWD=Pass@123;'
         # )
-        return conn
+        return conn  # pyright: ignore[reportUndefinedVariable]
     except Exception as e:
         print(f"Database connection error: {e}")
         return None
