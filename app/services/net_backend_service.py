@@ -171,13 +171,27 @@ class NetBackendService:
                     'error': f"MCQ insertion failed: {mcq_response.status_code} - {mcq_response.text}"
                 }
             
+            # Step 3: Store explanation if available
+            explanation_stored = False
+            if question_data.get('explanation'):
+                try:
+                    explanation_result = self._store_explanation(question_id, question_data.get('explanation'))
+                    if explanation_result:
+                        explanation_stored = True
+                        logger.info(f"Explanation stored successfully for question {question_id}")
+                    else:
+                        logger.warning(f"Failed to store explanation for question {question_id}")
+                except Exception as e:
+                    logger.warning(f"Error storing explanation: {e}")
+            
             logger.info(f"Question stored successfully in .NET backend via two-step process")
             return {
                 'success': True,
                 'question_id': question_id,
                 'response': {
                     'question_master_id': question_id,
-                    'mcq_inserted': True
+                    'mcq_inserted': True,
+                    'explanation_stored': explanation_stored
                 },
                 'endpoint_used': 'Two-step: /api/question-master + /api/mcq/add'
             }
@@ -188,6 +202,41 @@ class NetBackendService:
                 'success': False,
                 'error': str(e)
             }
+    
+    def _store_explanation(self, question_id: int, explanation_text: str) -> bool:
+        """Store explanation for a question in .NET backend using the correct API endpoint"""
+        try:
+            # Use the correct API endpoint for explanations
+            endpoint = "/api/QuestionExplanation/add-or-update"
+            
+            explanation_payload = {
+                'questionID': question_id,
+                'explanationText': explanation_text,
+                'htmlExplanation': None,  # We don't have HTML explanation
+                'imgExplanation': None,   # We don't have image explanation
+                'legacySourceType': 'AI_Generated',  # Mark as AI generated
+                'explanationType': 'Standard',        # Standard explanation type
+                'userID': 0  # System generated
+            }
+            
+            logger.info(f"Storing explanation for question {question_id} via {endpoint}")
+            
+            response = self.session.post(
+                f"{self.base_url}{endpoint}",
+                json=explanation_payload,
+                timeout=15
+            )
+            
+            if response.status_code in [200, 201]:
+                logger.info(f"Explanation stored successfully for question {question_id}")
+                return True
+            else:
+                logger.error(f"Explanation storage failed: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error storing explanation: {str(e)}")
+            return False
     
     def _convert_answer_to_option_letter(self, correct_answer: str, options: list) -> str:
         """Convert the correct answer text to option letter (A, B, C, D)"""
