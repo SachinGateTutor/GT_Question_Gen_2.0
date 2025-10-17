@@ -1015,7 +1015,8 @@ def generate_single_question_endpoint():
         difficulty_level_id = data.get('difficulty_level_id', 3)
         marks = data.get('marks', 1)
         generation_prompt = data.get('generation_prompt', '')
-        include_diagram = data.get('include_diagram', False)
+        # Fix: Use the correct field name from frontend
+        include_diagram = data.get('requires_diagram', False)
         
         # Validate required fields
         if not all([generation_id, subject_id, topic_id]):
@@ -1054,6 +1055,7 @@ def generate_single_question_endpoint():
         
         # Handle diagram generation if required
         diagram_code = None
+        diagram_image_url = None
         if include_diagram and ai_result.get('diagram_code'):
             try:
                 from services.diagram_service_new import render_diagram
@@ -1064,9 +1066,14 @@ def generate_single_question_endpoint():
                 )
                 if image_filename:
                     diagram_code = ai_result['diagram_code']
+                    diagram_image_url = f"/static/images/{image_filename}"
+                    print(f"[OK] Diagram generated successfully: {image_filename}")
+                else:
+                    print(f"[ERROR] Diagram generation failed for {ai_result.get('library_used', 'schemdraw')}")
             except Exception as e:
                 print(f"Diagram generation failed: {e}")
                 diagram_code = None
+                diagram_image_url = None
         
         # Prepare response data in .NET expected format
         response_data = {
@@ -1075,6 +1082,7 @@ def generate_single_question_endpoint():
             "correct_answer": ai_result.get('correct_answer', ''),
             "explanation": ai_result.get('explanation', ''),
             "diagram_code": diagram_code,
+            "diagram_image_url": diagram_image_url,  # Add diagram image URL
             "subject_id": subject_id,
             "topic_id": topic_id,
             "section_id": section_id,  # Add section_id
@@ -1094,8 +1102,6 @@ def generate_single_question_endpoint():
         
         storage_result = net_backend_service.store_question(storage_data)
         
-        print(f"🔍 Storage result: {storage_result}")
-        
         if not storage_result['success']:
             print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
             # Continue anyway as the question was generated successfully
@@ -1103,7 +1109,6 @@ def generate_single_question_endpoint():
             # Extract question_id from storage result and add it to response data
             if storage_result.get('question_id'):
                 response_data['question_id'] = storage_result['question_id']
-                print(f"[OK] Question stored successfully with ID: {storage_result['question_id']}")
         
         return jsonify({
             "success": True,

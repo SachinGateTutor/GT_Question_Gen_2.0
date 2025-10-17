@@ -7,7 +7,9 @@ const config = {
     
     // .NET Backend endpoints - for data fetching
     NET_STATUS_ENDPOINT: 'http://192.168.0.102:5125/api/question-master/generation-status',
-    NET_QUESTIONS_ENDPOINT: 'http://192.168.0.102:5125/api/question-master/',
+    NET_QUESTIONS_ENDPOINT: 'http://192.168.0.102:5125/api/QuestionRetrieval/filter',
+    NET_AI_QUESTIONS_ENDPOINT: 'http://192.168.0.102:5125/api/QuestionRetrieval/filter?IsAIGenerated=true',
+    NET_QUESTION_BY_ID_ENDPOINT: 'http://192.168.0.102:5125/api/QuestionRetrieval',
     NET_HEALTH_ENDPOINT: 'http://192.168.0.102:5125/api/question-master/ai-service-status',
     
     // .NET Backend reference data endpoints
