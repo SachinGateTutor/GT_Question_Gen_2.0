@@ -1054,6 +1054,7 @@ def generate_single_question_endpoint():
         
         # Handle diagram generation if required
         diagram_code = None
+        diagram_image_url = None
         if include_diagram and ai_result.get('diagram_code'):
             try:
                 from services.diagram_service_new import render_diagram
@@ -1064,9 +1065,14 @@ def generate_single_question_endpoint():
                 )
                 if image_filename:
                     diagram_code = ai_result['diagram_code']
+                    diagram_image_url = f"/static/images/{image_filename}"
+                    print(f"[OK] Diagram generated successfully: {image_filename}")
+                else:
+                    print(f"[ERROR] Diagram generation failed for {ai_result.get('library_used', 'schemdraw')}")
             except Exception as e:
                 print(f"Diagram generation failed: {e}")
                 diagram_code = None
+                diagram_image_url = None
         
         # Prepare response data in .NET expected format
         response_data = {
@@ -1075,6 +1081,7 @@ def generate_single_question_endpoint():
             "correct_answer": ai_result.get('correct_answer', ''),
             "explanation": ai_result.get('explanation', ''),
             "diagram_code": diagram_code,
+            "diagram_image_url": diagram_image_url,  # Add diagram image URL
             "subject_id": subject_id,
             "topic_id": topic_id,
             "section_id": section_id,  # Add section_id
@@ -1091,6 +1098,10 @@ def generate_single_question_endpoint():
         # Add generation_id to the data for storage
         storage_data = response_data.copy()
         storage_data['generation_id'] = generation_id
+        
+        # Debug: Log what we're sending to .NET backend
+        print(f"🔍 Debug: Sending to .NET backend - diagram_image_url: {storage_data.get('diagram_image_url')}")
+        print(f"🔍 Debug: Sending to .NET backend - has diagram: {bool(storage_data.get('diagram_image_url'))}")
         
         storage_result = net_backend_service.store_question(storage_data)
         

@@ -134,6 +134,24 @@ class NetBackendService:
                 question_data.get('options', [])
             )
             
+            # Check if question has images
+            diagram_image_url = question_data.get('diagram_image_url')
+            has_question_image = bool(diagram_image_url)
+            has_option_images = bool(question_data.get('option_images') and any(question_data.get('option_images', [])))
+            has_images = has_question_image or has_option_images
+            
+            # Get option images if available
+            option_images = question_data.get('option_images', [])
+            
+            # Log image information for debugging
+            logger.info(f"🔍 Debug: diagram_image_url = {diagram_image_url}")
+            logger.info(f"🔍 Debug: has_question_image = {has_question_image}")
+            if has_question_image:
+                logger.info(f"Question has diagram image: {diagram_image_url}")
+            if has_option_images:
+                logger.info(f"Question has option images: {option_images}")
+            logger.info(f"Question has images: {has_images}")
+            
             mcq_payload = {
                 'questionID': question_id,
                 'questionText': question_data.get('question_text', ''),
@@ -142,12 +160,12 @@ class NetBackendService:
                 'optionC': question_data.get('options', [''])[2] if len(question_data.get('options', [])) > 2 else '',
                 'optionD': question_data.get('options', [''])[3] if len(question_data.get('options', [])) > 3 else '',
                 'correctOption': correct_option,
-                'hasImage': False,
-                'imgQuestion': None,
-                'imgOptionA': None,
-                'imgOptionB': None,
-                'imgOptionC': None,
-                'imgOptionD': None,
+                'hasImage': has_images,
+                'imgQuestion': question_data.get('diagram_image_url') if has_question_image else None,
+                'imgOptionA': option_images[0] if len(option_images) > 0 and option_images[0] else None,
+                'imgOptionB': option_images[1] if len(option_images) > 1 and option_images[1] else None,
+                'imgOptionC': option_images[2] if len(option_images) > 2 and option_images[2] else None,
+                'imgOptionD': option_images[3] if len(option_images) > 3 and option_images[3] else None,
                 'htmlQuestion': None,
                 'htmlOptionA': None,
                 'htmlOptionB': None,

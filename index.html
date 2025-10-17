@@ -1266,6 +1266,7 @@
         <div class="nav-links">
             <a href="#" onclick="showReviewPage()">📋 Review Questions</a>
             <a href="#" onclick="showStats()">📊 Statistics</a>
+            <a href="#" onclick="testFetchAIGeneratedQuestions()">🤖 Test AI Questions</a>
             <a href="admin.html" id="adminPageBtn">🛠️ Admin Panel</a>
         </div>
     </div>
@@ -1381,10 +1382,47 @@
             }
         }
 
+        // Fetch a specific question by ID
+        async function fetchQuestionById(questionId) {
+            try {
+                const response = await fetch(`${config.NET_QUESTION_BY_ID_ENDPOINT}/${questionId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const question = await response.json();
+                return question;
+            } catch (error) {
+                console.error('Error fetching question by ID:', error);
+                return null;
+            }
+        }
+
+        // Fetch AI-generated questions specifically
+        async function fetchAIGeneratedQuestions() {
+            try {
+                console.log('🔍 Fetching AI-generated questions from:', config.NET_AI_QUESTIONS_ENDPOINT);
+                const response = await fetch(config.NET_AI_QUESTIONS_ENDPOINT);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const questions = await response.json();
+                console.log('✅ Successfully fetched AI-generated questions:', questions.length, 'questions');
+                return questions;
+            } catch (error) {
+                console.error('❌ Error fetching AI-generated questions:', error);
+                return null;
+            }
+        }
+
         // Load stats preview
         async function loadStatsPreview() {
             try {
-                const response = await fetch(config.NET_QUESTIONS_ENDPOINT);
+                // Use the correct .NET backend endpoint for fetching AI-generated questions
+                const response = await fetch(config.NET_AI_QUESTIONS_ENDPOINT);
                 
                 // Check if response is ok
                 if (!response.ok) {
@@ -2276,6 +2314,65 @@
             alert('Statistics page will be implemented next!');
         }
 
+        // Test function to fetch and display AI-generated questions
+        async function testFetchAIGeneratedQuestions() {
+            try {
+                console.log('🧪 Testing AI-generated questions fetch...');
+                
+                // Clear previous content
+                clearRightPanelContent();
+                
+                // Show loading
+                const loading = document.getElementById('loading');
+                loading.classList.remove('hidden');
+                loading.querySelector('p').textContent = '🤖 Fetching AI-generated questions...';
+                
+                // Fetch AI-generated questions
+                const questions = await fetchAIGeneratedQuestions();
+                
+                if (questions && questions.length > 0) {
+                    console.log('✅ Successfully fetched', questions.length, 'AI-generated questions');
+                    
+                    // Transform questions to match expected format
+                    const transformedQuestions = questions.map(q => ({
+                        QuestionID: q.questionID,
+                        QuestionText: q.mcQ_QuestionText || q.questionText || '',
+                        Options: JSON.stringify([
+                            q.optionA || '',
+                            q.optionB || '',
+                            q.optionC || '',
+                            q.optionD || ''
+                        ].filter(opt => opt)),
+                        CorrectAnswer: q.correctOption || 'A',
+                        DiagramImageURL: q.imgQuestion,
+                        Explanation: q.explanationText || '',
+                        IsEnable: q.isEnable || false,
+                        IsDeleted: q.isDeleted || false,
+                        QuestionType: q.questionTypeName || 'mcq',
+                        CreatedDate: q.createdDate || new Date().toISOString()
+                    }));
+                    
+                    // Display the questions
+                    displaySessionQuestions(transformedQuestions, `AI-Generated Questions (${questions.length} found)`);
+                    
+                    // Hide loading
+                    loading.classList.add('hidden');
+                } else {
+                    console.log('⚠️ No AI-generated questions found');
+                    alert('No AI-generated questions found. Please generate some questions first.');
+                    loading.classList.add('hidden');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error testing AI questions fetch:', error);
+                alert('Error fetching AI-generated questions: ' + error.message);
+                
+                // Hide loading
+                const loading = document.getElementById('loading');
+                loading.classList.add('hidden');
+            }
+        }
+
         function showExplanationPopup(explanation) {
           document.getElementById('explanation-popup-content').innerHTML = explanation || '<em>No explanation provided</em>';
           document.getElementById('explanation-popup').style.display = 'block';
@@ -2868,11 +2965,45 @@
             // Fallback function to fetch questions when generation completes but no questions were captured
             try {
                 console.log('🔍 Debug: Attempting to fetch final questions from API');
-                const response = await fetch(`/api/generation-progress/${currentGenerationId}`);
-                const result = await response.json();
+                
+                // Try to fetch from .NET backend first (AI-generated questions only)
+                const response = await fetch(config.NET_AI_QUESTIONS_ENDPOINT);
+                if (response.ok) {
+                    const questions = await response.json();
+                    if (Array.isArray(questions) && questions.length > 0) {
+                        console.log('🔍 Debug: Successfully fetched questions from .NET backend');
+                        
+                        // Transform questions to match expected format
+                        const transformedQuestions = questions.map(q => ({
+                            QuestionID: q.questionID,
+                            QuestionText: q.mcQ_QuestionText || q.questionText || '',
+                            Options: JSON.stringify([
+                                q.optionA || '',
+                                q.optionB || '',
+                                q.optionC || '',
+                                q.optionD || ''
+                            ].filter(opt => opt)),
+                            CorrectAnswer: q.correctOption || 'A',
+                            DiagramImageURL: q.imgQuestion,
+                            Explanation: q.explanationText || '',
+                            IsEnable: q.isEnable || false,
+                            IsDeleted: q.isDeleted || false,
+                            QuestionType: q.questionTypeName || 'mcq',
+                            CreatedDate: q.createdDate || new Date().toISOString()
+                        }));
+                        
+                        currentSessionQuestions = transformedQuestions;
+                        displaySessionQuestions(currentSessionQuestions, 'Generated Questions');
+                        return;
+                    }
+                }
+                
+                // Fallback to Python service
+                const pythonResponse = await fetch(`/api/generation-progress/${currentGenerationId}`);
+                const result = await pythonResponse.json();
                 
                 if (result.success && result.generated_questions && result.generated_questions.length > 0) {
-                    console.log('🔍 Debug: Successfully fetched final questions from API');
+                    console.log('🔍 Debug: Successfully fetched final questions from Python service');
                     
                     // Transform and display questions
                     const transformedQuestions = result.generated_questions.map(q => {
@@ -2913,17 +3044,55 @@
                     // Display current session questions
                     displaySessionQuestions(currentSessionQuestions);
                 } else {
-                    // Fallback: fetch recent questions from database
-                    const response = await fetch('/api/questions?status=all');
-                    const questions = await response.json();
-                    
-                    // Filter for recently generated questions (last 20 questions)
-                    const recentQuestions = questions.slice(0, 20);
-                    
-                    if (recentQuestions.length > 0) {
-                        displaySessionQuestions(recentQuestions, 'Recently Generated Questions');
+                    // Fallback: fetch recent AI-generated questions from .NET backend
+                    const response = await fetch(config.NET_AI_QUESTIONS_ENDPOINT);
+                    if (response.ok) {
+                        const questions = await response.json();
+                        
+                        if (Array.isArray(questions) && questions.length > 0) {
+                            // Transform questions to match expected format
+                            const transformedQuestions = questions.map(q => ({
+                                QuestionID: q.questionID,
+                                QuestionText: q.mcQ_QuestionText || q.questionText || '',
+                                Options: JSON.stringify([
+                                    q.optionA || '',
+                                    q.optionB || '',
+                                    q.optionC || '',
+                                    q.optionD || ''
+                                ].filter(opt => opt)),
+                                CorrectAnswer: q.correctOption || 'A',
+                                DiagramImageURL: q.imgQuestion,
+                                Explanation: q.explanationText || '',
+                                IsEnable: q.isEnable || false,
+                                IsDeleted: q.isDeleted || false,
+                                QuestionType: q.questionTypeName || 'mcq',
+                                CreatedDate: q.createdDate || new Date().toISOString()
+                            }));
+                            
+                            // Filter for recently generated questions (last 20 questions)
+                            const recentQuestions = transformedQuestions.slice(0, 20);
+                            
+                            if (recentQuestions.length > 0) {
+                                displaySessionQuestions(recentQuestions, 'Recently Generated Questions');
+                            } else {
+                                alert('No questions found. Please generate some questions first.');
+                            }
+                        } else {
+                            alert('No questions found. Please generate some questions first.');
+                        }
                     } else {
-                        alert('No questions found. Please generate some questions first.');
+                        // Fallback to Python service
+                        const pythonResponse = await fetch('/api/questions?status=all');
+                        const questions = await pythonResponse.json();
+                        
+                        // Filter for recently generated questions (last 20 questions)
+                        const recentQuestions = questions.slice(0, 20);
+                        
+                        if (recentQuestions.length > 0) {
+                            displaySessionQuestions(recentQuestions, 'Recently Generated Questions');
+                        } else {
+                            alert('No questions found. Please generate some questions first.');
+                        }
                     }
                 }
                 
