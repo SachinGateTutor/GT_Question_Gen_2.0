@@ -143,9 +143,7 @@ class NetBackendService:
             # Get option images if available
             option_images = question_data.get('option_images', [])
             
-            # Log image information for debugging
-            logger.info(f"🔍 Debug: diagram_image_url = {diagram_image_url}")
-            logger.info(f"🔍 Debug: has_question_image = {has_question_image}")
+            # Log image information
             if has_question_image:
                 logger.info(f"Question has diagram image: {diagram_image_url}")
             if has_option_images:

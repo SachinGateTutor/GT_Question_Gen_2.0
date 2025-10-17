@@ -1015,7 +1015,8 @@ def generate_single_question_endpoint():
         difficulty_level_id = data.get('difficulty_level_id', 3)
         marks = data.get('marks', 1)
         generation_prompt = data.get('generation_prompt', '')
-        include_diagram = data.get('include_diagram', False)
+        # Fix: Use the correct field name from frontend
+        include_diagram = data.get('requires_diagram', False)
         
         # Validate required fields
         if not all([generation_id, subject_id, topic_id]):
@@ -1099,13 +1100,7 @@ def generate_single_question_endpoint():
         storage_data = response_data.copy()
         storage_data['generation_id'] = generation_id
         
-        # Debug: Log what we're sending to .NET backend
-        print(f"🔍 Debug: Sending to .NET backend - diagram_image_url: {storage_data.get('diagram_image_url')}")
-        print(f"🔍 Debug: Sending to .NET backend - has diagram: {bool(storage_data.get('diagram_image_url'))}")
-        
         storage_result = net_backend_service.store_question(storage_data)
-        
-        print(f"🔍 Storage result: {storage_result}")
         
         if not storage_result['success']:
             print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
@@ -1114,7 +1109,6 @@ def generate_single_question_endpoint():
             # Extract question_id from storage result and add it to response data
             if storage_result.get('question_id'):
                 response_data['question_id'] = storage_result['question_id']
-                print(f"[OK] Question stored successfully with ID: {storage_result['question_id']}")
         
         return jsonify({
             "success": True,

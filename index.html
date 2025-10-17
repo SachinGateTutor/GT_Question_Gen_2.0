@@ -2564,7 +2564,7 @@
                     marks: 1, // Default to 1 mark
                     num_questions: data.num_questions,
                     generation_prompt: data.custom_prompt || `Generate a question about ${document.getElementById('topic').options[document.getElementById('topic').selectedIndex]?.text || 'selected topic'}`,
-                    include_diagram: data.requires_diagram,  // Map requires_diagram to include_diagram
+                    requires_diagram: data.requires_diagram,  // Send requires_diagram directly
                     requires_option_diagrams: data.requires_option_diagrams,
                     is_programming_question: data.is_programming_question
                 };
