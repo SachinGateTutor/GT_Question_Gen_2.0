@@ -1,12 +1,24 @@
 @echo off
-echo 🚀 GT Question Generator 2.0 - Windows Setup
-echo =============================================
+echo 🚀 GT Question Generator 2.0 - Hybrid Windows Setup
+echo ===================================================
+echo Architecture: Python Flask + .NET Backend
+echo ===================================================
 
 REM Check if Python is installed
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
     echo ❌ Python is not installed. Please install Python 3.8+ first.
     echo Download from: https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
+
+REM Check if .NET is installed
+dotnet --version >nul 2>&1
+if %errorLevel% neq 0 (
+    echo ❌ .NET is not installed. Please install .NET 6/7/8 first.
+    echo Download from: https://dotnet.microsoft.com/download
+    echo This is required for the .NET backend service.
     pause
     exit /b 1
 )
@@ -27,7 +39,7 @@ echo 🐍 Setting up Python virtual environment...
 python -m venv venv
 call venv\Scripts\activate
 
-REM Install dependencies
+REM Install Python dependencies
 echo 📦 Installing Python dependencies...
 pip install -r requirements.txt
 
@@ -42,19 +54,41 @@ if not exist ".env" (
     copy env.template .env
     echo ⚠️ Please edit .env file with your configuration:
     echo    - OpenAI API key
-    echo    - Database credentials
-    echo    - Other settings
+    echo    - .NET backend URL
+    echo    - Database connection string
 )
 
+REM Configure network access
+echo 🌐 Configuring network access...
+python setup_network.py
+
 echo.
-echo ✅ Setup completed successfully!
+echo ✅ Hybrid setup completed successfully!
 echo.
-echo 📋 Next steps:
-echo 1. Edit .env file with your configuration
-echo 2. Set up SQL Server database
-echo 3. Run: venv\Scripts\activate
-echo 4. Run: python app\main.py
+echo 🏗️ Architecture Overview:
+echo Frontend (HTML/JS) → Python Flask (AI Processing) → .NET Backend (Data Storage)
+echo                    ↓
+echo              Diagram Generation & Static Files
 echo.
-echo 🌐 Application will be available at: http://localhost:5000
+echo 📋 Next steps for Hybrid Architecture:
+echo 1. Start .NET Backend service (port 5125)
+echo 2. Start Python Flask service: python app\main.py (port 5000)
+echo 3. Open index.html in your browser
+echo 4. From other devices, open: http://YOUR_IP:5000
+echo.
+echo 🔧 Service Requirements:
+echo - .NET Backend: Handles data management, storage, and retrieval
+echo - Python Flask: Handles AI processing, diagram generation
+echo - Both services must be running for full functionality
+echo.
+echo 🌐 Network Access:
+echo - Frontend: http://YOUR_IP:5000 (served by Python Flask)
+echo - Python API: http://YOUR_IP:5000/api/generate-question
+echo - .NET API: http://YOUR_IP:5125/api/... (all data endpoints)
+echo.
+echo ⚠️ Important Notes:
+echo - Make sure firewall allows connections on ports 5000 and 5125
+echo - Both services must be running simultaneously
+echo - .NET backend handles database setup via Entity Framework
 echo.
 pause 

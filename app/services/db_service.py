@@ -3,32 +3,42 @@ import os
 from datetime import datetime
 import json
 import re
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 def get_db_connection():
     """Get SQL Server database connection"""
     try:
-
-        # for local system
-
-        # conn = pyodbc.connect(
-        #     'DRIVER={ODBC Driver 17 for SQL Server};'
-        #     'SERVER=localhost;'
-        #     # 'DATABASE=MCQGen;'
-        #     'DATABASE=GTQuestionDBS;'
-        #     'Trusted_Connection=yes;'
-        # )
-
-        # for main system
+        # Get database configuration from environment variables
+        db_server = os.getenv('DB_SERVER', 'localhost')
+        db_name = os.getenv('DB_NAME', 'GTQuestionDB')
+        db_user = os.getenv('DB_USER', None)
+        db_password = os.getenv('DB_PASSWORD', None)
         
-        # conn = pyodbc.connect(
-        #     'DRIVER={ODBC Driver 17 for SQL Server};'
-        #     'SERVER=DESKTOP-2SUICFV;'
-        #     'DATABASE=GTQuestionDB;'
-        #     'Trusted_Connection=yes;'
-        #     'UID=sa;'
-        #     'PWD=Pass@123;'
-        # )
-        return conn  # pyright: ignore[reportUndefinedVariable]
+        # Build connection string
+        if db_user and db_password:
+            # Use SQL Server authentication
+            conn_str = (
+                f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+                f'SERVER={db_server};'
+                f'DATABASE={db_name};'
+                f'UID={db_user};'
+                f'PWD={db_password};'
+            )
+        else:
+            # Use Windows authentication (Trusted Connection)
+            conn_str = (
+                f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+                f'SERVER={db_server};'
+                f'DATABASE={db_name};'
+                f'Trusted_Connection=yes;'
+            )
+        
+        conn = pyodbc.connect(conn_str)
+        return conn
+        
     except Exception as e:
         print(f"Database connection error: {e}")
         return None
