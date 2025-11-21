@@ -102,7 +102,7 @@ class NetBackendService:
                 'createdDate': datetime.now().isoformat() + 'Z',
                 'approvedBy': user_id or '',  # User ID from JWT token
                 'questionsGeneratedBy': user_id or '',  # User ID from JWT token
-                'sourceSystem': 'Python Flask',
+                'SourceSystem': 'PragyaAI',
                 'sourceQuestionID': 0  # 0 for new questions
             }
             

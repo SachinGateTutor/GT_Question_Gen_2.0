@@ -218,10 +218,14 @@ Reason: <brief reason why this library is best for this subject/topic>
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     library_name = parts[1].strip()
+                    # Strip markdown formatting (**library_name** -> library_name)
+                    library_name = library_name.strip('*').strip()
             elif line and line.startswith('Reason:'):
                 parts = line.split(':', 1)
                 if len(parts) > 1:
                     reason = parts[1].strip()
+                    # Strip markdown formatting from reason too
+                    reason = reason.strip('*').strip()
         
         print(f"🎯 Selected library: {library_name} - {reason}")
         return library_name, reason
@@ -1911,6 +1915,8 @@ def parse_openai_response(response_text):
             line = line.strip()
             if line.startswith('Library:'):
                 library_used = line.replace('Library:', '').strip()
+                # Strip markdown formatting (**library_name** -> library_name)
+                library_used = library_used.strip('*').strip()
                 break
         
         # Extract main diagram code

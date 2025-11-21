@@ -1368,23 +1368,124 @@ def analyze_topic():
     """
     try:
         data = request.json
+        
+        # Extract token if provided (optional - for tracking/logging)
+        auth_header = request.headers.get('Authorization', '')
+        token = None
+        user_id = None
+        if auth_header:
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]
+            else:
+                token = auth_header
+            user_id = extract_user_id_from_token(token)
+            if user_id:
+                print(f"Topic analysis requested by user: {user_id}")
+        
+        # Also check if token is in body (frontend may send it there)
+        if not token and data.get('token'):
+            token = data.get('token')
+            user_id = extract_user_id_from_token(token)
+            if user_id:
+                print(f"Topic analysis requested by user: {user_id}")
+        
         course_id = data.get('course_id')
         stream_id = data.get('stream_id') 
         subject_id = data.get('subject_id')
         topic_id = data.get('topic_id')
         question_type = data.get('question_type')
         
-        # Create topic info from the provided data (since we don't have local DB)
+        # Fetch real names from .NET backend
+        from services.net_backend_service import net_backend_service
+        
+        # Initialize with fallback values
+        topic_name = f"Topic {topic_id}" if topic_id else "Unknown Topic"
+        subject_name = f"Subject {subject_id}" if subject_id else "Unknown Subject"
+        stream_name = f"Stream {stream_id}" if stream_id else "Unknown Stream"
+        course_name = f"Course {course_id}" if course_id else "Unknown Course"
+        bloom_level_name = 'Intermediate'  # Default
+        
+        # Get topic name and details from .NET backend
+        if topic_id:
+            topic_result = net_backend_service.get_topic_by_id(topic_id, auth_token=token)
+            if topic_result.get('success') and topic_result.get('topic_name'):
+                topic_name = topic_result['topic_name']
+                print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+                
+                # Check if topic data includes stream/course info
+                topic_data = topic_result.get('data', {})
+                if topic_data:
+                    # Try to get stream name from topic data
+                    stream_name_from_topic = (topic_data.get('streamName') or 
+                                             topic_data.get('StreamName') or
+                                             topic_data.get('stream_name'))
+                    if stream_name_from_topic:
+                        stream_name = stream_name_from_topic
+                    
+                    # Try to get course name from topic data
+                    course_name_from_topic = (topic_data.get('courseName') or 
+                                            topic_data.get('CourseName') or
+                                            topic_data.get('course_name'))
+                    if course_name_from_topic:
+                        course_name = course_name_from_topic
+                    
+                    # Try to get bloom level from topic data
+                    bloom_level_from_topic = (topic_data.get('bloomLevelName') or 
+                                             topic_data.get('BloomLevelName') or
+                                             topic_data.get('bloom_level_name'))
+                    if bloom_level_from_topic:
+                        bloom_level_name = bloom_level_from_topic
+            else:
+                print(f"⚠️ Warning: Could not retrieve topic name for topic_id: {topic_id}, using fallback")
+        
+        # Get subject name from .NET backend
+        if subject_id:
+            subject_result = net_backend_service.get_subject_by_id(subject_id, auth_token=token)
+            if subject_result.get('success') and subject_result.get('subject_name'):
+                subject_name = subject_result['subject_name']
+                print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+                
+                # Check if subject data includes stream/course info
+                subject_data = subject_result.get('data', {})
+                if subject_data:
+                    # Try to get stream name from subject data
+                    stream_name_from_subject = (subject_data.get('streamName') or 
+                                              subject_data.get('StreamName') or
+                                              subject_data.get('stream_name'))
+                    if stream_name_from_subject:
+                        stream_name = stream_name_from_subject
+                    
+                    # Try to get course name from subject data
+                    course_name_from_subject = (subject_data.get('courseName') or 
+                                               subject_data.get('CourseName') or
+                                               subject_data.get('course_name'))
+                    if course_name_from_subject:
+                        course_name = course_name_from_subject
+            else:
+                print(f"⚠️ Warning: Could not retrieve subject name for subject_id: {subject_id}, using fallback")
+        
+        # Try to get stream name from local DB if still using fallback
+        if stream_id and stream_name.startswith('Stream '):
+            try:
+                from services.db_service import get_stream_name_by_id
+                db_stream_name = get_stream_name_by_id(stream_id)
+                if db_stream_name:
+                    stream_name = db_stream_name
+                    print(f"✅ Retrieved stream name from local DB: {stream_name}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not retrieve stream name from local DB: {e}")
+        
+        # Create topic info with real names
         topic_info = {
             'topic_id': topic_id,
             'subject_id': subject_id,
             'stream_id': stream_id,
             'course_id': course_id,
-            'topic_name': f"Topic {topic_id}",  # We'll use the ID as name since we don't have DB access
-            'subject_name': f"Subject {subject_id}",
-            'stream_name': f"Stream {stream_id}",
-            'course_name': f"Course {course_id}",
-            'bloom_level_name': 'Intermediate'  # Default bloom level for AI analysis
+            'topic_name': topic_name,
+            'subject_name': subject_name,
+            'stream_name': stream_name,
+            'course_name': course_name,
+            'bloom_level_name': bloom_level_name
         }
         
         # Call AI analysis service
@@ -1453,11 +1554,41 @@ def generate_random_questions():
     try:
         data = request.json
         question_plan = data.get('question_plan')
+        
+        # Extract token and user_id (required)
+        auth_header = request.headers.get('Authorization', '')
+        token = None
+        user_id = None
+        if auth_header:
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]
+            else:
+                token = auth_header
+            user_id = extract_user_id_from_token(token)
+            if not user_id:
+                print(f"Warning: Could not extract user ID from token")
+        
+        # Also check if token is in body (frontend may send it there)
+        if not token and data.get('token'):
+            token = data.get('token')
+            user_id = extract_user_id_from_token(token)
+            if not user_id:
+                print(f"Warning: Could not extract user ID from token")
+        
+        # Return 401 if token is missing
+        if not token:
+            return jsonify({
+                'success': False,
+                'error': 'Authentication token required'
+            }), 401
+        
         generation_id = str(uuid.uuid4())
         
-        # Store generation session
+        # Store generation session with auth_token and user_id
         active_generations[generation_id] = {
             'status': 'active',
+            'auth_token': token,
+            'user_id': user_id,
             'progress': {
                 'current': 0,
                 'total': question_plan['total_questions'],
@@ -1580,6 +1711,13 @@ def generate_questions_background(generation_id, request_data, question_plan):
         session = active_generations[generation_id]
         progress = session['progress']
         
+        # Get auth_token and user_id from session
+        auth_token = session.get('auth_token')
+        user_id = session.get('user_id')
+        
+        # Import net_backend_service
+        from services.net_backend_service import net_backend_service
+        
         # Generate each type of question
         question_types = [
             ('diagram', question_plan['diagram_questions']),
@@ -1595,21 +1733,65 @@ def generate_questions_background(generation_id, request_data, question_plan):
                     break
                     
                 # Generate individual question
-                question_data = generate_single_question(request_data, q_type)
+                question_data = generate_single_question(request_data, q_type, auth_token=auth_token)
                 
-                if question_data:
-                    # Store in database
-                    question_id = store_generated_question(question_data)
-                    
-                    # Update progress
+                # Check if generation failed due to missing data (None returned)
+                if question_data is None:
+                    print(f"❌ Question generation skipped due to missing subject/topic data")
+                    # Update progress but mark as failed
                     progress['current'] += 1
                     progress[f'{q_type}_current'] += 1
-                    
                     session['generated_questions'].append({
-                        'id': question_id,
+                        'id': None,
+                        'jkuh': None,
                         'type': q_type,
-                        'question': question_data
+                        'error': 'Failed to retrieve subject/topic names from backend'
                     })
+                    continue
+                
+                if question_data:
+                    # Add generation_id to question_data if not present
+                    if 'generation_id' not in question_data:
+                        question_data['generation_id'] = generation_id
+                    
+                    # Store in .NET backend
+                    storage_result = net_backend_service.store_question(
+                        question_data,
+                        auth_token=auth_token,
+                        user_id=user_id
+                    )
+                    
+                    if storage_result.get('success'):
+                        question_id = storage_result.get('question_id')
+                        jkuh = storage_result.get('jkuh')
+                        print(f"✅ Question stored successfully with ID: {question_id}, jkuh: {jkuh}")
+                        
+                        # Update question_data with storage results
+                        question_data['question_id'] = question_id
+                        question_data['jkuh'] = jkuh
+                        
+                        # Update progress
+                        progress['current'] += 1
+                        progress[f'{q_type}_current'] += 1
+                        
+                        session['generated_questions'].append({
+                            'id': question_id,
+                            'jkuh': jkuh,
+                            'type': q_type,
+                            'question': question_data
+                        })
+                    else:
+                        print(f"❌ Failed to store question: {storage_result.get('error', 'Unknown error')}")
+                        # Still update progress but mark as failed
+                        progress['current'] += 1
+                        progress[f'{q_type}_current'] += 1
+                        session['generated_questions'].append({
+                            'id': None,
+                            'jkuh': None,
+                            'type': q_type,
+                            'question': question_data,
+                            'error': storage_result.get('error', 'Storage failed')
+                        })
                 
             if session['status'] == 'stopped':
                 break
@@ -1623,9 +1805,108 @@ def generate_questions_background(generation_id, request_data, question_plan):
         session['status'] = 'error'
         session['error'] = str(e)
 
-def generate_single_question(request_data, question_type):
+def generate_single_question(request_data, question_type, auth_token=None):
     """Generate a single question based on type"""
     enhanced_request = request_data.copy()
+    
+    # Fetch subject and topic names from .NET backend before generating question
+    # This ensures the AI generates questions for the correct subject/topic, not defaulting to "Programming"
+    subject_id = request_data.get('subject_id')
+    topic_id = request_data.get('topic_id')
+    stream_id = request_data.get('stream_id')
+    
+    subject_name = None
+    topic_name = None
+    stream_name = None
+    
+    # Import net_backend_service
+    from services.net_backend_service import net_backend_service
+    
+    # Get subject name from .NET backend
+    if subject_id:
+        try:
+            subject_result = net_backend_service.get_subject_by_id(subject_id, auth_token=auth_token)
+            print(f"🔍 Debug: Subject fetch result for subject_id {subject_id}: {subject_result}")
+            if subject_result.get('success') and subject_result.get('subject_name'):
+                subject_name = subject_result['subject_name']
+                print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+                enhanced_request['subject'] = subject_name
+                
+                # Extract stream_id from subject data if available and not already set
+                if not stream_id and subject_result.get('data'):
+                    subject_data = subject_result['data']
+                    stream_id_from_subject = (subject_data.get('streamId') or 
+                                            subject_data.get('StreamID') or
+                                            subject_data.get('stream_id'))
+                    if stream_id_from_subject:
+                        stream_id = stream_id_from_subject
+                        print(f"✅ Extracted stream_id: {stream_id} from subject data")
+            else:
+                error_msg = subject_result.get('error', 'Unknown error')
+                print(f"❌ ERROR: Could not retrieve subject name for subject_id: {subject_id}. Error: {error_msg}")
+                # DO NOT use fallback - return None to prevent wrong data insertion
+                print(f"❌ CRITICAL: Cannot proceed without valid subject name. Skipping question generation.")
+                return None
+        except Exception as e:
+            print(f"❌ EXCEPTION: Error fetching subject {subject_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            # DO NOT use fallback - return None to prevent wrong data insertion
+            print(f"❌ CRITICAL: Cannot proceed without valid subject name. Skipping question generation.")
+            return None
+    else:
+        print(f"❌ CRITICAL ERROR: No subject_id provided in request_data. Cannot proceed.")
+        return None
+    
+    # Get topic name from .NET backend
+    if topic_id:
+        try:
+            topic_result = net_backend_service.get_topic_by_id(topic_id, auth_token=auth_token)
+            print(f"🔍 Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
+            if topic_result.get('success') and topic_result.get('topic_name'):
+                topic_name = topic_result['topic_name']
+                print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+                enhanced_request['topic'] = topic_name
+            else:
+                error_msg = topic_result.get('error', 'Unknown error')
+                print(f"❌ ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
+                # DO NOT use fallback - return None to prevent wrong data insertion
+                print(f"❌ CRITICAL: Cannot proceed without valid topic name. Skipping question generation.")
+                return None
+        except Exception as e:
+            print(f"❌ EXCEPTION: Error fetching topic {topic_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            # DO NOT use fallback - return None to prevent wrong data insertion
+            print(f"❌ CRITICAL: Cannot proceed without valid topic name. Skipping question generation.")
+            return None
+    else:
+        print(f"❌ CRITICAL ERROR: No topic_id provided in request_data. Cannot proceed.")
+        return None
+    
+    # Get stream name if available (optional, for better context)
+    # Do this BEFORE logging final values
+    if stream_id:
+        try:
+            from services.db_service import get_stream_name_by_id
+            stream_name = get_stream_name_by_id(stream_id)
+            if stream_name:
+                enhanced_request['stream'] = stream_name
+                print(f"✅ Retrieved stream name: {stream_name} for stream_id: {stream_id}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not retrieve stream name: {e}")
+    
+    # CRITICAL: Ensure subject and topic are set before calling AI
+    # DO NOT proceed with fallbacks - fail safely if data is missing
+    if not enhanced_request.get('subject'):
+        print(f"❌ CRITICAL ERROR: Subject is missing! Cannot proceed with question generation.")
+        return None
+    if not enhanced_request.get('topic'):
+        print(f"❌ CRITICAL ERROR: Topic is missing! Cannot proceed with question generation.")
+        return None
+    
+    # Log what we're passing to the AI
+    print(f"🔍 FINAL: Passing to AI - subject: '{enhanced_request.get('subject')}', topic: '{enhanced_request.get('topic')}', stream: '{enhanced_request.get('stream')}'")
     
     # Modify request based on question type
     if question_type == 'diagram':
@@ -1663,12 +1944,22 @@ def generate_single_question(request_data, question_type):
                 # Set the output folder for diagram images
                 output_folder = app.config['UPLOAD_FOLDER']
                 diagram_result = render_diagram(generated_data['diagram_code'], generated_data.get('library_used'), output_folder)
-                if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
+                
+                # render_diagram() returns a filename string, not a dict
+                if isinstance(diagram_result, str):
+                    # It's a filename, create the full URL path
+                    generated_data['diagram_image_url'] = f"/static/images/{diagram_result}"
+                    print(f"✅ Diagram image URL set: {generated_data['diagram_image_url']}")
+                elif isinstance(diagram_result, dict) and diagram_result.get('image_url'):
+                    # Handle dict format if it ever changes
                     generated_data['diagram_image_url'] = diagram_result['image_url']
                 else:
                     generated_data['diagram_image_url'] = None
+                    print(f"⚠️ Warning: Diagram rendering returned unexpected format: {type(diagram_result)}")
             except Exception as e:
                 print(f"Diagram rendering error: {e}")
+                import traceback
+                traceback.print_exc()
                 generated_data['diagram_image_url'] = None
         
         # Handle option diagrams if needed
@@ -1681,7 +1972,13 @@ def generate_single_question(request_data, question_type):
                         # Set the output folder for diagram images
                         output_folder = app.config['UPLOAD_FOLDER']
                         diagram_result = render_diagram(code, generated_data.get('library_used'), output_folder)
-                        if diagram_result and diagram_result.get('success') and diagram_result.get('image_url'):
+                        
+                        # render_diagram() returns a filename string, not a dict
+                        if isinstance(diagram_result, str):
+                            # It's a filename, create the full URL path
+                            option_images.append(f"/static/images/{diagram_result}")
+                        elif isinstance(diagram_result, dict) and diagram_result.get('image_url'):
+                            # Handle dict format if it ever changes
                             option_images.append(diagram_result['image_url'])
                         else:
                             option_images.append(None)
@@ -1902,8 +2199,14 @@ def generate_single_question_endpoint():
             subject_name = subject_result['subject_name']
             print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
         else:
-            print(f"⚠️ Warning: Could not retrieve subject name for subject_id: {subject_id}, using fallback")
-            subject_name = f"Subject {subject_id}"  # Fallback
+            error_msg = subject_result.get('error', 'Unknown error')
+            print(f"❌ ERROR: Could not retrieve subject name for subject_id: {subject_id}. Error: {error_msg}")
+            # DO NOT use fallback - return error to prevent wrong data insertion
+            return jsonify({
+                "success": False,
+                "error_message": f"Failed to retrieve subject name for subject_id {subject_id}. Cannot proceed with question generation.",
+                "data": None
+            }), 400
         
         # Get topic name from .NET backend
         topic_result = net_backend_service.get_topic_by_id(topic_id, auth_token=token)
@@ -1911,8 +2214,14 @@ def generate_single_question_endpoint():
             topic_name = topic_result['topic_name']
             print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
         else:
-            print(f"⚠️ Warning: Could not retrieve topic name for topic_id: {topic_id}, using fallback")
-            topic_name = f"Topic {topic_id}"  # Fallback
+            error_msg = topic_result.get('error', 'Unknown error')
+            print(f"❌ ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
+            # DO NOT use fallback - return error to prevent wrong data insertion
+            return jsonify({
+                "success": False,
+                "error_message": f"Failed to retrieve topic name for topic_id {topic_id}. Cannot proceed with question generation.",
+                "data": None
+            }), 400
         
         # Map to our AI service format
         ai_request_data = {
