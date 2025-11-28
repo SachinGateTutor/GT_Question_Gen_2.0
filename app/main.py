@@ -7,6 +7,7 @@ import base64
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 from flask import Flask, request, jsonify, send_from_directory, abort
 from dotenv import load_dotenv
 
@@ -138,6 +139,25 @@ def extract_user_id_from_token(token: str) -> str:
     payload = decode_jwt_token(token)
     if payload and 'sub' in payload:
         return str(payload['sub'])
+    return None
+
+
+def extract_stream_id_from_token(token: str) -> Optional[int]:
+    """
+    Extract stream ID from JWT token.
+    Returns stream ID as int if available, otherwise None.
+    """
+    payload = decode_jwt_token(token)
+    if not payload:
+        return None
+    
+    stream_keys = ['stream_id', 'streamId', 'StreamID', 'StreamId']
+    for key in stream_keys:
+        if key in payload:
+            try:
+                return int(payload[key])
+            except (TypeError, ValueError):
+                return None
     return None
 
 def start_image_monitoring():
@@ -1440,7 +1460,11 @@ def analyze_topic():
         
         # Get subject name from .NET backend
         if subject_id:
-            subject_result = net_backend_service.get_subject_by_id(subject_id, auth_token=token)
+            subject_result = net_backend_service.get_subject_by_id(
+                subject_id,
+                auth_token=token,
+                stream_id=stream_id
+            )
             if subject_result.get('success') and subject_result.get('subject_name'):
                 subject_name = subject_result['subject_name']
                 print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
@@ -1769,29 +1793,29 @@ def generate_questions_background(generation_id, request_data, question_plan):
                         # Update question_data with storage results
                         question_data['question_id'] = question_id
                         question_data['jkuh'] = jkuh
-                        
-                        # Update progress
-                        progress['current'] += 1
-                        progress[f'{q_type}_current'] += 1
-                        
-                        session['generated_questions'].append({
-                            'id': question_id,
-                            'jkuh': jkuh,
-                            'type': q_type,
-                            'question': question_data
-                        })
-                    else:
-                        print(f"❌ Failed to store question: {storage_result.get('error', 'Unknown error')}")
-                        # Still update progress but mark as failed
-                        progress['current'] += 1
-                        progress[f'{q_type}_current'] += 1
-                        session['generated_questions'].append({
-                            'id': None,
-                            'jkuh': None,
-                            'type': q_type,
-                            'question': question_data,
-                            'error': storage_result.get('error', 'Storage failed')
-                        })
+                    
+                    # Update progress
+                    progress['current'] += 1
+                    progress[f'{q_type}_current'] += 1
+                    
+                    session['generated_questions'].append({
+                        'id': question_id,
+                        'jkuh': jkuh,
+                        'type': q_type,
+                        'question': question_data
+                    })
+                else:
+                    print(f"❌ Failed to store question: {storage_result.get('error', 'Unknown error')}")
+                    # Still update progress but mark as failed
+                    progress['current'] += 1
+                    progress[f'{q_type}_current'] += 1
+                    session['generated_questions'].append({
+                        'id': None,
+                        'jkuh': None,
+                        'type': q_type,
+                        'question': question_data,
+                        'error': storage_result.get('error', 'Storage failed')
+                    })
                 
             if session['status'] == 'stopped':
                 break
@@ -1815,6 +1839,11 @@ def generate_single_question(request_data, question_type, auth_token=None):
     topic_id = request_data.get('topic_id')
     stream_id = request_data.get('stream_id')
     
+    if not stream_id and auth_token:
+        stream_id = extract_stream_id_from_token(auth_token)
+        if stream_id:
+            enhanced_request['stream_id'] = stream_id
+    
     subject_name = None
     topic_name = None
     stream_name = None
@@ -1825,7 +1854,11 @@ def generate_single_question(request_data, question_type, auth_token=None):
     # Get subject name from .NET backend
     if subject_id:
         try:
-            subject_result = net_backend_service.get_subject_by_id(subject_id, auth_token=auth_token)
+            subject_result = net_backend_service.get_subject_by_id(
+                subject_id,
+                auth_token=auth_token,
+                stream_id=stream_id
+            )
             print(f"🔍 Debug: Subject fetch result for subject_id {subject_id}: {subject_result}")
             if subject_result.get('success') and subject_result.get('subject_name'):
                 subject_name = subject_result['subject_name']
@@ -2170,6 +2203,9 @@ def generate_single_question_endpoint():
         generation_id = data.get('generation_id')
         subject_id = data.get('subject_id')
         topic_id = data.get('topic_id')
+        stream_id_from_payload = data.get('stream_id')
+        stream_id_from_token = extract_stream_id_from_token(token) if token else None
+        effective_stream_id = stream_id_from_payload or stream_id_from_token
         section_id = data.get('section_id', 0)  # Add section_id with default 0
         question_type_id = data.get('question_type_id', 1)
         bloom_level_id = data.get('bloom_level_id', 2)
@@ -2194,7 +2230,11 @@ def generate_single_question_endpoint():
         topic_name = None
         
         # Get subject name from .NET backend
-        subject_result = net_backend_service.get_subject_by_id(subject_id, auth_token=token)
+        subject_result = net_backend_service.get_subject_by_id(
+            subject_id,
+            auth_token=token,
+            stream_id=effective_stream_id
+        )
         if subject_result.get('success') and subject_result.get('subject_name'):
             subject_name = subject_result['subject_name']
             print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
@@ -2227,6 +2267,7 @@ def generate_single_question_endpoint():
         ai_request_data = {
             'subject_id': subject_id,
             'topic_id': topic_id,
+            'stream_id': effective_stream_id,
             'subject': subject_name,  # Pass subject name to AI (required to avoid defaulting to 'Programming')
             'topic': topic_name,       # Pass topic name to AI (required to avoid defaulting to 'Programming')
             'question_type_id': question_type_id,

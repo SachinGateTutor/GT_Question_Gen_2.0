@@ -157,9 +157,20 @@ class NetBackendService:
             # Parse JSON response to extract questionId, jkuh, and streamId
             try:
                 response_json = question_master_response.json()
-                question_id = response_json.get('questionId')
-                jkuh = response_json.get('jkuh')
-                stream_id = response_json.get('streamId')
+                
+                # Log full response for debugging
+                logger.info(f"Full Question Master API response: {response_json}")
+                
+                # Handle both camelCase and PascalCase field names
+                question_id = (response_json.get('questionId') or 
+                             response_json.get('QuestionId') or
+                             response_json.get('question_id'))
+                jkuh = (response_json.get('jkuh') or 
+                       response_json.get('Jkuh') or
+                       response_json.get('JKUH'))
+                stream_id = (response_json.get('streamId') or 
+                           response_json.get('StreamId') or
+                           response_json.get('stream_id'))
                 
                 logger.info(f"Question Master record created successfully - questionId: {question_id}, jkuh: {jkuh}, streamId: {stream_id}")
                 
@@ -238,15 +249,21 @@ class NetBackendService:
                 }
             
             # Step 3: Store explanation if available
+            # Add a small delay to ensure the question is fully committed in the database
+            import time
+            time.sleep(0.5)  # 500ms delay to allow database transaction to commit
+            
             explanation_stored = False
             if question_data.get('explanation'):
                 try:
-                    explanation_result = self._store_explanation(jkuh, question_data.get('explanation'), auth_token=auth_token)
+                    # Use question_id if available, otherwise use jkuh
+                    explanation_id = question_id if question_id else jkuh
+                    explanation_result = self._store_explanation(explanation_id, question_data.get('explanation'), auth_token=auth_token, use_jkuh=(question_id is None))
                     if explanation_result:
                         explanation_stored = True
-                        logger.info(f"Explanation stored successfully for question {jkuh}")
+                        logger.info(f"Explanation stored successfully for question {explanation_id}")
                     else:
-                        logger.warning(f"Failed to store explanation for question {jkuh}")
+                        logger.warning(f"Failed to store explanation for question {explanation_id}")
                 except Exception as e:
                     logger.warning(f"Error storing explanation: {e}")
             
@@ -273,8 +290,15 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None) -> bool:
-        """Store explanation for a question in .NET backend using the correct API endpoint"""
+    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None, use_jkuh: bool = False) -> bool:
+        """Store explanation for a question in .NET backend using the correct API endpoint
+        
+        Args:
+            question_id: The question ID (can be questionId or jkuh depending on use_jkuh flag)
+            explanation_text: The explanation text to store
+            auth_token: JWT token for authentication
+            use_jkuh: If True, use 'jkuh' field name instead of 'questionID'
+        """
         try:
             # Prepare headers with token if provided
             headers = {}
@@ -284,17 +308,29 @@ class NetBackendService:
             # Use the correct API endpoint for explanations
             endpoint = "/api/QuestionExplanation/add-or-update"
             
-            explanation_payload = {
-                'questionID': question_id,
-                'explanationText': explanation_text,
-                'htmlExplanation': None,  # We don't have HTML explanation
-                'imgExplanation': None,   # We don't have image explanation
-                'legacySourceType': 'AI_Generated',  # Mark as AI generated
-                'explanationType': 'Standard',        # Standard explanation type
-                'userID': 0  # System generated
-            }
-            
-            logger.info(f"Storing explanation for question {question_id} via {endpoint}")
+            # Use appropriate field name based on whether we have questionId or jkuh
+            if use_jkuh:
+                explanation_payload = {
+                    'jkuh': question_id,  # Use jkuh if questionId is not available
+                    'explanationText': explanation_text,
+                    'htmlExplanation': None,
+                    'imgExplanation': None,
+                    'legacySourceType': 'AI_Generated',
+                    'explanationType': 'Standard',
+                    'userID': 0
+                }
+                logger.info(f"Storing explanation for question (jkuh={question_id}) via {endpoint}")
+            else:
+                explanation_payload = {
+                    'questionID': question_id,  # Use questionID if available
+                    'explanationText': explanation_text,
+                    'htmlExplanation': None,
+                    'imgExplanation': None,
+                    'legacySourceType': 'AI_Generated',
+                    'explanationType': 'Standard',
+                    'userID': 0
+                }
+                logger.info(f"Storing explanation for question (questionID={question_id}) via {endpoint}")
             
             response = self.session.post(
                 f"{self.base_url}{endpoint}",
@@ -406,16 +442,24 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def get_subject_by_id(self, subject_id: int, auth_token: str = None) -> Dict[str, Any]:
+    def get_subject_by_id(self, subject_id: int, auth_token: str = None, stream_id: Optional[int] = None) -> Dict[str, Any]:
         """Get subject information by ID from .NET backend unified endpoint"""
         try:
             headers = {}
             if auth_token:
                 headers['Authorization'] = f'Bearer {auth_token}'
             
+            params = {}
+            if stream_id is not None:
+                try:
+                    params['streamid'] = int(stream_id)
+                except (TypeError, ValueError):
+                    logger.warning(f"Invalid stream_id provided for subject lookup: {stream_id}")
+            
             response = self.session.get(
                 f"{self.base_url}/api/SubjectUnified/{subject_id}",
                 headers=headers,
+                params=params if params else None,
                 timeout=10
             )
             
