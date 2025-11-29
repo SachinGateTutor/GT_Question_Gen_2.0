@@ -258,7 +258,7 @@ class NetBackendService:
                 try:
                     # Use question_id if available, otherwise use jkuh
                     explanation_id = question_id if question_id else jkuh
-                    explanation_result = self._store_explanation(explanation_id, question_data.get('explanation'), auth_token=auth_token, use_jkuh=(question_id is None))
+                    explanation_result = self._store_explanation(explanation_id, question_data.get('explanation'), auth_token=auth_token, user_id=user_id, use_jkuh=(question_id is None))
                     if explanation_result:
                         explanation_stored = True
                         logger.info(f"Explanation stored successfully for question {explanation_id}")
@@ -290,13 +290,14 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None, use_jkuh: bool = False) -> bool:
+    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None, user_id: str = None, use_jkuh: bool = False) -> bool:
         """Store explanation for a question in .NET backend using the correct API endpoint
         
         Args:
             question_id: The question ID (can be questionId or jkuh depending on use_jkuh flag)
             explanation_text: The explanation text to store
             auth_token: JWT token for authentication
+            user_id: The user ID from the token
             use_jkuh: If True, use 'jkuh' field name instead of 'questionID'
         """
         try:
@@ -317,7 +318,7 @@ class NetBackendService:
                     'imgExplanation': None,
                     'legacySourceType': 'AI_Generated',
                     'explanationType': 'Standard',
-                    'userID': 0
+                    'userID': int(user_id) if user_id else 0  # Use actual user_id from token
                 }
                 logger.info(f"Storing explanation for question (jkuh={question_id}) via {endpoint}")
             else:
@@ -328,7 +329,7 @@ class NetBackendService:
                     'imgExplanation': None,
                     'legacySourceType': 'AI_Generated',
                     'explanationType': 'Standard',
-                    'userID': 0
+                    'userID': int(user_id) if user_id else 0  # Use actual user_id from token
                 }
                 logger.info(f"Storing explanation for question (questionID={question_id}) via {endpoint}")
             
