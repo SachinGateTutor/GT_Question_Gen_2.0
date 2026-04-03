@@ -1427,7 +1427,7 @@ def analyze_topic():
         
         # Get topic name and details from .NET backend
         if topic_id:
-            topic_result = net_backend_service.get_topic_by_id(topic_id, auth_token=token)
+            topic_result = net_backend_service.get_topic_by_id(topic_id, subject_id, auth_token=token)
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
                 print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
@@ -1894,7 +1894,7 @@ def generate_single_question(request_data, question_type, auth_token=None):
     # Get topic name from .NET backend
     if topic_id:
         try:
-            topic_result = net_backend_service.get_topic_by_id(topic_id, auth_token=auth_token)
+            topic_result = net_backend_service.get_topic_by_id(topic_id, subject_id, auth_token=auth_token)
             print(f"🔍 Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
@@ -2249,7 +2249,7 @@ def generate_single_question_endpoint():
             }), 400
         
         # Get topic name from .NET backend
-        topic_result = net_backend_service.get_topic_by_id(topic_id, auth_token=token)
+        topic_result = net_backend_service.get_topic_by_id(topic_id, subject_id, auth_token=token)
         if topic_result.get('success') and topic_result.get('topic_name'):
             topic_name = topic_result['topic_name']
             print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")

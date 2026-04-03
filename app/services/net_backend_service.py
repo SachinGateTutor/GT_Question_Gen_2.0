@@ -529,7 +529,7 @@ class NetBackendService:
                 'subject_name': None
             }
     
-    def get_topic_by_id(self, topic_id: int, auth_token: str = None) -> Dict[str, Any]:
+    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None) -> Dict[str, Any]:
         """Get topic information by ID from .NET backend unified endpoint"""
         try:
             headers = {}
@@ -537,7 +537,7 @@ class NetBackendService:
                 headers['Authorization'] = f'Bearer {auth_token}'
             
             response = self.session.get(
-                f"{self.base_url}/api/TopicUnified/{topic_id}",
+                f"{self.base_url}/api/TopicUnified/topic/{topic_id}/subject/{subject_id}",
                 headers=headers,
                 timeout=10
             )
