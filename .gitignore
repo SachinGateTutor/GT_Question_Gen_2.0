@@ -56,3 +56,4 @@ secrets.txt
 
 # Generated images and temporary files
 app/static/images/
+test_dotnet_backend_response.py
