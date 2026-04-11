@@ -85,6 +85,15 @@ class NetBackendService:
                 headers['Authorization'] = f'Bearer {auth_token}'
             
             # Step 1: Create Question Master record
+            raw_group_id = question_data.get('group_id')
+            if raw_group_id is None:
+                raw_group_id = question_data.get('groupId')
+            try:
+                effective_group_id = int(raw_group_id) if raw_group_id is not None else 264
+            except (TypeError, ValueError):
+                logger.warning(f"Invalid group_id '{raw_group_id}', using fallback groupID 264")
+                effective_group_id = 264
+
             question_master_payload = {
                 'subjectID': question_data.get('subject_id'),
                 'topicID': question_data.get('topic_id'),
@@ -94,7 +103,7 @@ class NetBackendService:
                 'bloomLevelID': question_data.get('bloom_level_id', 1),
                 'difficultyLevelID': question_data.get('difficulty_level_id', 1),
                 'sectionID': question_data.get('section_id', 0),
-                'groupID': 264,  # Hardcoded as specified
+                'groupID': effective_group_id,
                 'isPublic': True,
                 'addedBy': 0,
                 'isAIGenerated': True,
@@ -443,9 +452,18 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def get_subject_by_id(self, subject_id: int, auth_token: str = None, stream_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_subject_by_id(self, subject_id: int, auth_token: str = None, stream_id: Optional[int] = None, is_aptitude: bool = False, group_id: Optional[int] = None) -> Dict[str, Any]:
         """Get subject information by ID from .NET backend unified endpoint"""
         try:
+            if is_aptitude:
+                if group_id is None:
+                    return {
+                        'success': False,
+                        'error': 'group_id is required for aptitude subject lookup',
+                        'subject_name': None
+                    }
+                return self.get_aptitude_subject_by_id(subject_id, group_id, auth_token=auth_token)
+
             headers = {}
             if auth_token:
                 headers['Authorization'] = f'Bearer {auth_token}'
@@ -528,10 +546,158 @@ class NetBackendService:
                 'error': str(e),
                 'subject_name': None
             }
+
+    def get_aptitude_subject_by_id(self, subject_id: int, group_id: int, auth_token: str = None) -> Dict[str, Any]:
+        """Get aptitude subject by ID from aptitude subjects list endpoint"""
+        try:
+            headers = {}
+            if auth_token:
+                headers['Authorization'] = f'Bearer {auth_token}'
+
+            response = self.session.get(
+                f"{self.base_url}/api/SubjectUnified/aptitude/subjects",
+                headers=headers,
+                params={'groupId': int(group_id)},
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                logger.warning(f"Failed aptitude subjects lookup for group {group_id}: {response.status_code} - {response.text}")
+                return {
+                    'success': False,
+                    'error': f"HTTP {response.status_code}",
+                    'subject_name': None
+                }
+
+            response_data = response.json()
+            subjects = response_data.get('subjects', []) if isinstance(response_data, dict) else []
+            if not isinstance(subjects, list):
+                return {
+                    'success': False,
+                    'error': 'Invalid aptitude subjects response format',
+                    'subject_name': None
+                }
+
+            subject_data = None
+            for item in subjects:
+                item_id = item.get('subjectId') or item.get('SubjectID') or item.get('subject_id')
+                if item_id == subject_id:
+                    subject_data = item
+                    break
+
+            if not subject_data:
+                return {
+                    'success': False,
+                    'error': 'Subject not found in aptitude subjects',
+                    'subject_name': None
+                }
+
+            subject_name = subject_data.get('subjectName') or subject_data.get('SubjectName') or subject_data.get('subject_name')
+            if not subject_name:
+                return {
+                    'success': False,
+                    'error': 'Missing subjectName in aptitude subject response',
+                    'subject_name': None
+                }
+
+            return {
+                'success': True,
+                'subject_id': subject_id,
+                'subject_name': subject_name,
+                'data': subject_data
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting aptitude subject {subject_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'subject_name': None
+            }
+
+    def get_aptitude_topic_by_id(self, topic_id: int, subject_id: int, group_id: int, auth_token: str = None) -> Dict[str, Any]:
+        """Get aptitude topic by ID from aptitude topics list endpoint"""
+        try:
+            headers = {}
+            if auth_token:
+                headers['Authorization'] = f'Bearer {auth_token}'
+
+            response = self.session.get(
+                f"{self.base_url}/api/SubjectUnified/aptitude/topics",
+                headers=headers,
+                params={
+                    'subjectId': int(subject_id),
+                    'groupId': int(group_id)
+                },
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                logger.warning(f"Failed aptitude topics lookup for subject {subject_id}, group {group_id}: {response.status_code} - {response.text}")
+                return {
+                    'success': False,
+                    'error': f"HTTP {response.status_code}",
+                    'topic_name': None
+                }
+
+            response_data = response.json()
+            topics = response_data.get('topics', []) if isinstance(response_data, dict) else []
+            if not isinstance(topics, list):
+                return {
+                    'success': False,
+                    'error': 'Invalid aptitude topics response format',
+                    'topic_name': None
+                }
+
+            topic_data = None
+            for item in topics:
+                item_id = item.get('topicId') or item.get('TopicID') or item.get('topic_id')
+                if item_id == topic_id:
+                    topic_data = item
+                    break
+
+            if not topic_data:
+                return {
+                    'success': False,
+                    'error': 'Topic not found in aptitude topics',
+                    'topic_name': None
+                }
+
+            topic_name = topic_data.get('topicName') or topic_data.get('TopicName') or topic_data.get('topic_name')
+            if not topic_name:
+                return {
+                    'success': False,
+                    'error': 'Missing topicName in aptitude topic response',
+                    'topic_name': None
+                }
+
+            return {
+                'success': True,
+                'topic_id': topic_id,
+                'topic_name': topic_name,
+                'data': topic_data
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting aptitude topic {topic_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'topic_name': None
+            }
     
-    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None) -> Dict[str, Any]:
+    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None, is_aptitude: bool = False, group_id: Optional[int] = None) -> Dict[str, Any]:
         """Get topic information by ID from .NET backend unified endpoint"""
         try:
+            if is_aptitude:
+                if group_id is None:
+                    return {
+                        'success': False,
+                        'error': 'group_id is required for aptitude topic lookup',
+                        'topic_name': None
+                    }
+                return self.get_aptitude_topic_by_id(topic_id, subject_id, group_id, auth_token=auth_token)
+
             headers = {}
             if auth_token:
                 headers['Authorization'] = f'Bearer {auth_token}'

@@ -7,7 +7,7 @@ import base64
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from flask import Flask, request, jsonify, send_from_directory, abort
 from dotenv import load_dotenv
 
@@ -159,6 +159,27 @@ def extract_stream_id_from_token(token: str) -> Optional[int]:
             except (TypeError, ValueError):
                 return None
     return None
+
+
+def get_request_flag_and_group(data: dict) -> Tuple[bool, Optional[int]]:
+    """
+    Normalize aptitude/group fields from request payload.
+    Supports snake_case and camelCase keys for compatibility.
+    """
+    if not isinstance(data, dict):
+        return False, None
+
+    is_aptitude_raw = data.get('is_aptitude', data.get('isAptitude', False))
+    is_aptitude = str(is_aptitude_raw).strip().lower() in ('1', 'true', 'yes', 'on') if isinstance(is_aptitude_raw, str) else bool(is_aptitude_raw)
+
+    raw_group_id = data.get('group_id', data.get('groupId'))
+    if raw_group_id in (None, ''):
+        return is_aptitude, None
+
+    try:
+        return is_aptitude, int(raw_group_id)
+    except (TypeError, ValueError):
+        return is_aptitude, None
 
 def start_image_monitoring():
     """Start image monitoring in background thread"""
@@ -1414,6 +1435,7 @@ def analyze_topic():
         subject_id = data.get('subject_id')
         topic_id = data.get('topic_id')
         question_type = data.get('question_type')
+        is_aptitude, group_id = get_request_flag_and_group(data)
         
         # Fetch real names from .NET backend
         from services.net_backend_service import net_backend_service
@@ -1427,7 +1449,13 @@ def analyze_topic():
         
         # Get topic name and details from .NET backend
         if topic_id:
-            topic_result = net_backend_service.get_topic_by_id(topic_id, subject_id, auth_token=token)
+            topic_result = net_backend_service.get_topic_by_id(
+                topic_id,
+                subject_id,
+                auth_token=token,
+                is_aptitude=is_aptitude,
+                group_id=group_id
+            )
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
                 print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
@@ -1463,7 +1491,9 @@ def analyze_topic():
             subject_result = net_backend_service.get_subject_by_id(
                 subject_id,
                 auth_token=token,
-                stream_id=stream_id
+                stream_id=stream_id,
+                is_aptitude=is_aptitude,
+                group_id=group_id
             )
             if subject_result.get('success') and subject_result.get('subject_name'):
                 subject_name = subject_result['subject_name']
@@ -1838,6 +1868,7 @@ def generate_single_question(request_data, question_type, auth_token=None):
     subject_id = request_data.get('subject_id')
     topic_id = request_data.get('topic_id')
     stream_id = request_data.get('stream_id')
+    is_aptitude, group_id = get_request_flag_and_group(request_data)
     
     if not stream_id and auth_token:
         stream_id = extract_stream_id_from_token(auth_token)
@@ -1857,7 +1888,9 @@ def generate_single_question(request_data, question_type, auth_token=None):
             subject_result = net_backend_service.get_subject_by_id(
                 subject_id,
                 auth_token=auth_token,
-                stream_id=stream_id
+                stream_id=stream_id,
+                is_aptitude=is_aptitude,
+                group_id=group_id
             )
             print(f"🔍 Debug: Subject fetch result for subject_id {subject_id}: {subject_result}")
             if subject_result.get('success') and subject_result.get('subject_name'):
@@ -1894,7 +1927,13 @@ def generate_single_question(request_data, question_type, auth_token=None):
     # Get topic name from .NET backend
     if topic_id:
         try:
-            topic_result = net_backend_service.get_topic_by_id(topic_id, subject_id, auth_token=auth_token)
+            topic_result = net_backend_service.get_topic_by_id(
+                topic_id,
+                subject_id,
+                auth_token=auth_token,
+                is_aptitude=is_aptitude,
+                group_id=group_id
+            )
             print(f"🔍 Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
@@ -1967,7 +2006,9 @@ def generate_single_question(request_data, question_type, auth_token=None):
             'question_type_id': 1,  # MCQ
             'bloom_level_id': request_data.get('bloom_level_id', 1),
             'difficulty_level_id': request_data.get('difficulty_level_id', 1),
-            'marks': 1
+            'marks': 1,
+            'is_aptitude': is_aptitude,
+            'group_id': group_id
         })
         
         # Handle diagram rendering if needed
@@ -2212,6 +2253,7 @@ def generate_single_question_endpoint():
         difficulty_level_id = data.get('difficulty_level_id', 3)
         marks = data.get('marks', 1)
         generation_prompt = data.get('generation_prompt', '')
+        is_aptitude, group_id = get_request_flag_and_group(data)
         # Fix: Use the correct field name from frontend
         include_diagram = data.get('requires_diagram', False)
         
@@ -2233,7 +2275,9 @@ def generate_single_question_endpoint():
         subject_result = net_backend_service.get_subject_by_id(
             subject_id,
             auth_token=token,
-            stream_id=effective_stream_id
+            stream_id=effective_stream_id,
+            is_aptitude=is_aptitude,
+            group_id=group_id
         )
         if subject_result.get('success') and subject_result.get('subject_name'):
             subject_name = subject_result['subject_name']
@@ -2249,7 +2293,13 @@ def generate_single_question_endpoint():
             }), 400
         
         # Get topic name from .NET backend
-        topic_result = net_backend_service.get_topic_by_id(topic_id, subject_id, auth_token=token)
+        topic_result = net_backend_service.get_topic_by_id(
+            topic_id,
+            subject_id,
+            auth_token=token,
+            is_aptitude=is_aptitude,
+            group_id=group_id
+        )
         if topic_result.get('success') and topic_result.get('topic_name'):
             topic_name = topic_result['topic_name']
             print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
@@ -2278,7 +2328,9 @@ def generate_single_question_endpoint():
             'requires_diagram': include_diagram,  # Map include_diagram to requires_diagram
             'requires_option_diagrams': False,
             'is_programming_question': False,
-            'num_questions': 1
+            'num_questions': 1,
+            'is_aptitude': is_aptitude,
+            'group_id': group_id
         }
         
         # Generate question using existing AI logic
@@ -2330,7 +2382,9 @@ def generate_single_question_endpoint():
             "bloom_level_id": bloom_level_id,
             "difficulty_level_id": difficulty_level_id,
             "marks": marks,
-            "generation_prompt": generation_prompt
+            "generation_prompt": generation_prompt,
+            "is_aptitude": is_aptitude,
+            "group_id": group_id
         }
         
         # Store question in .NET backend database
