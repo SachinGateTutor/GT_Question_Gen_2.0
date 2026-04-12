@@ -9,17 +9,34 @@ import tempfile
 import shutil
 import re
 
-# Import the new modular renderers
+# Import the new modular renderers (turtle is lazy: it pulls tkinter, missing on headless Linux)
 from .renderers import (
-    graphviz_renderer, 
+    graphviz_renderer,
     schemdraw_renderer,
     matplotlib_renderer,
     networkx_renderer,
     plotly_renderer,
     seaborn_renderer,
     pillow_renderer,
-    turtle_renderer
 )
+
+_turtle_renderer_mod = None
+_turtle_renderer_attempted = False
+
+
+def _get_turtle_renderer():
+    """Load turtle renderer only when needed; skip if tkinter/turtle unavailable (e.g. EC2)."""
+    global _turtle_renderer_mod, _turtle_renderer_attempted
+    if _turtle_renderer_attempted:
+        return _turtle_renderer_mod
+    _turtle_renderer_attempted = True
+    try:
+        from .renderers import turtle_renderer as tr
+
+        _turtle_renderer_mod = tr
+    except ImportError:
+        _turtle_renderer_mod = None
+    return _turtle_renderer_mod
 
 def detect_diagram_type(code):
     """Detect diagram type using pattern matching (simplified version of diagram_renderer's ML approach)"""
@@ -81,7 +98,13 @@ def render_diagram(code, library_name=None, output_folder=None):
         elif library_name == 'pillow':
             return pillow_renderer.render(code, filepath)
         elif library_name == 'turtle':
-            return turtle_renderer.render(code, filepath)
+            tr = _get_turtle_renderer()
+            if tr is None:
+                print(
+                    " Turtle renderer skipped (tkinter/turtle not available); using schemdraw fallback"
+                )
+                return schemdraw_renderer.render(code, filepath)
+            return tr.render(code, filepath)
         else:
             print(f" Unknown library: {library_name}, falling back to schemdraw")
             return schemdraw_renderer.render(code, filepath)
