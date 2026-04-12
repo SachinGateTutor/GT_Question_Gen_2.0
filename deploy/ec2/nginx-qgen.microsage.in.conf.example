@@ -1,0 +1,31 @@
+# Nginx reverse proxy for Waitress (Flask) on 127.0.0.1:5000
+# Domain: qgen.microsage.in
+#
+# Setup (Ubuntu on EC2):
+#   sudo apt update && sudo apt install -y nginx
+#   sudo cp nginx-qgen.microsage.in.conf.example /etc/nginx/sites-available/qgen.microsage.in
+#   sudo ln -sf /etc/nginx/sites-available/qgen.microsage.in /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#   sudo apt install -y certbot python3-certbot-nginx
+#   sudo certbot --nginx -d qgen.microsage.in
+#
+# Security group: allow TCP 80 and 443 from the internet (or your IP for testing).
+# After HTTPS works, remove public access to port 5000 if you had it open.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name qgen.microsage.in;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        client_max_body_size 25m;
+    }
+}
