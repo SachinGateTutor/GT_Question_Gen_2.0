@@ -110,10 +110,10 @@ def get_topics_by_subject(subject_id):
 def insert_question_master(data):
     # Validate required fields
     if not data.get('subject_id'):
-        print(f"❌ Missing required field: subject_id in data: {data}")
+        print(f" Missing required field: subject_id in data: {data}")
         return None
     if not data.get('topic_id'):
-        print(f"❌ Missing required field: topic_id in data: {data}")
+        print(f" Missing required field: topic_id in data: {data}")
         return None
         
     # Handle bloom_level_id conversion
@@ -123,16 +123,16 @@ def insert_question_master(data):
     if bloom_level_id == 'auto' or bloom_level_id == 'auto_detect':
         if detected_bloom_level:
             bloom_level_id = detected_bloom_level
-            print(f"🔍 Debug: Using auto-detected Bloom level: {bloom_level_id}")
+            print(f" Debug: Using auto-detected Bloom level: {bloom_level_id}")
         else:
             bloom_level_id = 1  # Default to "Remember" level
-            print(f"🔍 Debug: No auto-detection available, defaulting to Bloom level: {bloom_level_id}")
+            print(f" Debug: No auto-detection available, defaulting to Bloom level: {bloom_level_id}")
     elif isinstance(bloom_level_id, str) and bloom_level_id.isdigit():
         bloom_level_id = int(bloom_level_id)
     elif not isinstance(bloom_level_id, int):
         bloom_level_id = 1  # Default fallback
         
-    print(f"🔍 Debug: Final bloom_level_id: {bloom_level_id}")
+    print(f" Debug: Final bloom_level_id: {bloom_level_id}")
         
     conn = get_db_connection()
     if not conn:
@@ -177,7 +177,7 @@ def insert_mcq_question(question_id, data):
     print(f"correct_answer: {data.get('correct_answer')}")
     print(f"diagram_image_url: {data.get('diagram_image_url')}")
     print(f"option_images: {data.get('option_images')}")
-    print(f"🔍 Debug: diagram_code: {data.get('diagram_code')[:100] if data.get('diagram_code') else 'None'}...")
+    print(f" Debug: diagram_code: {data.get('diagram_code')[:100] if data.get('diagram_code') else 'None'}...")
     options = data.get('options') or []
     
     # Clean the correct answer to extract just the letter (A, B, C, D)
@@ -207,7 +207,7 @@ def insert_mcq_question(question_id, data):
     if correct_answer not in ['A', 'B', 'C', 'D']:
         correct_answer = 'A'
     
-    print(f"🔍 Debug: Final correct_answer: {correct_answer}")
+    print(f" Debug: Final correct_answer: {correct_answer}")
     
     # Get option images
     option_images = data.get('option_images') or []
@@ -216,7 +216,7 @@ def insert_mcq_question(question_id, data):
     img_option_c = option_images[2] if len(option_images) > 2 else None
     img_option_d = option_images[3] if len(option_images) > 3 else None
     
-    print(f"🔍 Debug: Option images - A: {img_option_a}, B: {img_option_b}, C: {img_option_c}, D: {img_option_d}")
+    print(f" Debug: Option images - A: {img_option_a}, B: {img_option_b}, C: {img_option_c}, D: {img_option_d}")
     
     conn = get_db_connection()
     if not conn:
@@ -851,10 +851,10 @@ def store_cdq_question(data, passage_text, questions):
         }
         passage_id = insert_cdq_passage(passage_data)
         if not passage_id:
-            print("❌ Error: Failed to insert passage")
+            print(" Error: Failed to insert passage")
             return None
         
-        print(f"✅ Inserted passage with ID: {passage_id}")
+        print(f" Inserted passage with ID: {passage_id}")
         
         # Store each question and link to passage
         question_ids = []
@@ -891,11 +891,11 @@ def store_cdq_question(data, passage_text, questions):
                 # Link question to passage
                 if insert_cdq_question(passage_id, question_id):
                     question_ids.append(question_id)
-                    print(f"✅ Stored CDQ question {question_id}")
+                    print(f" Stored CDQ question {question_id}")
                 else:
-                    print(f"❌ Failed to link question {question_id} to passage")
+                    print(f" Failed to link question {question_id} to passage")
             else:
-                print(f"❌ Failed to store question")
+                print(f" Failed to store question")
         
         return {
             'passage_id': passage_id,

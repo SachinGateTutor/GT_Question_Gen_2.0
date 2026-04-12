@@ -1075,24 +1075,24 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 AI MCQ Generator</h1>
+            <h1> AI MCQ Generator</h1>
             <h2>Powered by PragyaAI</h2>
             <p>Generate intelligent multiple choice questions with dynamic diagrams</p>
         </div>
 
         <div class="content">
             <div class="form-section">
-                <h2>📝 Generate Question</h2>
+                <h2> Generate Question</h2>
                 <form id="mcqForm">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="course">🎓 Course:</label>
+                            <label for="course"> Course:</label>
                             <select id="course" name="course" required>
                                 <option value="">Select Course</option>
                             </select>
                         </div>
                     <div class="form-group">
-                            <label for="section">📚 Section:</label>
+                            <label for="section"> Section:</label>
                             <select id="section" name="section" required>
                                 <option value="">Select Section</option>
                             </select>
@@ -1100,7 +1100,7 @@
                     </div>
                     <div class="form-row">
                     <div class="form-group">
-                            <label for="stream">📚 Stream:</label>
+                            <label for="stream"> Stream:</label>
                         <select id="stream" name="stream" required>
                                 <option value="">Select Stream</option>
                             </select>
@@ -1108,13 +1108,13 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="subject">📖 Subject:</label>
+                            <label for="subject"> Subject:</label>
                             <select id="subject" name="subject" required>
                                 <option value="">Select Subject</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="topic">📋 Topic:</label>
+                            <label for="topic"> Topic:</label>
                             <select id="topic" name="topic" required>
                                 <option value="">Select Topic</option>
                         </select>
@@ -1123,13 +1123,13 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="questionType">❓ Question Type:</label>
+                            <label for="questionType"> Question Type:</label>
                             <select id="questionType" name="questionType" required>
                                 <option value="">Select Type</option>
                             </select>
                         </div>
                     <div class="form-group">
-                            <label for="difficultyLevel">🎯 Difficulty Level:</label>
+                            <label for="difficultyLevel"> Difficulty Level:</label>
                             <select id="difficultyLevel" name="difficultyLevel">
                                 <option value="">Select Difficulty</option>
                             </select>
@@ -1138,13 +1138,13 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="bloomLevel">🧠 Bloom Level (Optional):</label>
+                            <label for="bloomLevel"> Bloom Level (Optional):</label>
                             <select id="bloomLevel" name="bloomLevel">
                                 <option value="">Auto-detect</option>
                             </select>
                         </div>
                     <div class="form-group">
-                            <label for="numQuestions">📊 Number of Questions:</label>
+                            <label for="numQuestions"> Number of Questions:</label>
                             <input type="number" id="numQuestions" name="numQuestions" min="1" max="10" value="1" required>
                         </div>
                     </div>
@@ -1157,10 +1157,10 @@
                     <div class="form-group">
                         <div class="button-group">
                             <button type="submit" id="generateBtn" class="btn">
-                                🚀 Generate Question
+                                 Generate Question
                             </button>
                             <button type="button" id="randomBtn" class="btn random-btn">
-                                🎲 Random
+                                 Random
                             </button>
                         </div>
                     </div>
@@ -1170,21 +1170,21 @@
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" id="requiresDiagram" name="requiresDiagram" unchecked>
-                            <label for="requiresDiagram">📊 Include Question Diagram</label>
+                            <label for="requiresDiagram"> Include Question Diagram</label>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" id="requiresOptionDiagrams" name="requiresOptionDiagrams">
-                            <label for="requiresOptionDiagrams">🖼️ Include Diagrams in Options (A, B, C, D)</label>
+                            <label for="requiresOptionDiagrams"> Include Diagrams in Options (A, B, C, D)</label>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" id="isProgrammingQuestion" name="isProgrammingQuestion">
-                            <label for="isProgrammingQuestion">💻 Programming Question (with code snippets)</label>
+                            <label for="isProgrammingQuestion"> Programming Question (with code snippets)</label>
                         </div>
                     </div>
 
@@ -1193,11 +1193,11 @@
 
             <div class="result-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2>📋 Generated Questions</h2>
+                    <h2> Generated Questions</h2>
 
                 </div>
                 <div id="loading" class="loading hidden">
-                    <p>🔄 Generating questions...</p>
+                    <p> Generating questions...</p>
                 </div>
                 
                 <div id="error" class="error hidden"></div>
@@ -1218,7 +1218,7 @@
 
                 <!-- Generation Progress Display -->
                 <div id="generationProgress" class="generation-progress hidden">
-                    <h3>🔄 Generating Questions...</h3>
+                    <h3> Generating Questions...</h3>
                     
                     <div class="progress-summary">
                         <div class="total-progress">
@@ -1226,15 +1226,15 @@
                         </div>
                         
                         <div class="detailed-progress">
-                            <div>📊 With Diagrams: <span id="diagram-progress">0</span>/<span id="diagram-total">0</span></div>
-                            <div>🎯 Option Diagrams: <span id="option-progress">0</span>/<span id="option-total">0</span></div>
-                            <div>📝 Text Only: <span id="text-progress">0</span>/<span id="text-total">0</span></div>
-                            <div>💻 Code Snippets: <span id="code-progress">0</span>/<span id="code-total">0</span></div>
+                            <div> With Diagrams: <span id="diagram-progress">0</span>/<span id="diagram-total">0</span></div>
+                            <div> Option Diagrams: <span id="option-progress">0</span>/<span id="option-total">0</span></div>
+                            <div> Text Only: <span id="text-progress">0</span>/<span id="text-total">0</span></div>
+                            <div> Code Snippets: <span id="code-progress">0</span>/<span id="code-total">0</span></div>
                         </div>
                     </div>
                     
                     <div class="progress-controls">
-                        <button id="stop-generation" class="btn-stop">🛑 Stop Generation</button>
+                        <button id="stop-generation" class="btn-stop"> Stop Generation</button>
                     </div>
                     
                     <div class="progress-bar">
@@ -1264,17 +1264,17 @@
         </div>
 
         <div class="nav-links">
-            <a href="#" onclick="showReviewPage()">📋 Review Questions</a>
-            <a href="#" onclick="showStats()">📊 Statistics</a>
-            <a href="#" onclick="testFetchAIGeneratedQuestions()">🤖 Test AI Questions</a>
-            <a href="admin.html" id="adminPageBtn">🛠️ Admin Panel</a>
+            <a href="#" onclick="showReviewPage()"> Review Questions</a>
+            <a href="#" onclick="showStats()"> Statistics</a>
+            <a href="#" onclick="testFetchAIGeneratedQuestions()"> Test AI Questions</a>
+            <a href="admin.html" id="adminPageBtn"> Admin Panel</a>
         </div>
     </div>
 
     <!-- AI Analysis Modal -->
     <div id="analysisModal" class="modal-overlay hidden">
         <div class="modal-content ai-analysis-modal">
-            <h3>📊 AI Topic Analysis Results</h3>
+            <h3> AI Topic Analysis Results</h3>
             
             <div class="analysis-summary">
                 <p><strong>Topic:</strong> <span id="analysis-topic-name"></span></p>
@@ -1282,7 +1282,7 @@
             </div>
             
             <div class="question-breakdown">
-                <h4>📈 Recommended Question Distribution:</h4>
+                <h4> Recommended Question Distribution:</h4>
                 <div class="breakdown-grid">
                     <div class="breakdown-item">
                         <label>Total Questions:</label>
@@ -1308,9 +1308,9 @@
             </div>
             
             <div class="modal-actions">
-                <button id="confirm-generation" class="btn-primary">✅ Confirm & Generate</button>
-                <button id="switch-manual" class="btn-secondary">✏️ Switch to Manual</button>
-                <button id="cancel-analysis" class="btn-cancel">❌ Cancel</button>
+                <button id="confirm-generation" class="btn-primary"> Confirm & Generate</button>
+                <button id="switch-manual" class="btn-secondary"> Switch to Manual</button>
+                <button id="cancel-analysis" class="btn-cancel"> Cancel</button>
             </div>
         </div>
     </div>
@@ -1374,7 +1374,7 @@
                 const bloomSelect = document.getElementById('bloomLevel');
                 const autoDetectOption = document.createElement('option');
                 autoDetectOption.value = 'auto';
-                autoDetectOption.textContent = '🔍 Auto Detect';
+                autoDetectOption.textContent = ' Auto Detect';
                 bloomSelect.appendChild(autoDetectOption);
 
             } catch (error) {
@@ -1402,7 +1402,7 @@
         // Fetch AI-generated questions specifically
         async function fetchAIGeneratedQuestions() {
             try {
-                console.log('🔍 Fetching AI-generated questions from:', config.NET_AI_QUESTIONS_ENDPOINT);
+                console.log(' Fetching AI-generated questions from:', config.NET_AI_QUESTIONS_ENDPOINT);
                 const response = await fetch(config.NET_AI_QUESTIONS_ENDPOINT);
                 
                 if (!response.ok) {
@@ -1410,10 +1410,10 @@
                 }
                 
                 const questions = await response.json();
-                console.log('✅ Successfully fetched AI-generated questions:', questions.length, 'questions');
+                console.log(' Successfully fetched AI-generated questions:', questions.length, 'questions');
                 return questions;
             } catch (error) {
-                console.error('❌ Error fetching AI-generated questions:', error);
+                console.error(' Error fetching AI-generated questions:', error);
                 return null;
             }
         }
@@ -1859,7 +1859,7 @@
                 font-weight: 600;
                 text-align: center;
             `;
-            header.textContent = `📖 CDQ (Common Database Question) Generated Successfully!`;
+            header.textContent = ` CDQ (Common Database Question) Generated Successfully!`;
             result.appendChild(header);
             
             // Display the passage
@@ -1874,7 +1874,7 @@
                 
                 const passageTitle = document.createElement('h3');
                 passageTitle.style.cssText = 'color: #007bff; margin-bottom: 15px; font-size: 1.3rem;';
-                passageTitle.textContent = '📖 Passage:';
+                passageTitle.textContent = ' Passage:';
                 passageCard.appendChild(passageTitle);
                 
                 const passageText = document.createElement('div');
@@ -1897,7 +1897,7 @@
             if (data.questions && data.questions.length > 0) {
                 const questionsTitle = document.createElement('h3');
                 questionsTitle.style.cssText = 'color: #28a745; margin: 30px 0 20px 0; font-size: 1.3rem;';
-                questionsTitle.textContent = `❓ Questions (${data.questions.length}):`;
+                questionsTitle.textContent = ` Questions (${data.questions.length}):`;
                 result.appendChild(questionsTitle);
                 
                 data.questions.forEach((question, index) => {
@@ -2003,7 +2003,7 @@
                     font-weight: 600;
                     text-align: center;
                 `;
-                header.textContent = `✅ Successfully generated ${totalGenerated} questions!`;
+                header.textContent = ` Successfully generated ${totalGenerated} questions!`;
                 result.appendChild(header);
             }
             
@@ -2040,10 +2040,10 @@
                 // Get difficulty level from the form data or default
                 const selectedDifficultyId = parseInt(document.getElementById('difficultyLevel').value) || 2;
                 const difficultyMapping = {
-                    1: { name: 'Easy', color: '🟢', bgColor: '#d4edda', textColor: '#155724' },
-                    2: { name: 'Medium', color: '🟡', bgColor: '#fff3cd', textColor: '#856404' },
-                    3: { name: 'Hard', color: '🔴', bgColor: '#f8d7da', textColor: '#721c24' },
-                    4: { name: 'Expert', color: '⚫', bgColor: '#d1ecf1', textColor: '#0c5460' }
+                    1: { name: 'Easy', color: '', bgColor: '#d4edda', textColor: '#155724' },
+                    2: { name: 'Medium', color: '', bgColor: '#fff3cd', textColor: '#856404' },
+                    3: { name: 'Hard', color: '', bgColor: '#f8d7da', textColor: '#721c24' },
+                    4: { name: 'Expert', color: '', bgColor: '#d1ecf1', textColor: '#0c5460' }
                 };
                 
                 const difficulty = difficultyMapping[selectedDifficultyId] || difficultyMapping[2];
@@ -2086,7 +2086,7 @@
                   
                   diagramDiv.innerHTML = `
                     <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
-                        📊 Diagram generated using: ${question.library_used || 'schemdraw'}
+                         Diagram generated using: ${question.library_used || 'schemdraw'}
                     </div>
                     <img src="${diagramSrc}" 
                          class="diagram-image" alt="Generated Diagram" 
@@ -2317,7 +2317,7 @@
         // Test function to fetch and display AI-generated questions
         async function testFetchAIGeneratedQuestions() {
             try {
-                console.log('🧪 Testing AI-generated questions fetch...');
+                console.log(' Testing AI-generated questions fetch...');
                 
                 // Clear previous content
                 clearRightPanelContent();
@@ -2325,13 +2325,13 @@
                 // Show loading
                 const loading = document.getElementById('loading');
                 loading.classList.remove('hidden');
-                loading.querySelector('p').textContent = '🤖 Fetching AI-generated questions...';
+                loading.querySelector('p').textContent = ' Fetching AI-generated questions...';
                 
                 // Fetch AI-generated questions
                 const questions = await fetchAIGeneratedQuestions();
                 
                 if (questions && questions.length > 0) {
-                    console.log('✅ Successfully fetched', questions.length, 'AI-generated questions');
+                    console.log(' Successfully fetched', questions.length, 'AI-generated questions');
                     
                     // Transform questions to match expected format
                     const transformedQuestions = questions.map(q => ({
@@ -2358,13 +2358,13 @@
                     // Hide loading
                     loading.classList.add('hidden');
                 } else {
-                    console.log('⚠️ No AI-generated questions found');
+                    console.log(' No AI-generated questions found');
                     alert('No AI-generated questions found. Please generate some questions first.');
                     loading.classList.add('hidden');
                 }
                 
             } catch (error) {
-                console.error('❌ Error testing AI questions fetch:', error);
+                console.error(' Error testing AI questions fetch:', error);
                 alert('Error fetching AI-generated questions: ' + error.message);
                 
                 // Hide loading
@@ -2419,7 +2419,7 @@
                 enableRandomMode();
                 generateBtn.onclick = handleRandomGeneration;
             } else {
-                randomBtn.textContent = '🎲 Random';
+                randomBtn.textContent = ' Random';
                 randomBtn.classList.remove('random-active');
                 enableManualMode();
                 generateBtn.onclick = generateQuestions; // Original function
@@ -2473,7 +2473,7 @@
             result.classList.add('hidden');
             error.classList.add('hidden');
             generateBtn.disabled = true;
-            generateBtn.textContent = '🔄 Generating...';
+            generateBtn.textContent = ' Generating...';
             
             try {
                 const formData = new FormData(e.target);
@@ -2514,9 +2514,9 @@
                 
                 // Update button text based on question type and number
                 if (isCDQ) {
-                    generateBtn.textContent = `🔄 Generating CDQ with ${numQuestions} questions...`;
+                    generateBtn.textContent = ` Generating CDQ with ${numQuestions} questions...`;
                 } else if (numQuestions > 1) {
-                    generateBtn.textContent = `🔄 Generating ${numQuestions} questions...`;
+                    generateBtn.textContent = ` Generating ${numQuestions} questions...`;
                 }
                 
                 // Use .NET backend for question generation, Python service for CDQ
@@ -2593,7 +2593,7 @@
             } finally {
                 loading.classList.add('hidden');
                 generateBtn.disabled = false;
-                generateBtn.textContent = '🚀 Generate Question';
+                generateBtn.textContent = ' Generate Question';
             }
         }
 
@@ -2762,13 +2762,13 @@
             // Reset stop button
             const stopBtn = document.getElementById('stop-generation');
             stopBtn.disabled = false;
-            stopBtn.textContent = '🛑 Stop Generation';
+            stopBtn.textContent = ' Stop Generation';
             stopBtn.onclick = stopGeneration;
             
             // Reset title
             const progressTitle = progressDiv.querySelector('h3');
             if (progressTitle) {
-                progressTitle.textContent = '🔄 Generating Questions...';
+                progressTitle.textContent = ' Generating Questions...';
                 progressTitle.style.color = '#495057';
             }
         }
@@ -2809,7 +2809,7 @@
                 container.classList.add('hidden');
             });
             
-            console.log('✅ Cleared right panel content for new generation');
+            console.log(' Cleared right panel content for new generation');
         }
 
         async function startProgressPolling() {
@@ -2825,7 +2825,7 @@
                         
                         // Track generated questions for current session
                         if (result.generated_questions && result.generated_questions.length > 0) {
-                            console.log('🔍 Debug: Raw generated questions from backend:', result.generated_questions);
+                            console.log(' Debug: Raw generated questions from backend:', result.generated_questions);
                             
                             // Transform backend question format to frontend format
                             const transformedQuestions = result.generated_questions.map(q => {
@@ -2844,7 +2844,7 @@
                                 };
                             });
                             
-                            console.log('🔍 Debug: Transformed questions for display:', transformedQuestions);
+                            console.log(' Debug: Transformed questions for display:', transformedQuestions);
                             currentSessionQuestions = transformedQuestions;
                             
                             // Show questions in real-time as they are generated
@@ -2880,10 +2880,10 @@
             // Update button text based on status
             const stopBtn = document.getElementById('stop-generation');
             if (progress.status === 'stopped') {
-                stopBtn.textContent = '⏹️ Generation Stopped';
+                stopBtn.textContent = ' Generation Stopped';
                 stopBtn.disabled = true;
             } else if (progress.status === 'completed') {
-                stopBtn.textContent = '✅ Generation Complete';
+                stopBtn.textContent = ' Generation Complete';
                 stopBtn.disabled = true;
             }
         }
@@ -2893,7 +2893,7 @@
                 try {
                     const stopBtn = document.getElementById('stop-generation');
                     stopBtn.disabled = true;
-                    stopBtn.textContent = '⏹️ Stopping...';
+                    stopBtn.textContent = ' Stopping...';
                     
                     const response = await fetch(`/api/stop-generation/${currentGenerationId}`, { method: 'POST' });
                     const result = await response.json();
@@ -2905,14 +2905,14 @@
                         console.error('Failed to stop generation:', result.error);
                         // Re-enable button if stop failed
                         stopBtn.disabled = false;
-                        stopBtn.textContent = '🛑 Stop Generation';
+                        stopBtn.textContent = ' Stop Generation';
                     }
                 } catch (error) {
                     console.error('Error stopping generation:', error);
                     // Re-enable button if there was an error
                     const stopBtn = document.getElementById('stop-generation');
                     stopBtn.disabled = false;
-                    stopBtn.textContent = '🛑 Stop Generation';
+                    stopBtn.textContent = ' Stop Generation';
                 }
             }
         }
@@ -2924,20 +2924,20 @@
             // Update the progress title
             const progressTitle = progressDiv.querySelector('h3');
             if (progressTitle) {
-                progressTitle.textContent = status === 'completed' ? '✅ Generation Complete!' : '⏹️ Generation Stopped';
+                progressTitle.textContent = status === 'completed' ? ' Generation Complete!' : ' Generation Stopped';
                 progressTitle.style.color = status === 'completed' ? '#27ae60' : '#e74c3c';
             }
             
             // Update stop button
             stopBtn.disabled = true;
-            stopBtn.textContent = status === 'completed' ? '✅ Complete' : '⏹️ Stopped';
+            stopBtn.textContent = status === 'completed' ? ' Complete' : ' Stopped';
             
             // Add completion message if not already present
             if (!progressDiv.querySelector('.generation-complete')) {
                 const completeDiv = document.createElement('div');
                 completeDiv.className = 'generation-complete';
                 completeDiv.innerHTML = `
-                    <h4>${status === 'completed' ? '✅ All questions generated successfully!' : '⏹️ Generation was stopped by user'}</h4>
+                    <h4>${status === 'completed' ? ' All questions generated successfully!' : ' Generation was stopped by user'}</h4>
                     <p>Generated ${currentSessionQuestions.length} questions total</p>
                 `;
                 progressDiv.appendChild(completeDiv);
@@ -2950,10 +2950,10 @@
             
             // Ensure questions are displayed when generation completes
             if (currentSessionQuestions && currentSessionQuestions.length > 0) {
-                console.log(`🔍 Debug: Displaying final ${currentSessionQuestions.length} questions`);
+                console.log(` Debug: Displaying final ${currentSessionQuestions.length} questions`);
                 displaySessionQuestions(currentSessionQuestions, status === 'completed' ? 'Generated Questions' : 'Questions Generated Before Stop');
             } else {
-                console.log('⚠️ Debug: No questions available to display');
+                console.log(' Debug: No questions available to display');
                 // Try to fetch questions from the API one more time
                 fetchFinalQuestions();
             }
@@ -2964,14 +2964,14 @@
         async function fetchFinalQuestions() {
             // Fallback function to fetch questions when generation completes but no questions were captured
             try {
-                console.log('🔍 Debug: Attempting to fetch final questions from API');
+                console.log(' Debug: Attempting to fetch final questions from API');
                 
                 // Try to fetch from .NET backend first (AI-generated questions only)
                 const response = await fetch(config.NET_AI_QUESTIONS_ENDPOINT);
                 if (response.ok) {
                     const questions = await response.json();
                     if (Array.isArray(questions) && questions.length > 0) {
-                        console.log('🔍 Debug: Successfully fetched questions from .NET backend');
+                        console.log(' Debug: Successfully fetched questions from .NET backend');
                         
                         // Transform questions to match expected format
                         const transformedQuestions = questions.map(q => ({
@@ -3003,7 +3003,7 @@
                 const result = await pythonResponse.json();
                 
                 if (result.success && result.generated_questions && result.generated_questions.length > 0) {
-                    console.log('🔍 Debug: Successfully fetched final questions from Python service');
+                    console.log(' Debug: Successfully fetched final questions from Python service');
                     
                     // Transform and display questions
                     const transformedQuestions = result.generated_questions.map(q => {
@@ -3025,10 +3025,10 @@
                     currentSessionQuestions = transformedQuestions;
                     displaySessionQuestions(currentSessionQuestions, 'Generated Questions');
                 } else {
-                    console.log('⚠️ Debug: No questions found in final fetch');
+                    console.log(' Debug: No questions found in final fetch');
                 }
             } catch (error) {
-                console.error('❌ Error fetching final questions:', error);
+                console.error(' Error fetching final questions:', error);
             }
         }
 
@@ -3132,10 +3132,10 @@
                                 !document.getElementById('generationProgress').classList.contains('hidden');
             
             if (isGenerating) {
-                header.textContent = `🔄 Generating Questions... (${questions.length} questions so far)`;
+                header.textContent = ` Generating Questions... (${questions.length} questions so far)`;
                 header.style.color = '#f39c12'; // Orange for generating
             } else {
-                header.textContent = `✅ Generated Questions (${questions.length} questions)`;
+                header.textContent = ` Generated Questions (${questions.length} questions)`;
                 header.style.color = '#27ae60'; // Green for completed
             }
             header.style.marginBottom = '20px';
@@ -3225,7 +3225,7 @@
             questionNumber.style.color = '#667eea';
             
             const status = document.createElement('span');
-            status.textContent = question.IsEnable ? '✅ Approved' : question.IsDeleted ? '❌ Discarded' : '⏳ Pending';
+            status.textContent = question.IsEnable ? ' Approved' : question.IsDeleted ? ' Discarded' : ' Pending';
             status.style.fontSize = '0.9rem';
             status.style.padding = '4px 8px';
             status.style.borderRadius = '4px';
@@ -3327,7 +3327,7 @@
             const loading = document.getElementById('loading');
             const loadingText = loading.querySelector('p');
             if (loadingText) {
-                loadingText.textContent = message || '🔄 Generating questions...';
+                loadingText.textContent = message || ' Generating questions...';
             }
             loading.classList.remove('hidden');
         }

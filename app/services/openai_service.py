@@ -7,6 +7,8 @@ import time
 import uuid
 from dotenv import load_dotenv
 
+from safe_io import safe_print
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -16,9 +18,9 @@ def get_openai_client():
     
     if not api_key:
         raise ValueError("OPENAI_API_KEY not found in environment variables. Please check your .env file.")
-    
-    print(f"Debug: Using API key from environment: {api_key[:20]}...")
-    print("Debug: Creating OpenAI client with valid API key")
+
+    if os.getenv("FLASK_DEBUG", "").lower() in ("1", "true", "yes"):
+        safe_print(f"Debug: OpenAI API key loaded (length {len(api_key)})")
     return openai.OpenAI(api_key=api_key)
 
 def select_optimal_model(task_type, complexity_factors):
@@ -157,8 +159,8 @@ def select_optimal_model(task_type, complexity_factors):
         selected_model = "gpt-3.5-turbo"
         reason = f"Low complexity (score: {complexity_score}) - cost-effective choice"
     
-    print(f"🤖 Model Selection: {selected_model} - {reason}")
-    print(f"📊 Complexity Score: {complexity_score} (Task: {task_type}, Subject: {subject}, Topic: {topic})")
+    safe_print(f" Model Selection: {selected_model} - {reason}")
+    safe_print(f" Complexity Score: {complexity_score} (Task: {task_type}, Subject: {subject}, Topic: {topic})")
     
     return selected_model, reason
 
@@ -227,17 +229,17 @@ Reason: <brief reason why this library is best for this subject/topic>
                     # Strip markdown formatting from reason too
                     reason = reason.strip('*').strip()
         
-        print(f"🎯 Selected library: {library_name} - {reason}")
+        safe_print(f" Selected library: {library_name} - {reason}")
         return library_name, reason
         
     except Exception as e:
-        print(f"Error determining library: {e}")
+        safe_print(f"Error determining library: {e}")
         return "schemdraw", "Fallback to schemdraw"
 
 def generate_mcq_and_diagram(data):
     try:
-        print("🔍 Debug: Starting generate_mcq_and_diagram")
-        print(f"🔍 Debug: Input data: {data}")
+        safe_print(" Debug: Starting generate_mcq_and_diagram")
+        safe_print(f" Debug: Input data: {data}")
         
         # Get values from data, with intelligent defaults
         stream = data.get('stream')
@@ -251,7 +253,7 @@ def generate_mcq_and_diagram(data):
                     from .db_service import get_stream_name_by_id
                     stream = get_stream_name_by_id(stream_id)
                     if stream:
-                        print(f"🔍 Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
+                        safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
                     else:
                         stream = 'CS'  # fallback
                 except Exception as e:
@@ -267,7 +269,7 @@ def generate_mcq_and_diagram(data):
                     from .db_service import get_subject_name_by_id
                     subject = get_subject_name_by_id(subject_id)
                     if subject:
-                        print(f"🔍 Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
+                        safe_print(f" Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
                     else:
                         subject = 'Computer Science'  # fallback
                 except Exception as e:
@@ -282,8 +284,8 @@ def generate_mcq_and_diagram(data):
         is_programming_question = data.get('is_programming_question', False)
         custom_prompt = data.get('custom_prompt', '')
         
-        print(f"🔍 Debug: Parsed values - stream: {stream}, subject: {subject}, topic: {topic}")
-        print(f"🔍 Debug: question_type: {question_type}, requires_diagram: {requires_diagram}, requires_option_diagrams: {requires_option_diagrams}")
+        safe_print(f" Debug: Parsed values - stream: {stream}, subject: {subject}, topic: {topic}")
+        safe_print(f" Debug: question_type: {question_type}, requires_diagram: {requires_diagram}, requires_option_diagrams: {requires_option_diagrams}")
         
         # Determine the best library for diagram generation
         library_name, library_reason = determine_best_library(subject, topic, requires_diagram)
@@ -317,7 +319,7 @@ def generate_mcq_and_diagram(data):
                 
                 # Get OpenAI response
                 client = get_openai_client()
-                print("🔄 Debug: Sending request to OpenAI...")
+                safe_print(" Debug: Sending request to OpenAI...")
                 
                 response = client.chat.completions.create(
                     model=selected_model,
@@ -326,11 +328,11 @@ def generate_mcq_and_diagram(data):
                     max_tokens=2000
                 )
                 
-                print("✅ Debug: Got response from OpenAI")
+                safe_print(" Debug: Got response from OpenAI")
                 response_text = response.choices[0].message.content
-                print("=== RAW OPENAI RESPONSE ===")
-                print(response_text)
-                print("===========================")
+                safe_print("=== RAW OPENAI RESPONSE ===")
+                safe_print(response_text)
+                safe_print("===========================")
                 
                 # Parse the response
                 parsed_result = parse_openai_response(response_text)
@@ -343,13 +345,13 @@ def generate_mcq_and_diagram(data):
                     for option, code in option_codes.items():
                         if code and ('graphviz' in code or 'dot.node' in code or 'dot.edge' in code):
                             parsed_result['library_used'] = 'graphviz'
-                            print("🔧 Debug: Forced library to graphviz based on option code analysis")
+                            safe_print(" Debug: Forced library to graphviz based on option code analysis")
                             break
                     
                     # Also check main diagram code
                     if parsed_result.get('diagram_code') and 'graphviz' in parsed_result['diagram_code']:
                         parsed_result['library_used'] = 'graphviz'
-                        print("🔧 Debug: Forced library to graphviz based on main diagram code")
+                        safe_print(" Debug: Forced library to graphviz based on main diagram code")
                     
                     # Handle missing options with fallback generation
                     import time
@@ -359,7 +361,7 @@ def generate_mcq_and_diagram(data):
                             missing_options.append(option)
                     
                     if missing_options:
-                        print(f"⚠️ Debug: Missing options: {missing_options} - generating fallbacks")
+                        safe_print(f" Debug: Missing options: {missing_options} - generating fallbacks")
                         
                         # Generate fallback code for missing options
                         for option in missing_options:
@@ -373,39 +375,39 @@ dot.edge('A', 'B', label='relation')
 unique_filename = f"graphviz_fallback_{option}_{{int(time.time())}}"
 dot.render(unique_filename, format='png', cleanup=True)"""
                             option_codes[option] = fallback_code.strip()
-                            print(f"🔧 Debug: Generated fallback code for Option {option}")
+                            safe_print(f" Debug: Generated fallback code for Option {option}")
                         
                         # Update the parsed result
                         parsed_result['option_diagram_codes'] = option_codes
                 
                 # Enhanced debugging for option diagrams
                 if requires_option_diagrams:
-                    print(f"🎨 Debug: Option diagrams requested - checking AI response...")
+                    safe_print(f" Debug: Option diagrams requested - checking AI response...")
                     option_codes = parsed_result.get('option_diagram_codes', {})
-                    print(f"🎨 Debug: Found option diagram codes: {list(option_codes.keys())}")
+                    safe_print(f" Debug: Found option diagram codes: {list(option_codes.keys())}")
                     
                     # Check if response contains expected sections
                     for option in ['A', 'B', 'C', 'D']:
                         if f"Option{option}Code:" in response_text:
-                            print(f"✅ Debug: Found Option{option}Code section in response")
+                            safe_print(f" Debug: Found Option{option}Code section in response")
                         else:
-                            print(f"❌ Debug: Missing Option{option}Code section in response")
+                            safe_print(f" Debug: Missing Option{option}Code section in response")
                     
                     if not option_codes or not any(option_codes.values()):
-                        print("❌ Debug: No valid option diagram codes parsed!")
-                        print("🔍 Debug: This indicates the AI did not follow option diagram format instructions")
+                        safe_print(" Debug: No valid option diagram codes parsed!")
+                        safe_print(" Debug: This indicates the AI did not follow option diagram format instructions")
                 
                 # If we have diagram code, validate syntax before proceeding
                 if parsed_result.get('diagram_code') and requires_diagram:
                     try:
                         import ast as ast_module
                         ast_module.parse(parsed_result['diagram_code'])
-                        print("✅ Debug: Diagram code syntax is valid")
+                        safe_print(" Debug: Diagram code syntax is valid")
                     except SyntaxError as syntax_error:
-                        print(f"❌ Debug: Syntax error in diagram code: {syntax_error}")
+                        safe_print(f" Debug: Syntax error in diagram code: {syntax_error}")
                         if retry_count < max_retries:
                             retry_count += 1
-                            print(f"🔄 Debug: Retrying diagram generation (attempt {retry_count}/{max_retries})")
+                            safe_print(f" Debug: Retrying diagram generation (attempt {retry_count}/{max_retries})")
                             
                             # Create a retry prompt with the syntax error
                             retry_prompt = f"""
@@ -441,15 +443,15 @@ Generate ONLY the corrected diagram code without any explanation:
                             try:
                                 import ast as ast_module
                                 ast_module.parse(retry_code)
-                                print("✅ Debug: Retry code syntax is valid")
+                                safe_print(" Debug: Retry code syntax is valid")
                                 parsed_result['diagram_code'] = retry_code
                             except SyntaxError as retry_error:
-                                print(f"❌ Debug: Retry code still has syntax error: {retry_error}")
+                                safe_print(f" Debug: Retry code still has syntax error: {retry_error}")
                                 # If retry also fails, set diagram_code to None
                                 parsed_result['diagram_code'] = None
                                 parsed_result['diagram_image_url'] = None
                         else:
-                            print("❌ Debug: Max retries reached, setting diagram to None")
+                            safe_print(" Debug: Max retries reached, setting diagram to None")
                             parsed_result['diagram_code'] = None
                             parsed_result['diagram_image_url'] = None
                 
@@ -461,14 +463,14 @@ Generate ONLY the corrected diagram code without any explanation:
                                 import ast as ast_module
                                 ast_module.parse(code)
                             except SyntaxError as syntax_error:
-                                print(f"❌ Debug: Syntax error in option {option} diagram code: {syntax_error}")
+                                safe_print(f" Debug: Syntax error in option {option} diagram code: {syntax_error}")
                                 # Set the problematic option code to None
                                 parsed_result['option_diagram_codes'][option] = None
                 
                 # Auto-detect Bloom level if requested
                 bloom_level_id = data.get('bloom_level_id')
                 if bloom_level_id == 'auto' or bloom_level_id == 'auto_detect':
-                    print(f"🔍 Debug: Auto-detecting Bloom level for question...")
+                    safe_print(f" Debug: Auto-detecting Bloom level for question...")
                     detected_bloom_level = auto_detect_bloom_level(
                         parsed_result.get('question_text', ''),
                         parsed_result.get('explanation', ''),
@@ -476,17 +478,17 @@ Generate ONLY the corrected diagram code without any explanation:
                         subject
                     )
                     parsed_result['detected_bloom_level_id'] = detected_bloom_level
-                    print(f"🔍 Debug: Auto-detected Bloom level: {detected_bloom_level}")
+                    safe_print(f" Debug: Auto-detected Bloom level: {detected_bloom_level}")
                 
                 return parsed_result
                 
             except Exception as e:
                 error_str = str(e)
-                print(f"❌ Debug: Error in generate_mcq_and_diagram: {e}")
+                safe_print(f" Debug: Error in generate_mcq_and_diagram: {e}")
                 
                 # Handle specific OpenAI API errors
                 if "Error code: 429" in error_str or "exceeded your current quota" in error_str:
-                    print("❌ OpenAI API quota exceeded - switching to fallback mode")
+                    safe_print(" OpenAI API quota exceeded - switching to fallback mode")
                     return {
                         'error': 'OpenAI API quota exceeded',
                         'question_text': f'Sample question for {subject} - {topic}',
@@ -501,7 +503,7 @@ Generate ONLY the corrected diagram code without any explanation:
                         'fallback_mode': True
                     }
                 elif "Error code: 401" in error_str:
-                    print("❌ OpenAI API authentication failed")
+                    safe_print(" OpenAI API authentication failed")
                     return {
                         'error': 'OpenAI API authentication failed',
                         'question_text': 'Authentication Error',
@@ -513,16 +515,16 @@ Generate ONLY the corrected diagram code without any explanation:
                 
                 if retry_count < max_retries:
                     retry_count += 1
-                    print(f"🔄 Debug: Retrying entire generation (attempt {retry_count}/{max_retries})")
+                    safe_print(f" Debug: Retrying entire generation (attempt {retry_count}/{max_retries})")
                     # Add exponential backoff for rate limits
                     if "rate" in error_str.lower() or "429" in error_str:
                         import time
                         wait_time = 2 ** retry_count  # 2, 4, 8 seconds
-                        print(f"⏱️ Waiting {wait_time} seconds before retry...")
+                        safe_print(f" Waiting {wait_time} seconds before retry...")
                         time.sleep(wait_time)
                     continue
                 else:
-                    print("❌ Debug: Max retries reached, returning error")
+                    safe_print(" Debug: Max retries reached, returning error")
                     return {
                         'error': f'Failed to generate question after {max_retries} retries: {str(e)}',
                         'question_text': 'Error generating question',
@@ -532,7 +534,7 @@ Generate ONLY the corrected diagram code without any explanation:
                     }
         
     except Exception as e:
-        print(f"❌ Debug: Critical error in generate_mcq_and_diagram: {e}")
+        safe_print(f" Debug: Critical error in generate_mcq_and_diagram: {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -630,8 +632,8 @@ fig, ax = plt.subplots(figsize=(10, 8))
 # ax.annotate('text', xy=(x, y), bbox=dict(facecolor='yellow', edgecolor='red'))
 # 
 # FORBIDDEN PARAMETERS (WILL CAUSE ERRORS):
-# ❌ facedgedgecolor ❌ faceedgecolor ❌ edgefacecolor ❌ edgedgecolor 
-# ❌ ecolor ❌ fcolor ❌ edgedgedgecolor ❌ Any combined parameter names
+#  facedgedgecolor  faceedgecolor  edgefacecolor  edgedgecolor 
+#  ecolor  fcolor  edgedgedgecolor  Any combined parameter names
 #
 # ONLY USE: facecolor='value' and edgecolor='value' - NOTHING ELSE!
 
@@ -1110,7 +1112,7 @@ def generate_diagram_question_prompt(topic, subject, stream, question_type, requ
     if requires_option_diagrams:
         option_diagram_instructions = f"""
 
-🚨 CRITICAL REQUIREMENT: OPTION DIAGRAMS MANDATORY 🚨
+ CRITICAL REQUIREMENT: OPTION DIAGRAMS MANDATORY 
 
 You MUST generate 4 separate RICH, DIVERSE diagrams for options A, B, C, and D.
 Each option should have its own unique, illustrative diagram that clearly represents the concept described in that option.
@@ -1138,11 +1140,11 @@ OptionDCode:
 ```
 
 VALIDATION CHECKLIST - Before responding, verify:
-✅ OptionACode section exists with working code
-✅ OptionBCode section exists with working code  
-✅ OptionCCode section exists with working code
-✅ OptionDCode section exists with working code
-✅ All 4 sections have unique, different diagrams
+ OptionACode section exists with working code
+ OptionBCode section exists with working code  
+ OptionCCode section exists with working code
+ OptionDCode section exists with working code
+ All 4 sections have unique, different diagrams
 
 DO NOT include a main PythonCode section - ONLY the four OptionCode sections above.
 
@@ -1237,17 +1239,17 @@ IMPORTANT: Generate ACTUAL WORKING Python code for each option diagram. Do NOT u
 
 Each OptionACode, OptionBCode, OptionCCode, and OptionDCode must contain complete, working Python code that creates a unique diagram.
 
-🚨 FINAL VALIDATION CHECKLIST - MANDATORY COMPLIANCE 🚨
-✅ OptionACode section exists with UNIQUE working code
-✅ OptionBCode section exists with UNIQUE working code  
-✅ OptionCCode section exists with UNIQUE working code
-✅ OptionDCode section exists with UNIQUE working code
-✅ All 4 sections have DIFFERENT diagrams (NO duplicates)
-✅ All sections use EXACT format "OptionXCode:" (NOT "A.", "B.", etc.)
-✅ NO PythonCode: section exists
-✅ Library specification is provided (NOT "Library: None")
+ FINAL VALIDATION CHECKLIST - MANDATORY COMPLIANCE 
+ OptionACode section exists with UNIQUE working code
+ OptionBCode section exists with UNIQUE working code  
+ OptionCCode section exists with UNIQUE working code
+ OptionDCode section exists with UNIQUE working code
+ All 4 sections have DIFFERENT diagrams (NO duplicates)
+ All sections use EXACT format "OptionXCode:" (NOT "A.", "B.", etc.)
+ NO PythonCode: section exists
+ Library specification is provided (NOT "Library: None")
 
-⚠️ CRITICAL WARNING: If you use alternative format like "A.", "B.", "C.", "D." instead of "OptionACode:", "OptionBCode:", etc., the system may not parse your response correctly. ALWAYS use the exact "OptionXCode:" format.
+ CRITICAL WARNING: If you use alternative format like "A.", "B.", "C.", "D." instead of "OptionACode:", "OptionBCode:", etc., the system may not parse your response correctly. ALWAYS use the exact "OptionXCode:" format.
 
 FAILURE TO INCLUDE ALL 4 SECTIONS WITH UNIQUE DIAGRAMS WILL RESULT IN GENERIC FALLBACK DIAGRAMS.
 YOUR RESPONSE MUST HAVE EXACTLY 4 OPTION CODE SECTIONS - NO EXCEPTIONS!
@@ -1380,7 +1382,7 @@ CRITICAL CODE STRUCTURE FOR MATPLOTLIB:
 - Use: plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)
 - Always close with: plt.close()
 
-⚠️ CRITICAL PARAMETER RULES (VIOLATION = RUNTIME ERROR):
+ CRITICAL PARAMETER RULES (VIOLATION = RUNTIME ERROR):
 - ONLY use 'facecolor' for fill colors - NO other variations
 - ONLY use 'edgecolor' for border colors - NO other variations  
 - FORBIDDEN: facedgedgecolor, faceedgecolor, edgefacecolor, edgedgecolor
@@ -1494,10 +1496,10 @@ PythonCode:
 {get_library_specific_prompt(library_name)}
 ```
 
-🚨 MANDATORY: You MUST include the PythonCode section with actual working diagram code! 
-🚨 The PythonCode section is REQUIRED - do NOT omit it!
-🚨 If you don't include PythonCode, the question will be rejected!
-🚨 ALWAYS include the PythonCode section - this is NOT optional!
+ MANDATORY: You MUST include the PythonCode section with actual working diagram code! 
+ The PythonCode section is REQUIRED - do NOT omit it!
+ If you don't include PythonCode, the question will be rejected!
+ ALWAYS include the PythonCode section - this is NOT optional!
 
 CRITICAL RULES for the PythonCode:
 {get_library_rules(library_name)}
@@ -1747,18 +1749,18 @@ def is_diagram_generation_code(code_snippet):
         has_simple_patterns = any(pattern in code_lower for pattern in simple_patterns)
         
         if has_simple_patterns and len(code_snippet.split('\n')) < 20:  # Short code snippets are likely question content
-            print(f"🔍 Debug: Code appears to be question content (simple algorithm/data structure)")
+            safe_print(f" Debug: Code appears to be question content (simple algorithm/data structure)")
             return False
     
-    print(f"🔍 Debug: Code analysis - Diagram imports: {has_diagram_imports}, Functions: {has_diagram_functions}, Keywords: {has_diagram_keywords}")
-    print(f"🔍 Debug: Code classified as: {'Diagram generation' if is_diagram else 'Question content'}")
+    safe_print(f" Debug: Code analysis - Diagram imports: {has_diagram_imports}, Functions: {has_diagram_functions}, Keywords: {has_diagram_keywords}")
+    safe_print(f" Debug: Code classified as: {'Diagram generation' if is_diagram else 'Question content'}")
     
     return is_diagram
 
 def parse_openai_response(response_text):
     """Parse the OpenAI response to extract question components"""
-    print("🔍 Debug: Parsing OpenAI response...")
-    print(f"🔍 Debug: Response length: {len(response_text)}")
+    safe_print(" Debug: Parsing OpenAI response...")
+    safe_print(f" Debug: Response length: {len(response_text)}")
     
     # Initialize variables
     question_text = ""
@@ -1784,15 +1786,15 @@ def parse_openai_response(response_text):
         code_snippet = None
         language = 'text'
         import re
-        print(f"🔍 Debug: Looking for code snippets in response...")
-        print(f"🔍 Debug: Response lines: {len(lines)}")
+        safe_print(f" Debug: Looking for code snippets in response...")
+        safe_print(f" Debug: Response lines: {len(lines)}")
 
         # 1. Look for 'Code:' section and extract the next code block
         code_section_start = None
         for i, line in enumerate(lines):
             if line.strip().startswith('Code:'):
                 code_section_start = i
-                print(f"🔍 Debug: Found 'Code:' section at line {i}")
+                safe_print(f" Debug: Found 'Code:' section at line {i}")
                 break
         if code_section_start is not None:
             code_block_start = None
@@ -1814,7 +1816,7 @@ def parse_openai_response(response_text):
             if code_block_start is not None and code_block_end is not None:
                 code_lines = lines[code_block_start+1:code_block_end]
                 code_snippet = '\n'.join(code_lines)
-                print(f"🔍 Debug: Found code snippet in Code section ({language}): {code_snippet[:100]}...")
+                safe_print(f" Debug: Found code snippet in Code section ({language}): {code_snippet[:100]}...")
         
         # 2. If not found, fall back to the first code block in the response
         if not code_snippet:
@@ -1834,13 +1836,13 @@ def parse_openai_response(response_text):
             if code_block_start is not None and code_block_end is not None:
                 code_lines = lines[code_block_start+1:code_block_end]
                 code_snippet = '\n'.join(code_lines)
-                print(f"🔍 Debug: Found fallback code snippet ({language}): {code_snippet[:100]}...")
+                safe_print(f" Debug: Found fallback code snippet ({language}): {code_snippet[:100]}...")
         
         if not code_snippet:
-            print("⚠️ Debug: No code snippet found in response")
-            print("🔍 Debug: First 10 lines of response:")
+            safe_print(" Debug: No code snippet found in response")
+            safe_print(" Debug: First 10 lines of response:")
             for i, line in enumerate(lines[:10]):
-                print(f"  {i}: {line.strip()}")
+                safe_print(f"  {i}: {line.strip()}")
         
         # Determine if code snippet is diagram generation code or question content code
         if code_snippet:
@@ -1848,15 +1850,15 @@ def parse_openai_response(response_text):
             is_diagram_code = is_diagram_generation_code(code_snippet)
             
             if is_diagram_code:
-                print(f"🔍 Debug: Storing code snippet as diagram code (language: {language})")
+                safe_print(f" Debug: Storing code snippet as diagram code (language: {language})")
                 diagram_code = code_snippet  # Store the raw code without markdown formatting
-                print(f"🔍 Debug: Diagram code stored separately: {diagram_code[:100]}...")
+                safe_print(f" Debug: Diagram code stored separately: {diagram_code[:100]}...")
             else:
-                print(f"🔍 Debug: Code snippet is question content, appending to question text (language: {language})")
+                safe_print(f" Debug: Code snippet is question content, appending to question text (language: {language})")
                 question_text = f"{question_text}\n\n```{language}\n{code_snippet}\n```"
-                print(f"🔍 Debug: Question content code appended to question text")
+                safe_print(f" Debug: Question content code appended to question text")
         else:
-            print(f"🔍 Debug: No code snippet found, diagram_code remains None")
+            safe_print(f" Debug: No code snippet found, diagram_code remains None")
         
         # Extract options (only A, B, C, D - limit to 4 options)
         for line in lines:
@@ -1876,11 +1878,11 @@ def parse_openai_response(response_text):
         
         # Ensure we have exactly 4 options (A, B, C, D)
         if len(options) < 4:
-            print(f"⚠️ Debug: Only {len(options)} options found, adding default options")
+            safe_print(f" Debug: Only {len(options)} options found, adding default options")
             while len(options) < 4:
                 options.append(f"Option {chr(65 + len(options))}")
         elif len(options) > 4:
-            print(f"⚠️ Debug: {len(options)} options found, keeping only first 4")
+            safe_print(f" Debug: {len(options)} options found, keeping only first 4")
             options = options[:4]
         
         # Extract correct answer
@@ -1935,7 +1937,7 @@ def parse_openai_response(response_text):
         
         # Fallback: Look for any code block if no PythonCode section found
         if not diagram_code:
-            print("🔍 Debug: No PythonCode section found, looking for any code block...")
+            safe_print(" Debug: No PythonCode section found, looking for any code block...")
             code_block_start = None
             code_block_end = None
             for i, line in enumerate(lines):
@@ -1950,11 +1952,11 @@ def parse_openai_response(response_text):
             if code_block_start is not None and code_block_end is not None:
                 diagram_code_lines = lines[code_block_start + 1:code_block_end]
                 diagram_code = '\n'.join(diagram_code_lines)
-                print(f"🔍 Debug: Found fallback code block: {diagram_code[:100]}...")
+                safe_print(f" Debug: Found fallback code block: {diagram_code[:100]}...")
         
         # Additional fallback: Look for code after Library: line
         if not diagram_code:
-            print("🔍 Debug: Looking for code after Library line...")
+            safe_print(" Debug: Looking for code after Library line...")
             library_line_index = None
             for i, line in enumerate(lines):
                 if line.strip().startswith('Library:'):
@@ -1975,7 +1977,7 @@ def parse_openai_response(response_text):
                 if 'code_block_start' in locals() and 'code_block_end' in locals():
                     diagram_code_lines = lines[code_block_start + 1:code_block_end]
                     diagram_code = '\n'.join(diagram_code_lines)
-                    print(f"🔍 Debug: Found code after Library line: {diagram_code[:100]}...")
+                    safe_print(f" Debug: Found code after Library line: {diagram_code[:100]}...")
         
         # Extract option diagram codes - only if they are properly formatted and not mixed with main diagram
         option_codes = ['OptionACode:', 'OptionBCode:', 'OptionCCode:', 'OptionDCode:']
@@ -1987,7 +1989,7 @@ def parse_openai_response(response_text):
         has_alternative_section = any(alt_code in response_text for alt_code in alternative_codes)
         
         if has_option_section or has_alternative_section:
-            print(f"🔍 Debug: Found option diagram sections - Standard: {has_option_section}, Alternative: {has_alternative_section}")
+            safe_print(f" Debug: Found option diagram sections - Standard: {has_option_section}, Alternative: {has_alternative_section}")
             
             for i, (option_code, option_label, alt_code) in enumerate(zip(option_codes, option_labels, alternative_codes)):
                 option_line_index = None
@@ -2008,7 +2010,7 @@ def parse_openai_response(response_text):
                         if line.strip() == alt_code:  # Exact match for "A.", "B.", etc.
                             option_line_index = j
                             format_used = "alternative"
-                            print(f"🔧 Debug: Found Option {option_label} using alternative format ({alt_code})")
+                            safe_print(f" Debug: Found Option {option_label} using alternative format ({alt_code})")
                             break
                 
                 if option_line_index is not None:
@@ -2030,49 +2032,49 @@ def parse_openai_response(response_text):
                         option_code_lines = lines[code_block_start + 1:code_block_end]
                         option_code_text = '\n'.join(option_code_lines)
                         
-                        print(f"🎨 Debug: Option {option_label} code extracted ({len(option_code_text)} chars, {format_used} format): {option_code_text[:50]}...")
+                        safe_print(f" Debug: Option {option_label} code extracted ({len(option_code_text)} chars, {format_used} format): {option_code_text[:50]}...")
                         
                         # Validate that the code contains actual code
                         if option_code_text and option_code_text.strip():
                             # Check if it contains actual code (not just comments)
                             if any(keyword in option_code_text for keyword in ['import ', 'def ', 'class ', '= ', 'dot.', 'plt.', 'd +=']):
                                 option_diagram_codes[option_label] = option_code_text
-                                print(f"✅ Debug: Option {option_label} code successfully parsed using {format_used} format")
+                                safe_print(f" Debug: Option {option_label} code successfully parsed using {format_used} format")
                             else:
-                                print(f"⚠️ Debug: Option {option_label} code appears to be placeholder text")
+                                safe_print(f" Debug: Option {option_label} code appears to be placeholder text")
                                 option_diagram_codes[option_label] = None
                         else:
-                            print(f"⚠️ Debug: Option {option_label} code is empty or just comments")
+                            safe_print(f" Debug: Option {option_label} code is empty or just comments")
                             option_diagram_codes[option_label] = None
                     else:
-                        print(f"❌ Debug: Could not find code block boundaries for Option {option_label}")
+                        safe_print(f" Debug: Could not find code block boundaries for Option {option_label}")
                         option_diagram_codes[option_label] = None
                 else:
-                    print(f"❌ Debug: Could not find {option_code} or {alt_code} line")
+                    safe_print(f" Debug: Could not find {option_code} or {alt_code} line")
                     option_diagram_codes[option_label] = None
         else:
-            print("🔍 Debug: No option diagram section found (neither standard nor alternative format), skipping option diagram parsing")
+            safe_print(" Debug: No option diagram section found (neither standard nor alternative format), skipping option diagram parsing")
         
         # If no options were parsed, use default labels
         if not options:
-            print("⚠️ Debug: No options parsed, using default option labels")
+            safe_print(" Debug: No options parsed, using default option labels")
             options = ['Option A', 'Option B', 'Option C', 'Option D']
         
         # If no correct answer found, default to A
         if not correct_answer:
-            print("⚠️ Debug: No correct answer found, defaulting to A")
+            safe_print(" Debug: No correct answer found, defaulting to A")
             correct_answer = 'A'
         
         # If no library specified, default to schemdraw
         if not library_used:
             library_used = 'schemdraw'
         
-        print(f"🔍 Debug: Parsed question_text: {question_text}")
-        print(f"🔍 Debug: Parsed options: {options}")
-        print(f"🔍 Debug: Parsed correct_answer: {correct_answer}")
-        print(f"🔍 Debug: Parsed explanation: {explanation}")
-        print(f"🔍 Debug: Explanation length: {len(explanation)} characters")
-        print(f"🔍 Debug: Parsed option_diagram_codes: {option_diagram_codes}")
+        safe_print(f" Debug: Parsed question_text: {question_text}")
+        safe_print(f" Debug: Parsed options: {options}")
+        safe_print(f" Debug: Parsed correct_answer: {correct_answer}")
+        safe_print(f" Debug: Parsed explanation: {explanation}")
+        safe_print(f" Debug: Explanation length: {len(explanation)} characters")
+        safe_print(f" Debug: Parsed option_diagram_codes: {option_diagram_codes}")
         
         return {
             'question_text': question_text,
@@ -2086,7 +2088,7 @@ def parse_openai_response(response_text):
         }
         
     except Exception as e:
-        print(f"❌ Debug: Error parsing response: {str(e)}")
+        safe_print(f" Debug: Error parsing response: {str(e)}")
         return {
             'question_text': 'Error parsing question',
             'options': ['Option A', 'Option B', 'Option C', 'Option D'],
@@ -2217,7 +2219,7 @@ Generate only the passage text without any additional formatting or explanations
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Error generating CDQ passage: {e}")
+        safe_print(f"Error generating CDQ passage: {e}")
         return None
 
 def generate_cdq_questions(passage_text, data):
@@ -2290,7 +2292,7 @@ Generate exactly {num_questions} questions.
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Error generating CDQ questions: {e}")
+        safe_print(f"Error generating CDQ questions: {e}")
         return None
 
 def get_bloom_level_guidance(bloom_level):
@@ -2398,11 +2400,11 @@ Respond with ONLY the number (1-6) corresponding to the Bloom level:
             6: "Create"
         }
         
-        print(f"🔍 Debug: Auto-detected Bloom level: {bloom_level} ({bloom_names[bloom_level]})")
+        safe_print(f" Debug: Auto-detected Bloom level: {bloom_level} ({bloom_names[bloom_level]})")
         return bloom_level
         
     except Exception as e:
-        print(f"❌ Error in auto-detecting Bloom level: {e}")
+        safe_print(f" Error in auto-detecting Bloom level: {e}")
         return 3  # Default to Apply level
 
 def parse_cdq_response(response_text):
@@ -2465,8 +2467,8 @@ def parse_cdq_response(response_text):
 def generate_cdq_complete(data):
     """Generate complete CDQ (passage + questions)"""
     try:
-        print("🔍 Debug: Starting CDQ generation")
-        print(f"🔍 Debug: Input data: {data}")
+        safe_print(" Debug: Starting CDQ generation")
+        safe_print(f" Debug: Input data: {data}")
         
         # Get values from data, with intelligent defaults
         stream = data.get('stream')
@@ -2480,7 +2482,7 @@ def generate_cdq_complete(data):
                     from .db_service import get_stream_name_by_id
                     stream = get_stream_name_by_id(stream_id)
                     if stream:
-                        print(f"🔍 Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
+                        safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
                     else:
                         stream = 'CS'  # fallback
                 except Exception as e:
@@ -2496,7 +2498,7 @@ def generate_cdq_complete(data):
                     from .db_service import get_subject_name_by_id
                     subject = get_subject_name_by_id(subject_id)
                     if subject:
-                        print(f"🔍 Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
+                        safe_print(f" Debug: Retrieved subject from DB: {subject} for subject_id: {subject_id}")
                     else:
                         subject = 'Computer Science'  # fallback
                 except Exception as e:
@@ -2512,31 +2514,31 @@ def generate_cdq_complete(data):
         enhanced_data['subject'] = subject
         enhanced_data['topic'] = topic
         
-        print(f"🔍 Debug: Enhanced data - stream: {stream}, subject: {subject}, topic: {topic}")
+        safe_print(f" Debug: Enhanced data - stream: {stream}, subject: {subject}, topic: {topic}")
         
         # Generate passage first
         passage_text = generate_cdq_passage(enhanced_data)
         if not passage_text:
-            print("❌ Error: Failed to generate passage")
+            safe_print(" Error: Failed to generate passage")
             return None
         
-        print(f"✅ Generated passage: {passage_text[:100]}...")
+        safe_print(f" Generated passage: {passage_text[:100]}...")
         
         # Generate questions based on passage
         questions_response = generate_cdq_questions(passage_text, enhanced_data)
         if not questions_response:
-            print("❌ Error: Failed to generate questions")
+            safe_print(" Error: Failed to generate questions")
             return None
         
-        print(f"✅ Generated questions response: {questions_response[:100]}...")
+        safe_print(f" Generated questions response: {questions_response[:100]}...")
         
         # Parse questions
         questions = parse_cdq_response(questions_response)
         if not questions:
-            print("❌ Error: Failed to parse questions")
+            safe_print(" Error: Failed to parse questions")
             return None
         
-        print(f"✅ Parsed {len(questions)} questions")
+        safe_print(f" Parsed {len(questions)} questions")
         
         return {
             'passage_text': passage_text,
@@ -2545,7 +2547,7 @@ def generate_cdq_complete(data):
         }
         
     except Exception as e:
-        print(f"❌ Error in CDQ generation: {e}")
+        safe_print(f" Error in CDQ generation: {e}")
         return None
 
 def ai_analyze_topic(topic_info, question_type):
@@ -2615,7 +2617,7 @@ def ai_analyze_topic(topic_info, question_type):
         return result
         
     except Exception as e:
-        print(f"AI topic analysis failed: {str(e)}")
+        safe_print(f"AI topic analysis failed: {str(e)}")
         raise Exception("AI analysis service unavailable")
 
 def safe_exec_diagram_code(code, exec_globals):
@@ -2679,7 +2681,7 @@ def ai_correct_diagram_code(original_code, error_message, library_name, subject,
         if specific_fix:
             correction_prompt += f"\n\n**Specific Error Fix Required:**\n{specific_fix}"
         
-        print(f"🔧 Debug: Sending code correction request to {selected_model}...")
+        safe_print(f" Debug: Sending code correction request to {selected_model}...")
         
         response = client.chat.completions.create(
             model=selected_model,
@@ -2699,11 +2701,11 @@ def ai_correct_diagram_code(original_code, error_message, library_name, subject,
         # Apply additional library-specific fixes to the AI response
         corrected_code = apply_library_specific_fixes(corrected_code, library_name)
         
-        print(f"✅ Debug: AI provided corrected code ({len(corrected_code)} chars)")
+        safe_print(f" Debug: AI provided corrected code ({len(corrected_code)} chars)")
         return corrected_code, True
         
     except Exception as e:
-        print(f"❌ Debug: AI correction failed: {str(e)}")
+        safe_print(f" Debug: AI correction failed: {str(e)}")
         return original_code, False
 
 def generate_replacement_question(subject, topic, difficulty_level, bloom_level, requires_diagram, library_name=None):
@@ -2782,7 +2784,7 @@ Explanation: [Detailed explanation]
 - Follow library-specific best practices
 """
 
-        print(f"🔄 Debug: Generating replacement question with {selected_model}...")
+        safe_print(f" Debug: Generating replacement question with {selected_model}...")
         
         response = client.chat.completions.create(
             model=selected_model,
@@ -2792,7 +2794,7 @@ Explanation: [Detailed explanation]
         )
         
         response_text = response.choices[0].message.content.strip()
-        print(f"✅ Debug: Generated replacement question ({len(response_text)} chars)")
+        safe_print(f" Debug: Generated replacement question ({len(response_text)} chars)")
         
         # Parse the response (simplified parsing)
         lines = response_text.split('\n')
@@ -2828,7 +2830,7 @@ Explanation: [Detailed explanation]
         return question_data if question_data['question_text'] else None
         
     except Exception as e:
-        print(f"❌ Debug: Replacement question generation failed: {str(e)}")
+        safe_print(f" Debug: Replacement question generation failed: {str(e)}")
         return None
 
 # Library-specific error patterns and correction functions

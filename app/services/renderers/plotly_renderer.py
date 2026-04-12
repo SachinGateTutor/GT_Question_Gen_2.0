@@ -31,24 +31,24 @@ def render(code: str, output_path: str):
                     'precision_recall_curve': precision_recall_curve
                 })
             except ImportError:
-                print("⚠️ Warning: Some imports not available")
+                print(" Warning: Some imports not available")
             
             exec(code, namespace)
             fig = namespace.get("fig")
             if fig:
                 pio.write_image(fig, output_path)
-                print(f"✅ Plotly diagram saved as: {os.path.basename(output_path)}")
+                print(f" Plotly diagram saved as: {os.path.basename(output_path)}")
                 return os.path.basename(output_path)
             else:
-                print("❌ No figure object 'fig' found in plotly code")
+                print(" No figure object 'fig' found in plotly code")
                 return None
                 
         except Exception as e:
             error_message = str(e)
-            print(f"❌ Plotly diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+            print(f" Plotly diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
             
             if attempt < max_retries:
-                print(f"🔧 Attempting AI-powered code correction...")
+                print(f" Attempting AI-powered code correction...")
                 
                 # Try AI-powered error correction
                 try:
@@ -70,7 +70,7 @@ def render(code: str, output_path: str):
                     )
                     
                     if correction_success and corrected_code != code:
-                        print(f"✅ AI provided corrected plotly code, attempting execution...")
+                        print(f" AI provided corrected plotly code, attempting execution...")
                         
                         # Apply plotly-specific fixes to corrected code
                         corrected_code = apply_plotly_fixes(corrected_code, output_path)
@@ -79,13 +79,13 @@ def render(code: str, output_path: str):
                         code = corrected_code
                         continue
                     else:
-                        print(f"❌ AI correction failed or provided same code")
+                        print(f" AI correction failed or provided same code")
                         
                 except Exception as ai_error:
-                    print(f"❌ AI correction failed: {ai_error}")
+                    print(f" AI correction failed: {ai_error}")
                 
                 # Fallback: basic error pattern fixes
-                print(f"🔄 Trying basic plotly error fixes...")
+                print(f" Trying basic plotly error fixes...")
                 try:
                     fixed_code = fix_common_syntax_errors(code)
                     if fixed_code != code:
@@ -94,7 +94,7 @@ def render(code: str, output_path: str):
                 except:
                     pass
             else:
-                print(f"❌ All retry attempts failed for plotly diagram generation")
+                print(f" All retry attempts failed for plotly diagram generation")
                 return None
 
 def apply_plotly_fixes(code, output_path):

@@ -57,17 +57,17 @@ class IntegratedImageHandler(FileSystemEventHandler):
                 # Replace the existing file
                 dest_path.unlink()
                 self.replaced_count += 1
-                logging.info(f"🔄 Replaced existing: {filename}")
+                logging.info(f" Replaced existing: {filename}")
             else:
-                logging.info(f"📁 New file: {filename}")
+                logging.info(f" New file: {filename}")
             
             # Move the file
             shutil.move(str(source_path), str(dest_path))
             self.moved_count += 1
-            logging.info(f"✅ Moved: {filename} -> static/images/")
+            logging.info(f" Moved: {filename} -> static/images/")
             
         except Exception as e:
-            logging.error(f"❌ Error moving {filename}: {e}")
+            logging.error(f" Error moving {filename}: {e}")
 
 class ImageMonitor:
     def __init__(self, app_dir="app", images_dir="app/static/images"):
@@ -92,9 +92,9 @@ class ImageMonitor:
         
         # Start monitoring in a separate thread
         def run_monitor():
-            logging.info("🚀 Starting Integrated Image Monitor...")
-            logging.info(f"📁 Monitoring: {self.app_dir}")
-            logging.info(f"📁 Destination: {self.images_dir}")
+            logging.info(" Starting Integrated Image Monitor...")
+            logging.info(f" Monitoring: {self.app_dir}")
+            logging.info(f" Destination: {self.images_dir}")
             
             self.observer.start()
             self.is_running = True
@@ -109,21 +109,21 @@ class ImageMonitor:
         monitor_thread = threading.Thread(target=run_monitor, daemon=True)
         monitor_thread.start()
         
-        logging.info("✅ Image monitor started successfully")
+        logging.info(" Image monitor started successfully")
     
     def stop(self):
         """Stop the image monitoring service"""
         if not self.is_running:
             return
         
-        logging.info("🛑 Stopping image monitor...")
+        logging.info(" Stopping image monitor...")
         self.is_running = False
         
         if self.observer:
             self.observer.stop()
             self.observer.join()
         
-        logging.info("✅ Image monitor stopped")
+        logging.info(" Image monitor stopped")
 
 # Global instance
 image_monitor = ImageMonitor()

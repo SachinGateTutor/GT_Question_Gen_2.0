@@ -1,8 +1,8 @@
-# 🌐 Network Setup Guide for AI MCQ Generator
+# Network Setup Guide for AI MCQ Generator
 
 This guide will help you set up the AI MCQ Generator to be accessible from other devices on your WiFi network.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Automatic Setup (Recommended)
 
@@ -34,7 +34,7 @@ start_server.bat
    python main.py
    ```
 
-## 📱 Accessing from Other Devices
+## Accessing from Other Devices
 
 Once the server is running, other devices on your network can access the application at:
 ```
@@ -43,7 +43,7 @@ http://YOUR_IP_ADDRESS:5000
 
 For example: `http://192.168.1.100:5000`
 
-## 🔧 Manual Configuration
+## Manual Configuration
 
 If automatic setup doesn't work, you can manually configure the application:
 
@@ -58,7 +58,7 @@ If automatic setup doesn't work, you can manually configure the application:
    python main.py
    ```
 
-## 🛡️ Firewall Configuration
+## Firewall Configuration
 
 ### Windows Firewall
 1. Open Windows Defender Firewall
@@ -80,7 +80,7 @@ If automatic setup doesn't work, you can manually configure the application:
 sudo ufw allow 5000
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### "Connection Refused" Error
 - Make sure the Flask server is running
@@ -97,7 +97,7 @@ sudo ufw allow 5000
 - Check your network connection
 - Try restarting your WiFi router
 
-## 📋 Testing Network Access
+## Testing Network Access
 
 1. **From the host computer:**
    - Open `http://localhost:5000` in your browser
@@ -106,7 +106,7 @@ sudo ufw allow 5000
    - Open `http://YOUR_IP:5000` in their browsers
    - Make sure they're connected to the same WiFi network
 
-## 🔄 Changing Port
+## Changing Port
 
 If port 5000 is already in use, you can change it:
 
@@ -129,23 +129,23 @@ If port 5000 is already in use, you can change it:
    API_URL: 'http://YOUR_IP:8080/api/generate'
    ```
 
-## 📊 Network Requirements
+## Network Requirements
 
 - **Bandwidth:** Minimal (text-based API calls)
 - **Latency:** Low latency preferred for responsive UI
 - **Security:** Basic HTTP (consider HTTPS for production)
 - **Ports:** 5000 (configurable)
 
-## 🎯 Use Cases
+## Use Cases
 
 - **Classroom Testing:** Students can access from their devices
 - **Mobile Testing:** Test on phones and tablets
 - **Remote Access:** Access from different rooms
 - **Collaboration:** Multiple users can generate questions simultaneously
 
-## 🔒 Security Notes
+## Security Notes
 
-⚠️ **Important:** This setup is for local network use only. For production deployment:
+ **Important:** This setup is for local network use only. For production deployment:
 - Use HTTPS
 - Implement proper authentication
 - Configure a production web server (nginx, Apache)

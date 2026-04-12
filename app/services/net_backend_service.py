@@ -13,6 +13,15 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def _log_safe(value: object, max_len: int = 800) -> str:
+    """Narrow-console-safe log text (e.g. Windows cp1252) when API bodies contain Unicode."""
+    s = "" if value is None else str(value)
+    if len(s) > max_len:
+        s = s[:max_len] + "..."
+    return s.encode("ascii", errors="backslashreplace").decode("ascii")
+
+
 class NetBackendService:
     """Service to communicate with .NET backend API"""
     
@@ -149,7 +158,7 @@ class NetBackendService:
             
             if question_master_response.status_code not in [200, 201]:
                 error_text = question_master_response.text
-                logger.error(f"Failed to create Question Master record: {question_master_response.status_code} - {error_text}")
+                logger.error(f"Failed to create Question Master record: {question_master_response.status_code} - {_log_safe(error_text)}")
                 
                 # Check for CHECK constraint violations
                 if "CHECK constraint" in error_text or "CK_QM_QType" in error_text:
@@ -190,7 +199,7 @@ class NetBackendService:
                         'error': f"Missing jkuh in response: {response_json}"
                     }
             except (ValueError, KeyError) as e:
-                logger.error(f"Invalid question response format: {question_master_response.text} - Error: {e}")
+                logger.error(f"Invalid question response format: {_log_safe(question_master_response.text)} - Error: {e}")
                 return {
                     'success': False,
                     'error': f"Invalid question response format: {question_master_response.text}"
@@ -251,7 +260,7 @@ class NetBackendService:
             )
             
             if mcq_response.status_code not in [200, 201]:
-                logger.error(f"Failed to insert MCQ content: {mcq_response.status_code} - {mcq_response.text}")
+                logger.error(f"Failed to insert MCQ content: {mcq_response.status_code} - {_log_safe(mcq_response.text)}")
                 return {
                     'success': False,
                     'error': f"MCQ insertion failed: {mcq_response.status_code} - {mcq_response.text}"
@@ -353,7 +362,7 @@ class NetBackendService:
                 logger.info(f"Explanation stored successfully for question {question_id}")
                 return True
             else:
-                logger.error(f"Explanation storage failed: {response.status_code} - {response.text}")
+                logger.error(f"Explanation storage failed: {response.status_code} - {_log_safe(response.text)}")
                 return False
                 
         except Exception as e:
@@ -402,7 +411,7 @@ class NetBackendService:
                 return letter
         
         # If still no match, log error and return first option as fallback
-        logger.error(f"❌ CRITICAL: Could not match correct answer '{correct_answer}' to any option. Options: {options}. Defaulting to 'A' - THIS WILL STORE WRONG ANSWER!")
+        logger.error(f" CRITICAL: Could not match correct answer '{correct_answer}' to any option. Options: {options}. Defaulting to 'A' - THIS WILL STORE WRONG ANSWER!")
         return 'A'
     
     def get_generation_status(self, generation_id: str) -> Dict[str, Any]:
@@ -517,7 +526,7 @@ class NetBackendService:
                                           subject_data.get('subject_id'))
                 
                 if subject_name:
-                    logger.info(f"Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+                    logger.info(f"Retrieved subject name: {_log_safe(subject_name)} for subject_id: {subject_id}")
                     return {
                         'success': True,
                         'subject_id': subject_id_from_response or subject_id,
@@ -532,7 +541,7 @@ class NetBackendService:
                         'subject_name': None
                     }
             else:
-                logger.warning(f"Failed to get subject {subject_id}: {response.status_code} - {response.text}")
+                logger.warning(f"Failed to get subject {subject_id}: {response.status_code} - {_log_safe(response.text)}")
                 return {
                     'success': False,
                     'error': f"HTTP {response.status_code}",
@@ -562,7 +571,7 @@ class NetBackendService:
             )
 
             if response.status_code != 200:
-                logger.warning(f"Failed aptitude subjects lookup for group {group_id}: {response.status_code} - {response.text}")
+                logger.warning(f"Failed aptitude subjects lookup for group {group_id}: {response.status_code} - {_log_safe(response.text)}")
                 return {
                     'success': False,
                     'error': f"HTTP {response.status_code}",
@@ -633,7 +642,7 @@ class NetBackendService:
             )
 
             if response.status_code != 200:
-                logger.warning(f"Failed aptitude topics lookup for subject {subject_id}, group {group_id}: {response.status_code} - {response.text}")
+                logger.warning(f"Failed aptitude topics lookup for subject {subject_id}, group {group_id}: {response.status_code} - {_log_safe(response.text)}")
                 return {
                     'success': False,
                     'error': f"HTTP {response.status_code}",
@@ -743,7 +752,7 @@ class NetBackendService:
                                           topic_data.get('topic_id'))
                 
                 if topic_name:
-                    logger.info(f"Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+                    logger.info(f"Retrieved topic name: {_log_safe(topic_name)} for topic_id: {topic_id}")
                     return {
                         'success': True,
                         'topic_id': topic_id_from_response or topic_id,
@@ -758,7 +767,7 @@ class NetBackendService:
                         'topic_name': None
                     }
             else:
-                logger.warning(f"Failed to get topic {topic_id}: {response.status_code} - {response.text}")
+                logger.warning(f"Failed to get topic {topic_id}: {response.status_code} - {_log_safe(response.text)}")
                 return {
                     'success': False,
                     'error': f"HTTP {response.status_code}",

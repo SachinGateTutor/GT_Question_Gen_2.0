@@ -59,7 +59,7 @@ def render_diagram(code, library_name=None, output_folder=None):
     # Auto-detect library if not specified
     if library_name is None:
         library_name = detect_diagram_type(code)
-        print(f"🔍 Auto-detected diagram type: {library_name}")
+        print(f" Auto-detected diagram type: {library_name}")
     
     filename = f"{library_name}_{uuid.uuid4().hex[:8]}.png"
     filepath = os.path.join(output_folder, filename)
@@ -83,11 +83,11 @@ def render_diagram(code, library_name=None, output_folder=None):
         elif library_name == 'turtle':
             return turtle_renderer.render(code, filepath)
         else:
-            print(f"❌ Unknown library: {library_name}, falling back to schemdraw")
+            print(f" Unknown library: {library_name}, falling back to schemdraw")
             return schemdraw_renderer.render(code, filepath)
             
     except Exception as e:
-        print(f'❌ Diagram generation error for {library_name}: {e}')
+        print(f' Diagram generation error for {library_name}: {e}')
         traceback.print_exc()
         return None
 

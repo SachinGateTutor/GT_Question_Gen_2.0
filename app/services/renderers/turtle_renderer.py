@@ -13,7 +13,7 @@ def render(code: str, output_path: str):
             'turtle': turtle
         }
         
-        print(f"🔍 Executing turtle code:\n{code}")
+        print(f" Executing turtle code:\n{code}")
         exec(code, exec_globals)
         
         # Turtle doesn't save to files by default, so we'll create a simple fallback
@@ -23,10 +23,10 @@ def render(code: str, output_path: str):
         draw.text((50, 50), "Turtle Diagram", fill='black')
         img.save(output_path)
         
-        print(f"✅ Turtle diagram saved as: {os.path.basename(output_path)}")
+        print(f" Turtle diagram saved as: {os.path.basename(output_path)}")
         return os.path.basename(output_path)
         
     except Exception as e:
-        print(f'❌ Turtle diagram generation error: {e}')
+        print(f' Turtle diagram generation error: {e}')
         traceback.print_exc()
         return None 

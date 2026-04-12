@@ -1,9 +1,9 @@
-# 🚀 GT Question Generator 2.0 - Deployment Guide
+# GT Question Generator 2.0 - Deployment Guide
 
 ## Overview
 This guide will help you deploy the AI-powered MCQ generator on a different machine with higher specs and network connectivity.
 
-## 📋 Prerequisites
+## Prerequisites
 
 ### System Requirements
 - **OS**: Windows Server 2019/2022, Ubuntu 20.04+, or CentOS 8+
@@ -13,12 +13,12 @@ This guide will help you deploy the AI-powered MCQ generator on a different mach
 - **Network**: Stable internet connection for OpenAI API calls
 
 ### Software Requirements
-- **Python**: 3.8+ (3.11+ recommended)
+- **Python**: **3.13+** (use the same version locally, on EC2, and in Docker)
 - **SQL Server**: 2019+ (Express or Standard)
 - **Git**: Latest version
 - **Node.js**: 16+ (for npm if needed)
 
-## 🔧 Installation Steps
+## Installation Steps
 
 ### 1. Clone the Repository
 ```bash
@@ -71,7 +71,7 @@ GO
 ### 4. Environment Configuration
 
 #### Create Environment File
-Create `config.env` file:
+Copy [env.template](env.template) to **`.env`** in the project root (or create `config.env` and load it the same way). Example:
 ```env
 # Database Configuration
 DB_SERVER=localhost
@@ -96,7 +96,7 @@ SECRET_KEY=your_secret_key_here
 2. Add it to `config.env` file
 3. Ensure sufficient credits for API calls
 
-## 🚀 Running the Application
+## Running the Application
 
 ### Development Mode
 ```bash
@@ -104,22 +104,32 @@ SECRET_KEY=your_secret_key_here
 venv\Scripts\activate  # Windows
 source venv/bin/activate  # Linux/Mac
 
-# Run Flask app
+# Optional: enable Flask debug mode (do not set on production servers)
+# Windows: set FLASK_DEBUG=1
+# Linux/Mac: export FLASK_DEBUG=1
+
+# Run Flask app (from repo root)
 python app/main.py
 ```
 
 ### Production Mode (Recommended)
 
 #### Option A: Using Gunicorn (Linux)
+
+From the **`app/`** directory:
+
 ```bash
-pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 app.main:app
+cd app
+gunicorn -w 4 -b 0.0.0.0:5000 main:app
 ```
 
-#### Option B: Using Waitress (Windows)
+#### Option B: Using Waitress (recommended for Windows and Linux / EC2)
+
+From the **`app/`** directory (so `from services...` imports resolve):
+
 ```bash
-pip install waitress
-waitress-serve --host=0.0.0.0 --port=5000 app.main:app
+cd app
+waitress-serve --host=0.0.0.0 --port=5000 main:app
 ```
 
 #### Option C: Using Docker
@@ -131,7 +141,63 @@ docker build -t gt-question-generator .
 docker run -d -p 5000:5000 --name gt-generator gt-question-generator
 ```
 
-## 🌐 Network Configuration
+### Amazon EC2 (Ubuntu) checklist
+
+Use **Python 3.13**, **Waitress**, and **systemd** so the server matches Docker and local development.
+
+**1. OS packages (example for Ubuntu 22.04)**
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.13 python3.13-venv python3.13-dev build-essential graphviz git \
+    unixodbc unixodbc-dev curl
+```
+
+**2. Application tree**
+
+```bash
+sudo mkdir -p /opt && sudo chown ubuntu:ubuntu /opt
+cd /opt
+git clone <your-repo-url> GT_Question_Gen_2.0
+cd GT_Question_Gen_2.0
+python3.13 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+mkdir -p app/static/images logs
+cp env.template .env
+chmod 600 .env
+# Edit .env: OPENAI_API_KEY, NET_BACKEND_URL, FLASK_*, SECRET_KEY, DB_* if using pyodbc
+```
+
+**3. systemd (production process)**
+
+Copy the unit file from the repo and enable it (adjust paths if your install directory is not `/opt/GT_Question_Gen_2.0`):
+
+```bash
+sudo cp deploy/ec2/gt-question-gen.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable gt-question-gen
+sudo systemctl start gt-question-gen
+sudo systemctl status gt-question-gen
+```
+
+Verify: `curl -sS http://127.0.0.1:5000/api/health`
+
+**4. Network**
+
+- **Security group (instance):** allow **TCP 5000** only from the **load balancer** security group (or your test IP); **SSH 22** from a known IP only.
+- **Application Load Balancer:** health check path **`/api/health`**, success code **200**, target port **5000**.
+- **Outbound:** HTTPS to OpenAI and to **`NET_BACKEND_URL`**; port **1433** (or your SQL port) only if this Python app uses **`pyodbc`** directly.
+
+**5. Headless note**
+
+The app sets **`MPLBACKEND=Agg`** for matplotlib; you can also add **`MPLBACKEND=Agg`** to `.env` on EC2.
+
+## Network Configuration
 
 ### Firewall Setup
 - **Windows**: Allow port 5000 in Windows Firewall
@@ -143,7 +209,7 @@ docker run -d -p 5000:5000 --name gt-generator gt-question-generator
 2. Set up SSL certificate (Let's Encrypt)
 3. Configure reverse proxy (Nginx/Apache)
 
-## 📊 Monitoring & Maintenance
+## Monitoring & Maintenance
 
 ### Logs
 - Application logs: `logs/app.log`
@@ -151,15 +217,15 @@ docker run -d -p 5000:5000 --name gt-generator gt-question-generator
 - Access logs: `logs/access.log`
 
 ### Health Checks
-- Application: `http://your-server:5000/health`
-- Database: `http://your-server:5000/api/health`
+- API (Python service + .NET status): `http://your-server:5000/api/health`
+- Use **`/api/health`** for load balancer target group health checks (not `/health`).
 
 ### Backup Strategy
 1. **Database**: Daily SQL Server backups
 2. **Application**: Git repository backup
 3. **Generated Images**: Regular backup of `app/static/images/`
 
-## 🔒 Security Considerations
+## Security Considerations
 
 ### Network Security
 - Use HTTPS in production
@@ -179,7 +245,7 @@ docker run -d -p 5000:5000 --name gt-generator gt-question-generator
 - Implement request throttling
 - Log all API calls
 
-## 📈 Performance Optimization
+## Performance Optimization
 
 ### For High Traffic
 1. **Load Balancing**: Use multiple instances
@@ -206,7 +272,7 @@ docker run -d -p 5000:5000 --name gt-generator gt-question-generator
 - Test API endpoints individually
 - Verify network connectivity
 
-## 📝 Maintenance Schedule
+## Maintenance Schedule
 
 ### Daily
 - Check application logs
@@ -223,7 +289,7 @@ docker run -d -p 5000:5000 --name gt-generator gt-question-generator
 - Performance optimization
 - Capacity planning
 
-## 🔄 Updates & Deployment
+## Updates & Deployment
 
 ### Code Updates
 ```bash
@@ -245,7 +311,7 @@ pip install -r requirements.txt
 
 ---
 
-## 📞 Support
+## Support
 For technical support or questions:
 - Check the logs first
 - Review this deployment guide

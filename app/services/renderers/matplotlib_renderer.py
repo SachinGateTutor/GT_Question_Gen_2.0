@@ -20,17 +20,17 @@ def render(code: str, output_path: str):
     try:
         ast.parse(code)
     except SyntaxError as e:
-        print(f"❌ Syntax Error in provided matplotlib code:\n{e}")
+        print(f" Syntax Error in provided matplotlib code:\n{e}")
         
         # Try to fix common syntax errors
         fixed_code = fix_common_syntax_errors(code)
         if fixed_code != code:
             try:
                 ast.parse(fixed_code)
-                print("✅ Fixed syntax errors automatically")
+                print(" Fixed syntax errors automatically")
                 code = fixed_code
             except SyntaxError:
-                print("❌ Could not fix syntax errors automatically")
+                print(" Could not fix syntax errors automatically")
                 return None
         else:
             return None
@@ -220,7 +220,7 @@ def render(code: str, output_path: str):
             
             # Check if the file was actually created
             if os.path.exists(output_path):
-                print(f"✅ Matplotlib diagram saved as: {os.path.basename(output_path)}")
+                print(f" Matplotlib diagram saved as: {os.path.basename(output_path)}")
                 # Clean up temp file only after successful execution
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
@@ -232,32 +232,32 @@ def render(code: str, output_path: str):
                 output_dir = os.path.dirname(output_path) if output_path else ""
                 current_dir = os.getcwd()
                 
-                print(f"🔍 Debug: Searching for PNG files in current dir: {current_dir}")
+                print(f" Debug: Searching for PNG files in current dir: {current_dir}")
                 png_files_current = glob.glob("*.png")
                 png_files_output = []
                 
                 # Safely check output directory if it exists and is different
                 if output_dir and os.path.exists(output_dir) and os.path.abspath(output_dir) != os.path.abspath(current_dir):
                     try:
-                        print(f"🔍 Debug: Searching for PNG files in output dir: {output_dir}")
+                        print(f" Debug: Searching for PNG files in output dir: {output_dir}")
                         png_files_output = glob.glob(os.path.join(output_dir, "*.png"))
                     except Exception as e:
-                        print(f"⚠️ Warning: Could not scan output directory {output_dir}: {e}")
+                        print(f" Warning: Could not scan output directory {output_dir}: {e}")
                         png_files_output = []
                 
                 png_files = png_files_current + [os.path.basename(f) for f in png_files_output]
-                print(f"🔍 Debug: Found PNG files: current={len(png_files_current)}, output={len(png_files_output)}")
+                print(f" Debug: Found PNG files: current={len(png_files_current)}, output={len(png_files_output)}")
                 if png_files:
                     # Move the first PNG file found to the output path
                     source_file = png_files[0]
                     shutil.move(source_file, output_path)
-                    print(f"✅ Matplotlib diagram found and moved: {os.path.basename(output_path)}")
+                    print(f" Matplotlib diagram found and moved: {os.path.basename(output_path)}")
                     # Clean up temp file only after successful execution
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
                     return os.path.basename(output_path)
                 else:
-                    print("❌ No matplotlib diagram file generated")
+                    print(" No matplotlib diagram file generated")
                     # Clean up temp file
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
@@ -265,10 +265,10 @@ def render(code: str, output_path: str):
                     
         except Exception as e:
             error_message = str(e)
-            print(f"❌ Matplotlib diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+            print(f" Matplotlib diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
             
             if attempt < max_retries:
-                print(f"🔧 Attempting AI-powered code correction...")
+                print(f" Attempting AI-powered code correction...")
                 
                 # Try AI-powered error correction
                 try:
@@ -292,7 +292,7 @@ def render(code: str, output_path: str):
                     )
                     
                     if correction_success and corrected_code != code:
-                        print(f"✅ AI provided corrected code, attempting execution...")
+                        print(f" AI provided corrected code, attempting execution...")
                         
                         # Apply our standard fixes to the corrected code
                         corrected_code = apply_matplotlib_fixes(corrected_code, output_path)
@@ -305,13 +305,13 @@ def render(code: str, output_path: str):
                         code = corrected_code
                         continue
                     else:
-                        print(f"❌ AI correction failed or provided same code, trying standard fixes...")
+                        print(f" AI correction failed or provided same code, trying standard fixes...")
                         
                 except Exception as ai_error:
-                    print(f"❌ AI correction failed: {ai_error}")
+                    print(f" AI correction failed: {ai_error}")
                 
                 # Fallback to standard syntax error fixes
-                print(f"🔄 Trying standard syntax error fixes...")
+                print(f" Trying standard syntax error fixes...")
                 try:
                     fixed_code = fix_common_syntax_errors(code)
                     if fixed_code != code:
@@ -322,7 +322,7 @@ def render(code: str, output_path: str):
                 except:
                     pass
             else:
-                print(f"❌ All retry attempts failed for matplotlib diagram generation")
+                print(f" All retry attempts failed for matplotlib diagram generation")
                 traceback.print_exc()
                 # Clean up temp file on final failure
                 if os.path.exists(temp_path):

@@ -73,13 +73,13 @@ class RandomGenerationService:
                             # Store question in .NET backend
                             storage_result = self.net_backend.store_question(question_data)
                             if storage_result.get('success'):
-                                print(f"✅ Question stored successfully with ID: {storage_result.get('question_id')}")
+                                print(f" Question stored successfully with ID: {storage_result.get('question_id')}")
                                 question_data['question_id'] = storage_result.get('question_id')
                                 self.active_generations[generation_id]['generated_questions'].append(question_data)
                             else:
-                                print(f"❌ Failed to store question: {storage_result.get('error', 'Unknown error')}")
+                                print(f" Failed to store question: {storage_result.get('error', 'Unknown error')}")
                         except Exception as e:
-                            print(f"❌ Error storing question in .NET backend: {e}")
+                            print(f" Error storing question in .NET backend: {e}")
                     
                     # Update progress
                     self.active_generations[generation_id]['progress']['current'] += 1
@@ -119,11 +119,11 @@ class RandomGenerationService:
                     topic_name = get_topic_name_by_id(topic_id)
                     if topic_name:
                         enhanced_request['topic'] = topic_name
-                        print(f"🔍 Debug: Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+                        print(f" Debug: Retrieved topic name: {topic_name} for topic_id: {topic_id}")
                     else:
-                        print(f"⚠️ Warning: Could not find topic name for topic_id: {topic_id}")
+                        print(f" Warning: Could not find topic name for topic_id: {topic_id}")
                 except Exception as e:
-                    print(f"⚠️ Warning: Error retrieving topic name: {e}")
+                    print(f" Warning: Error retrieving topic name: {e}")
             
             # Get subject name from database using subject_id
             subject_id = enhanced_request.get('subject_id')
@@ -133,11 +133,11 @@ class RandomGenerationService:
                     subject_name = get_subject_name_by_id(subject_id)
                     if subject_name:
                         enhanced_request['subject'] = subject_name
-                        print(f"🔍 Debug: Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+                        print(f" Debug: Retrieved subject name: {subject_name} for subject_id: {subject_id}")
                     else:
-                        print(f"⚠️ Warning: Could not find subject name for subject_id: {subject_id}")
+                        print(f" Warning: Could not find subject name for subject_id: {subject_id}")
                 except Exception as e:
-                    print(f"⚠️ Warning: Error retrieving subject name: {e}")
+                    print(f" Warning: Error retrieving subject name: {e}")
             
             # Get stream name from database using stream_id
             stream_id = enhanced_request.get('stream_id')
@@ -147,11 +147,11 @@ class RandomGenerationService:
                     stream_name = get_stream_name_by_id(stream_id)
                     if stream_name:
                         enhanced_request['stream'] = stream_name
-                        print(f"🔍 Debug: Retrieved stream name: {stream_name} for stream_id: {stream_id}")
+                        print(f" Debug: Retrieved stream name: {stream_name} for stream_id: {stream_id}")
                     else:
-                        print(f"⚠️ Warning: Could not find stream name for stream_id: {stream_id}")
+                        print(f" Warning: Could not find stream name for stream_id: {stream_id}")
                 except Exception as e:
-                    print(f"⚠️ Warning: Error retrieving stream name: {e}")
+                    print(f" Warning: Error retrieving stream name: {e}")
             
             # Modify request based on question type
             if question_type == 'diagram':

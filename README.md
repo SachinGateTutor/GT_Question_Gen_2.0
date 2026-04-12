@@ -1,10 +1,10 @@
-# 🤖 AI MCQ Generator with Dynamic Diagram Support
+# AI MCQ Generator with Dynamic Diagram Support
 
 An intelligent Multiple Choice Question (MCQ) generator powered by OpenAI that automatically selects the best visualization library for different subjects and topics.
 
-## ✨ Features
+## Features
 
-### 🎯 Dynamic Library Selection
+### Dynamic Library Selection
 The system intelligently chooses the most appropriate diagram library based on the subject and topic:
 
 - **schemdraw** - Electronic circuits, logic gates, simple block diagrams
@@ -16,11 +16,11 @@ The system intelligently chooses the most appropriate diagram library based on t
 - **pillow** - Image manipulation, simple geometric shapes
 - **turtle** - Simple geometric drawings, educational diagrams
 
-### 🔄 Two-Stage AI Processing
+### Two-Stage AI Processing
 1. **Stage 1**: AI analyzes the subject/topic and selects the best library
 2. **Stage 2**: AI generates question and diagram code using the selected library
 
-### 📊 Subject-Specific Diagrams
+### Subject-Specific Diagrams
 - **Microprocessor/Electronics**: Circuit diagrams with schemdraw
 - **Mathematics**: Mathematical plots with matplotlib
 - **Computer Networks**: Network graphs with networkx
@@ -28,10 +28,10 @@ The system intelligently chooses the most appropriate diagram library based on t
 - **Statistics**: Statistical plots with seaborn
 - **And many more...**
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- Python 3.8+
+- Python **3.13+** (same version as production / Docker)
 - OpenAI API key
 
 ### Installation
@@ -48,10 +48,10 @@ pip install -r requirements.txt
 ```
 
 3. **Set up your OpenAI API key**
-   - Edit `app/services/openai_service.py`
-   - Replace the hardcoded API key with your own
+   - Copy `env.template` to `.env` in the project root
+   - Set `OPENAI_API_KEY` (and `NET_BACKEND_URL` if you use the .NET API)
 
-4. **Run the application**
+4. **Run the application** (development; optional: `export FLASK_DEBUG=1` on Linux/Mac or `set FLASK_DEBUG=1` on Windows for Flask debug mode)
 ```bash
 cd app
 python main.py
@@ -61,7 +61,7 @@ python main.py
    - Open `index.html` in your browser
    - Or navigate to `http://localhost:5000` if you set up Flask serving
 
-## 🎮 Usage
+## Usage
 
 ### Web Interface
 1. Select your stream (CS, IT, ECE)
@@ -91,7 +91,7 @@ print(f"Library Used: {result['library_used']}")
 print(f"Diagram URL: {result['diagram_image_url']}")
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 GT_Question_Gen_2.0/
@@ -107,7 +107,7 @@ GT_Question_Gen_2.0/
 └── README.md                  # This file
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Supported Libraries
 
@@ -136,7 +136,7 @@ def get_library_rules(library_name):
     pass
 ```
 
-## 🧪 Testing
+## Testing
 
 Run the test script to verify the dynamic library selection:
 
@@ -146,7 +146,7 @@ python test_dynamic_libraries.py
 
 This will test library selection for various subjects and topics.
 
-## 🔍 How It Works
+## How It Works
 
 ### 1. Library Selection
 When a user requests a diagram, the system:
@@ -167,7 +167,7 @@ The backend:
 - Saves the image to the static folder
 - Returns the image URL
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -189,7 +189,7 @@ Enable debug prints by checking the console output for:
 - Raw OpenAI responses
 - Diagram generation logs
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -197,11 +197,11 @@ Enable debug prints by checking the console output for:
 4. Test thoroughly
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - OpenAI for providing the GPT models
 - The Python community for the excellent visualization libraries
@@ -209,4 +209,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Made with ❤️ by PragyaAI** 
+**Made with care by PragyaAI**

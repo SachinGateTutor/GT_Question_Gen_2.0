@@ -1,4 +1,15 @@
 import os
+import sys
+
+# Windows: console often uses cp1252; non-ASCII in logs can raise UnicodeEncodeError without UTF-8 stdio
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 import threading
 import uuid
 import shutil
@@ -13,6 +24,11 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+# Headless servers: ensure matplotlib never picks a GUI backend (tkinter) before diagram imports
+os.environ.setdefault("MPLBACKEND", "Agg")
+
+from safe_io import safe_print
+
 from services.openai_service import generate_mcq_and_diagram, ai_analyze_topic, generate_replacement_question
 from services.diagram_service_new import render_diagram
 from services.bloom_detector import detect_bloom_level, update_question_bloom_level
@@ -552,7 +568,7 @@ def generate():
                 detected_bloom_level = None
                 
                 if bloom_level == 'auto_detect':
-                    print("🔍 Auto-detecting Bloom level for question...")
+                    print(" Auto-detecting Bloom level for question...")
                     detected_bloom_level = detect_bloom_level(
                         result.get('question_text'),
                         result.get('options', []),
@@ -769,9 +785,9 @@ def generate_cdq():
                 'topic_id': topic_id,
                 'passage_text': result['passage_text']
             }
-            print(f"🔍 Debug: Storing CDQ passage with data: {passage_data}")
+            print(f" Debug: Storing CDQ passage with data: {passage_data}")
             passage_id = insert_cdq_passage(passage_data)
-            print(f"🔍 Debug: CDQ passage stored with ID: {passage_id}")
+            print(f" Debug: CDQ passage stored with ID: {passage_id}")
             
             if passage_id:
                 # Store each question with passage reference
@@ -828,7 +844,7 @@ def generate_cdq():
             
                 # Check if we have stored questions and return appropriate response
                 if stored_questions:
-                    print(f"🔍 Debug: CDQ generation successful - Passage ID: {passage_id}, Question IDs: {stored_questions}")
+                    print(f" Debug: CDQ generation successful - Passage ID: {passage_id}, Question IDs: {stored_questions}")
                 return jsonify({
                     'success': True,
                         'passage_id': passage_id,
@@ -1458,7 +1474,7 @@ def analyze_topic():
             )
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
-                print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+                print(f" Retrieved topic name: {topic_name} for topic_id: {topic_id}")
                 
                 # Check if topic data includes stream/course info
                 topic_data = topic_result.get('data', {})
@@ -1484,7 +1500,7 @@ def analyze_topic():
                     if bloom_level_from_topic:
                         bloom_level_name = bloom_level_from_topic
             else:
-                print(f"⚠️ Warning: Could not retrieve topic name for topic_id: {topic_id}, using fallback")
+                print(f" Warning: Could not retrieve topic name for topic_id: {topic_id}, using fallback")
         
         # Get subject name from .NET backend
         if subject_id:
@@ -1497,7 +1513,7 @@ def analyze_topic():
             )
             if subject_result.get('success') and subject_result.get('subject_name'):
                 subject_name = subject_result['subject_name']
-                print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+                print(f" Retrieved subject name: {subject_name} for subject_id: {subject_id}")
                 
                 # Check if subject data includes stream/course info
                 subject_data = subject_result.get('data', {})
@@ -1516,7 +1532,7 @@ def analyze_topic():
                     if course_name_from_subject:
                         course_name = course_name_from_subject
             else:
-                print(f"⚠️ Warning: Could not retrieve subject name for subject_id: {subject_id}, using fallback")
+                print(f" Warning: Could not retrieve subject name for subject_id: {subject_id}, using fallback")
         
         # Try to get stream name from local DB if still using fallback
         if stream_id and stream_name.startswith('Stream '):
@@ -1525,9 +1541,9 @@ def analyze_topic():
                 db_stream_name = get_stream_name_by_id(stream_id)
                 if db_stream_name:
                     stream_name = db_stream_name
-                    print(f"✅ Retrieved stream name from local DB: {stream_name}")
+                    print(f" Retrieved stream name from local DB: {stream_name}")
             except Exception as e:
-                print(f"⚠️ Warning: Could not retrieve stream name from local DB: {e}")
+                print(f" Warning: Could not retrieve stream name from local DB: {e}")
         
         # Create topic info with real names
         topic_info = {
@@ -1791,7 +1807,7 @@ def generate_questions_background(generation_id, request_data, question_plan):
                 
                 # Check if generation failed due to missing data (None returned)
                 if question_data is None:
-                    print(f"❌ Question generation skipped due to missing subject/topic data")
+                    print(f" Question generation skipped due to missing subject/topic data")
                     # Update progress but mark as failed
                     progress['current'] += 1
                     progress[f'{q_type}_current'] += 1
@@ -1818,7 +1834,7 @@ def generate_questions_background(generation_id, request_data, question_plan):
                     if storage_result.get('success'):
                         question_id = storage_result.get('question_id')
                         jkuh = storage_result.get('jkuh')
-                        print(f"✅ Question stored successfully with ID: {question_id}, jkuh: {jkuh}")
+                        print(f" Question stored successfully with ID: {question_id}, jkuh: {jkuh}")
                         
                         # Update question_data with storage results
                         question_data['question_id'] = question_id
@@ -1835,7 +1851,7 @@ def generate_questions_background(generation_id, request_data, question_plan):
                         'question': question_data
                     })
                 else:
-                    print(f"❌ Failed to store question: {storage_result.get('error', 'Unknown error')}")
+                    print(f" Failed to store question: {storage_result.get('error', 'Unknown error')}")
                     # Still update progress but mark as failed
                     progress['current'] += 1
                     progress[f'{q_type}_current'] += 1
@@ -1892,10 +1908,10 @@ def generate_single_question(request_data, question_type, auth_token=None):
                 is_aptitude=is_aptitude,
                 group_id=group_id
             )
-            print(f"🔍 Debug: Subject fetch result for subject_id {subject_id}: {subject_result}")
+            print(f" Debug: Subject fetch result for subject_id {subject_id}: {subject_result}")
             if subject_result.get('success') and subject_result.get('subject_name'):
                 subject_name = subject_result['subject_name']
-                print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+                print(f" Retrieved subject name: {subject_name} for subject_id: {subject_id}")
                 enhanced_request['subject'] = subject_name
                 
                 # Extract stream_id from subject data if available and not already set
@@ -1906,22 +1922,22 @@ def generate_single_question(request_data, question_type, auth_token=None):
                                             subject_data.get('stream_id'))
                     if stream_id_from_subject:
                         stream_id = stream_id_from_subject
-                        print(f"✅ Extracted stream_id: {stream_id} from subject data")
+                        print(f" Extracted stream_id: {stream_id} from subject data")
             else:
                 error_msg = subject_result.get('error', 'Unknown error')
-                print(f"❌ ERROR: Could not retrieve subject name for subject_id: {subject_id}. Error: {error_msg}")
+                print(f" ERROR: Could not retrieve subject name for subject_id: {subject_id}. Error: {error_msg}")
                 # DO NOT use fallback - return None to prevent wrong data insertion
-                print(f"❌ CRITICAL: Cannot proceed without valid subject name. Skipping question generation.")
+                print(f" CRITICAL: Cannot proceed without valid subject name. Skipping question generation.")
                 return None
         except Exception as e:
-            print(f"❌ EXCEPTION: Error fetching subject {subject_id}: {e}")
+            print(f" EXCEPTION: Error fetching subject {subject_id}: {e}")
             import traceback
             traceback.print_exc()
             # DO NOT use fallback - return None to prevent wrong data insertion
-            print(f"❌ CRITICAL: Cannot proceed without valid subject name. Skipping question generation.")
+            print(f" CRITICAL: Cannot proceed without valid subject name. Skipping question generation.")
             return None
     else:
-        print(f"❌ CRITICAL ERROR: No subject_id provided in request_data. Cannot proceed.")
+        print(f" CRITICAL ERROR: No subject_id provided in request_data. Cannot proceed.")
         return None
     
     # Get topic name from .NET backend
@@ -1934,26 +1950,26 @@ def generate_single_question(request_data, question_type, auth_token=None):
                 is_aptitude=is_aptitude,
                 group_id=group_id
             )
-            print(f"🔍 Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
+            print(f" Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
-                print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+                print(f" Retrieved topic name: {topic_name} for topic_id: {topic_id}")
                 enhanced_request['topic'] = topic_name
             else:
                 error_msg = topic_result.get('error', 'Unknown error')
-                print(f"❌ ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
+                print(f" ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
                 # DO NOT use fallback - return None to prevent wrong data insertion
-                print(f"❌ CRITICAL: Cannot proceed without valid topic name. Skipping question generation.")
+                print(f" CRITICAL: Cannot proceed without valid topic name. Skipping question generation.")
                 return None
         except Exception as e:
-            print(f"❌ EXCEPTION: Error fetching topic {topic_id}: {e}")
+            print(f" EXCEPTION: Error fetching topic {topic_id}: {e}")
             import traceback
             traceback.print_exc()
             # DO NOT use fallback - return None to prevent wrong data insertion
-            print(f"❌ CRITICAL: Cannot proceed without valid topic name. Skipping question generation.")
+            print(f" CRITICAL: Cannot proceed without valid topic name. Skipping question generation.")
             return None
     else:
-        print(f"❌ CRITICAL ERROR: No topic_id provided in request_data. Cannot proceed.")
+        print(f" CRITICAL ERROR: No topic_id provided in request_data. Cannot proceed.")
         return None
     
     # Get stream name if available (optional, for better context)
@@ -1964,21 +1980,21 @@ def generate_single_question(request_data, question_type, auth_token=None):
             stream_name = get_stream_name_by_id(stream_id)
             if stream_name:
                 enhanced_request['stream'] = stream_name
-                print(f"✅ Retrieved stream name: {stream_name} for stream_id: {stream_id}")
+                print(f" Retrieved stream name: {stream_name} for stream_id: {stream_id}")
         except Exception as e:
-            print(f"⚠️ Warning: Could not retrieve stream name: {e}")
+            print(f" Warning: Could not retrieve stream name: {e}")
     
     # CRITICAL: Ensure subject and topic are set before calling AI
     # DO NOT proceed with fallbacks - fail safely if data is missing
     if not enhanced_request.get('subject'):
-        print(f"❌ CRITICAL ERROR: Subject is missing! Cannot proceed with question generation.")
+        print(f" CRITICAL ERROR: Subject is missing! Cannot proceed with question generation.")
         return None
     if not enhanced_request.get('topic'):
-        print(f"❌ CRITICAL ERROR: Topic is missing! Cannot proceed with question generation.")
+        print(f" CRITICAL ERROR: Topic is missing! Cannot proceed with question generation.")
         return None
     
     # Log what we're passing to the AI
-    print(f"🔍 FINAL: Passing to AI - subject: '{enhanced_request.get('subject')}', topic: '{enhanced_request.get('topic')}', stream: '{enhanced_request.get('stream')}'")
+    print(f" FINAL: Passing to AI - subject: '{enhanced_request.get('subject')}', topic: '{enhanced_request.get('topic')}', stream: '{enhanced_request.get('stream')}'")
     
     # Modify request based on question type
     if question_type == 'diagram':
@@ -2023,13 +2039,13 @@ def generate_single_question(request_data, question_type, auth_token=None):
                 if isinstance(diagram_result, str):
                     # It's a filename, create the full URL path
                     generated_data['diagram_image_url'] = f"/static/images/{diagram_result}"
-                    print(f"✅ Diagram image URL set: {generated_data['diagram_image_url']}")
+                    print(f" Diagram image URL set: {generated_data['diagram_image_url']}")
                 elif isinstance(diagram_result, dict) and diagram_result.get('image_url'):
                     # Handle dict format if it ever changes
                     generated_data['diagram_image_url'] = diagram_result['image_url']
                 else:
                     generated_data['diagram_image_url'] = None
-                    print(f"⚠️ Warning: Diagram rendering returned unexpected format: {type(diagram_result)}")
+                    print(f" Warning: Diagram rendering returned unexpected format: {type(diagram_result)}")
             except Exception as e:
                 print(f"Diagram rendering error: {e}")
                 import traceback
@@ -2238,7 +2254,7 @@ def generate_single_question_endpoint():
             # Extract user ID from token
             user_id = extract_user_id_from_token(token)
             if not user_id:
-                print(f"Warning: Could not extract user ID from token")
+                safe_print(f"Warning: Could not extract user ID from token")
         
         # Extract required fields
         generation_id = data.get('generation_id')
@@ -2281,10 +2297,10 @@ def generate_single_question_endpoint():
         )
         if subject_result.get('success') and subject_result.get('subject_name'):
             subject_name = subject_result['subject_name']
-            print(f"✅ Retrieved subject name: {subject_name} for subject_id: {subject_id}")
+            safe_print(f" Retrieved subject name: {subject_name} for subject_id: {subject_id}")
         else:
             error_msg = subject_result.get('error', 'Unknown error')
-            print(f"❌ ERROR: Could not retrieve subject name for subject_id: {subject_id}. Error: {error_msg}")
+            safe_print(f" ERROR: Could not retrieve subject name for subject_id: {subject_id}. Error: {error_msg}")
             # DO NOT use fallback - return error to prevent wrong data insertion
             return jsonify({
                 "success": False,
@@ -2302,10 +2318,10 @@ def generate_single_question_endpoint():
         )
         if topic_result.get('success') and topic_result.get('topic_name'):
             topic_name = topic_result['topic_name']
-            print(f"✅ Retrieved topic name: {topic_name} for topic_id: {topic_id}")
+            safe_print(f" Retrieved topic name: {topic_name} for topic_id: {topic_id}")
         else:
             error_msg = topic_result.get('error', 'Unknown error')
-            print(f"❌ ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
+            safe_print(f" ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
             # DO NOT use fallback - return error to prevent wrong data insertion
             return jsonify({
                 "success": False,
@@ -2359,11 +2375,11 @@ def generate_single_question_endpoint():
                 if image_filename:
                     diagram_code = ai_result['diagram_code']
                     diagram_image_url = f"/static/images/{image_filename}"
-                    print(f"[OK] Diagram generated successfully: {image_filename}")
+                    safe_print(f"[OK] Diagram generated successfully: {image_filename}")
                 else:
-                    print(f"[ERROR] Diagram generation failed for {ai_result.get('library_used', 'schemdraw')}")
+                    safe_print(f"[ERROR] Diagram generation failed for {ai_result.get('library_used', 'schemdraw')}")
             except Exception as e:
-                print(f"Diagram generation failed: {e}")
+                safe_print(f"Diagram generation failed: {e}")
                 diagram_code = None
                 diagram_image_url = None
         
@@ -2398,7 +2414,7 @@ def generate_single_question_endpoint():
         storage_result = net_backend_service.store_question(storage_data, auth_token=token, user_id=user_id)
         
         if not storage_result['success']:
-            print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
+            safe_print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
             # Continue anyway as the question was generated successfully
         else:
             # Extract jkuh and questionId from storage result and add to response data
@@ -2414,9 +2430,9 @@ def generate_single_question_endpoint():
         }), 200
         
     except Exception as e:
-        print(f"Error in generate_single_question: {str(e)}")
+        safe_print(f"Error in generate_single_question: {str(e)}")
         import traceback
-        traceback.print_exc()
+        safe_print(traceback.format_exc())
         
         return jsonify({
             "success": False,
@@ -2498,8 +2514,9 @@ if __name__ == '__main__':
     
     print(f"[START] Starting Flask server on {host}:{port}")
     print(f"[INFO] Access the application from other devices using your computer's IP address")
-    # print(f"🌐 Local access: http://localhost:{port}")
+    # print(f" Local access: http://localhost:{port}")
     print(f"[INFO] To find your IP address, run: ipconfig (Windows) or ifconfig (Mac/Linux)")
     
-    # Disable watchdog to prevent restarts during question generation
-    app.run(host=host, port=port, debug=True, use_reloader=False) 
+    # Local dev only; production uses Waitress/systemd (see deploy/ec2/, Dockerfile)
+    _debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host=host, port=port, debug=_debug, use_reloader=False)

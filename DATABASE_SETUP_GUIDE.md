@@ -1,9 +1,9 @@
-# 🗄️ Database Setup Guide - GT Question Generator 2.0
+# Database Setup Guide - GT Question Generator 2.0
 
 ## Overview
 This guide will help you set up the SQL Server database for the GT Question Generator 2.0 on a new system.
 
-## 📋 Prerequisites
+## Prerequisites
 
 ### System Requirements
 - **SQL Server**: 2019+ (Express, Standard, or Enterprise)
@@ -24,7 +24,7 @@ This guide will help you set up the SQL Server database for the GT Question Gene
 2. Configure network access
 3. Install SSMS for management
 
-## 🔧 Database Setup Steps
+## Database Setup Steps
 
 ### Step 1: Install SQL Server
 
@@ -120,7 +120,7 @@ SELECT * FROM SubjectMaster;
 SELECT * FROM TopicMaster;
 ```
 
-## 🔗 Application Configuration
+## Application Configuration
 
 ### Update Database Connection
 
@@ -153,7 +153,7 @@ def get_db_connection():
 python test_db_connection.py
 ```
 
-## 📊 Database Schema
+## Database Schema
 
 ### Core Tables
 1. **CourseMaster** - Course definitions
@@ -185,7 +185,7 @@ python test_db_connection.py
 - **PragyaAI Integration**: Enhanced explanations with AI-powered analysis
 - **Multi-format Content**: Support for text, images, and dynamically generated diagrams
 
-## 🔄 Upgrading Existing Database
+## Upgrading Existing Database
 
 If you're upgrading from an earlier version that doesn't have the `DiagramCode` column:
 
@@ -244,7 +244,7 @@ GO
 PRINT 'Database upgrade completed successfully!';
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -300,7 +300,7 @@ EXEC sp_configure 'max server memory (MB)', 2048;
 RECONFIGURE;
 ```
 
-## 🔒 Security Considerations
+## Security Considerations
 
 ### Best Practices
 1. **Use Strong Passwords** - Change default passwords
@@ -323,7 +323,7 @@ conn = pyodbc.connect(
 )
 ```
 
-## 📈 Monitoring and Maintenance
+## Monitoring and Maintenance
 
 ### Database Maintenance
 ```sql
@@ -359,7 +359,7 @@ WITH FORMAT, INIT, COMPRESSION;
 -- Use SQL Server Agent for automated backups
 ```
 
-## 🚀 Quick Setup Commands
+## Quick Setup Commands
 
 ### Windows (PowerShell)
 ```powershell
@@ -399,7 +399,7 @@ docker exec -i sqlserver /opt/mssql-tools/bin/sqlcmd \
   -i /database/database_setup.sql
 ```
 
-## ✅ Verification Checklist
+## Verification Checklist
 
 - [ ] SQL Server installed and running
 - [ ] Database GTQuestionDB created
@@ -413,7 +413,7 @@ docker exec -i sqlserver /opt/mssql-tools/bin/sqlcmd \
 - [ ] Review interface works correctly
 - [ ] PragyaAI explanations display properly
 
-## 📞 Support
+## Support
 
 If you encounter issues:
 1. Check the troubleshooting section above
