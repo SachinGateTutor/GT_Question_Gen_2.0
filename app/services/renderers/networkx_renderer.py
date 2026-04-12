@@ -1,3 +1,6 @@
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import networkx as nx
 import os
@@ -20,10 +23,10 @@ def render(code: str, output_path: str):
     """Render diagram using networkx"""
     
     if not is_python_code(code):
-        print(f"❌ Debug: Code is not Python code, skipping networkx rendering")
+        print(f" Debug: Code is not Python code, skipping networkx rendering")
         return None
 
-    print(f"🔍 Debug: Rendering networkx diagram...")
+    print(f" Debug: Rendering networkx diagram...")
     
     # Apply networkx-specific fixes
     code = apply_networkx_fixes(code, output_path)
@@ -43,8 +46,8 @@ def render(code: str, output_path: str):
             output_dir = os.path.dirname(output_path) if output_path else ""
             current_dir = os.getcwd()
             
-            print(f"🔍 Debug: Current working directory: {current_dir}")
-            print(f"🔍 Debug: Output directory: {output_dir}")
+            print(f" Debug: Current working directory: {current_dir}")
+            print(f" Debug: Output directory: {output_dir}")
             
             # Record PNG files in both current directory and output directory
             files_before_current = set(glob.glob("*.png"))
@@ -55,11 +58,11 @@ def render(code: str, output_path: str):
                 try:
                     files_before_output = set(glob.glob(os.path.join(output_dir, "*.png")))
                 except Exception as e:
-                    print(f"⚠️ Warning: Could not scan output directory {output_dir}: {e}")
+                    print(f" Warning: Could not scan output directory {output_dir}: {e}")
                     files_before_output = set()
             
-            print(f"🔍 Debug: PNG files in current dir before: {len(files_before_current)}")
-            print(f"🔍 Debug: PNG files in output dir before: {len(files_before_output)}")
+            print(f" Debug: PNG files in current dir before: {len(files_before_current)}")
+            print(f" Debug: PNG files in output dir before: {len(files_before_output)}")
             
             # Execute the diagram code
             exec_globals = {
@@ -79,16 +82,16 @@ def render(code: str, output_path: str):
                 try:
                     files_after_output = set(glob.glob(os.path.join(output_dir, "*.png")))
                 except Exception as e:
-                    print(f"⚠️ Warning: Could not scan output directory {output_dir} after execution: {e}")
+                    print(f" Warning: Could not scan output directory {output_dir} after execution: {e}")
                     files_after_output = set()
             
             new_files_current = files_after_current - files_before_current
             new_files_output = files_after_output - files_before_output
             new_files = new_files_current.union(new_files_output)
             
-            print(f"🔍 Debug: New PNG files in current dir: {new_files_current}")
-            print(f"🔍 Debug: New PNG files in output dir: {new_files_output}")
-            print(f"🔍 Debug: All new PNG files: {new_files}")
+            print(f" Debug: New PNG files in current dir: {new_files_current}")
+            print(f" Debug: New PNG files in output dir: {new_files_output}")
+            print(f" Debug: All new PNG files: {new_files}")
             
             # Look for the generated file - prioritize specific patterns first, then any new PNG
             possible_files = [
@@ -125,14 +128,14 @@ def render(code: str, output_path: str):
                 # Move the file to the output path
                 if os.path.exists(generated_file):
                     shutil.move(generated_file, output_path)
-                print(f"✅ Networkx diagram saved as: {os.path.basename(output_path)}")
+                print(f" Networkx diagram saved as: {os.path.basename(output_path)}")
                 # Clean up temp file only after successful execution
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 return os.path.basename(output_path)
             else:
-                print(f"❌ Debug: Generated file {generated_file} not found")
-                print(f"❌ Debug: No networkx diagram file generated")
+                print(f" Debug: Generated file {generated_file} not found")
+                print(f" Debug: No networkx diagram file generated")
                 # Clean up temp file
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
@@ -140,10 +143,10 @@ def render(code: str, output_path: str):
                     
         except Exception as e:
             error_message = str(e)
-            print(f"❌ Networkx diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+            print(f" Networkx diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
             
             if attempt < max_retries:
-                print(f"🔧 Attempting AI-powered code correction...")
+                print(f" Attempting AI-powered code correction...")
                 
                 # Try AI-powered error correction
                 try:
@@ -166,7 +169,7 @@ def render(code: str, output_path: str):
                     )
                     
                     if correction_success and corrected_code != code:
-                        print(f"✅ AI provided corrected networkx code, attempting execution...")
+                        print(f" AI provided corrected networkx code, attempting execution...")
                         
                         # Apply networkx-specific fixes to corrected code
                         corrected_code = apply_networkx_fixes(corrected_code, output_path)
@@ -175,13 +178,13 @@ def render(code: str, output_path: str):
                         code = corrected_code
                         continue
                     else:
-                        print(f"❌ AI correction failed or provided same code")
+                        print(f" AI correction failed or provided same code")
                         
                 except Exception as ai_error:
-                    print(f"❌ AI correction failed: {ai_error}")
+                    print(f" AI correction failed: {ai_error}")
                 
                 # Fallback: basic error pattern fixes
-                print(f"🔄 Trying basic networkx error fixes...")
+                print(f" Trying basic networkx error fixes...")
                 try:
                     fixed_code = fix_common_syntax_errors(code)
                     if fixed_code != code:
@@ -190,7 +193,7 @@ def render(code: str, output_path: str):
                 except:
                     pass
             else:
-                print(f"❌ All retry attempts failed for networkx diagram generation")
+                print(f" All retry attempts failed for networkx diagram generation")
                 return None
 
 def apply_networkx_fixes(code, output_path):

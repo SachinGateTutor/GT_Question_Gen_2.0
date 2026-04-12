@@ -627,14 +627,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Question Review</h1>
+            <h1> Question Review</h1>
             <h2>AI MCQ Generator - Powered by PragyaAI</h2>
             <p>Review, approve, or discard generated questions</p>
         </div>
 
         <div class="content">
             <div class="filters">
-                <h3>🔍 Filters</h3>
+                <h3> Filters</h3>
                 <div class="filter-row">
                     <div class="filter-group">
                         <label for="statusFilter">Status:</label>
@@ -690,12 +690,12 @@
                         </select>
                     </div>
                 </div>
-                <button class="btn" onclick="loadQuestions()">🔍 Apply Filters</button>
-                <button class="btn btn-secondary" onclick="clearFilters()">🔄 Clear Filters</button>
+                <button class="btn" onclick="loadQuestions()"> Apply Filters</button>
+                <button class="btn btn-secondary" onclick="clearFilters()"> Clear Filters</button>
             </div>
 
             <div id="loading" class="loading hidden">
-                <p>🔄 Loading questions...</p>
+                <p> Loading questions...</p>
             </div>
 
             <div id="error" class="error hidden"></div>
@@ -714,8 +714,8 @@
         </div>
 
         <div class="nav-links">
-            <a href="index.html">🏠 Back to Generator</a>
-            <a href="#" onclick="showStats()">📊 Statistics</a>
+            <a href="index.html"> Back to Generator</a>
+            <a href="#" onclick="showStats()"> Statistics</a>
         </div>
     </div>
 
@@ -741,7 +741,7 @@
         <div class="modal-content pragya-ai-modal">
             <span class="close" onclick="closePragyaAIModal()">&times;</span>
             <div class="modal-header">
-                <h3>🤖 PragyaAI Explanation</h3>
+                <h3> PragyaAI Explanation</h3>
                 <div class="ai-status" id="aiStatus">Ready to help!</div>
             </div>
             <div class="modal-body">
@@ -1325,7 +1325,7 @@
             if (pageQuestions.length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; padding: 60px; color: #6c757d;">
-                        <h3>📭 No questions found</h3>
+                        <h3> No questions found</h3>
                         <p>No questions match the current filter criteria.</p>
                         <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
                     </div>
@@ -1412,29 +1412,29 @@
                         <span class="status-badge status-${status}">${statusText}</span>
                         <div class="question-meta">
                             <strong>${mappedQuestion.CourseName}</strong> > <strong>${mappedQuestion.StreamName}</strong> > <strong>${mappedQuestion.SubjectName}</strong> > <strong>${mappedQuestion.TopicName || 'No Topic'}</strong><br>
-                            📝 ${mappedQuestion.QuestionTypeName} | 
-                            🎯 ${mappedQuestion.DifficultyLevelName || 'Not set'} | 
-                            🧠 ${mappedQuestion.BloomLevelName || 'Auto-detected'}<br>
-                            📅 Added: ${new Date(mappedQuestion.AddedDate).toLocaleDateString()}
+                             ${mappedQuestion.QuestionTypeName} | 
+                             ${mappedQuestion.DifficultyLevelName || 'Not set'} | 
+                             ${mappedQuestion.BloomLevelName || 'Auto-detected'}<br>
+                             Added: ${new Date(mappedQuestion.AddedDate).toLocaleDateString()}
                         </div>
                     </div>
                     <div>
                         ${status === 'pending' ? `
                             <button class="btn btn-approve" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'approved')">
-                                ✅ Approve
+                                 Approve
                             </button>
                             <button class="btn btn-discard" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'discarded')">
-                                ❌ Discard
+                                 Discard
                             </button>
                         ` : ''}
                         ${status === 'discarded' ? `
                             <button class="btn btn-approve" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'approved')">
-                                🔄 Re-approve
+                                 Re-approve
                             </button>
                         ` : ''}
                         ${status === 'approved' ? `
                             <button class="btn btn-discard" onclick="updateQuestionStatus(${mappedQuestion.QuestionID}, 'discarded')">
-                                ❌ Discard
+                                 Discard
                             </button>
                         ` : ''}
                     </div>
@@ -1444,7 +1444,7 @@
             if (isCDQ && hasPassage) {
                 cardContent += `
                     <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-left: 4px solid #007bff; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
-                        <h3 style="color: #007bff; margin-bottom: 15px; font-size: 1.3rem;">📖 CDQ Passage:</h3>
+                        <h3 style="color: #007bff; margin-bottom: 15px; font-size: 1.3rem;"> CDQ Passage:</h3>
                         <div style="font-size: 1.1rem; line-height: 1.6; color: #495057; padding: 15px; background: white; border-radius: 8px; border: 1px solid #dee2e6;">
                             ${mappedQuestion.PassageText}
                         </div>
@@ -1457,7 +1457,7 @@
                 ${mappedQuestion.ImgQuestion ? `
                     <div style="text-align: center; margin-bottom: 20px;">
                         <div class="library-info" style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
-                            📊 Diagram generated using: schemdraw
+                             Diagram generated using: schemdraw
                         </div>
                         <img src="${mappedQuestion.ImgQuestion}" 
                              class="diagram-image" alt="Question Diagram"
@@ -1539,7 +1539,7 @@
                 
                 ${mappedQuestion.ExplanationText ? `
                     <div class="explanation">
-                        <strong>💡 Explanation:</strong><br>
+                        <strong> Explanation:</strong><br>
                         ${mappedQuestion.ExplanationText}
                     </div>
                 ` : ''}`;
@@ -1565,7 +1565,7 @@
             // Ask PragyaAI button
             const pragyaAIBtn = document.createElement('button');
             pragyaAIBtn.className = 'pragya-ai-btn btn';
-            pragyaAIBtn.innerHTML = '🤖 Ask PragyaAI';
+            pragyaAIBtn.innerHTML = ' Ask PragyaAI';
             pragyaAIBtn.onclick = function() {
               askPragyaAI(mappedQuestion);
             };
@@ -1585,9 +1585,9 @@
                 button.disabled = true;
                 let loadingText = '';
                 if (status === 'approved') {
-                    loadingText = originalText.includes('Re-approve') ? '🔄 Re-approving...' : '✅ Approving...';
+                    loadingText = originalText.includes('Re-approve') ? ' Re-approving...' : ' Approving...';
                 } else if (status === 'discarded') {
-                    loadingText = '❌ Discarding...';
+                    loadingText = ' Discarding...';
                 }
                 button.textContent = loadingText;
                 
@@ -1703,7 +1703,7 @@
             
             container.innerHTML = `
                 <div class="stats-card">
-                    <h3>📊 Question Statistics</h3>
+                    <h3> Question Statistics</h3>
                     <div class="stats-grid">
                         <div class="stat-item">
                             <div class="stat-number">${stats.total}</div>
@@ -1788,7 +1788,7 @@
         function formatExplanationContent(content) {
             if (!content || content.trim() === '' || content === 'Analysis not available.' || content === 'Solution analysis not available.' || content === 'Key concepts not available.' || content === 'Learning tips not available.') {
                 return `<div class="no-content-message">
-                    <span class="no-content-icon">📝</span>
+                    <span class="no-content-icon"></span>
                     <p>No detailed explanation available for this section.</p>
                 </div>`;
             }
@@ -1899,18 +1899,18 @@
         }
         
         function showAILoading() {
-            document.getElementById('aiStatus').textContent = '🤖 PragyaAI is analyzing your question...';
+            document.getElementById('aiStatus').textContent = ' PragyaAI is analyzing your question...';
             document.getElementById('aiExplanationContent').innerHTML = `
                 <div class="ai-loading">
                     <div class="spinner"></div>
-                    <p>🤖 PragyaAI is analyzing your question...</p>
+                    <p> PragyaAI is analyzing your question...</p>
                     <p style="font-size: 0.9rem; opacity: 0.7;">This may take a few seconds</p>
                 </div>
             `;
         }
         
         function displayAIExplanation(explanation) {
-            document.getElementById('aiStatus').textContent = '✅ Explanation ready!';
+            document.getElementById('aiStatus').textContent = ' Explanation ready!';
             
             const content = document.getElementById('aiExplanationContent');
             
@@ -1918,19 +1918,19 @@
             let html = `
                 <div class="ai-tabs">
                     <button class="ai-tab-btn active" onclick="showAITab('solution')">
-                        <span class="tab-icon">📝</span>
+                        <span class="tab-icon"></span>
                         <span class="tab-text">Step-by-Step Solution</span>
                     </button>
                     <button class="ai-tab-btn" onclick="showAITab('concepts')">
-                        <span class="tab-icon">🧠</span>
+                        <span class="tab-icon"></span>
                         <span class="tab-text">Key Concepts</span>
                     </button>
                     <button class="ai-tab-btn" onclick="showAITab('tips')">
-                        <span class="tab-icon">💡</span>
+                        <span class="tab-icon"></span>
                         <span class="tab-text">Learning Tips</span>
                     </button>
                     <button class="ai-tab-btn" onclick="showAITab('analysis')">
-                        <span class="tab-icon">🔍</span>
+                        <span class="tab-icon"></span>
                         <span class="tab-text">Analysis</span>
                     </button>
                 </div>
@@ -1938,7 +1938,7 @@
                 <div id="ai-solution-tab" class="ai-tab-content active">
                     <div class="ai-explanation-section solution-section">
                         <div class="section-header">
-                            <h4><span class="section-icon">📝</span> Step-by-Step Solution</h4>
+                            <h4><span class="section-icon"></span> Step-by-Step Solution</h4>
                             <div class="section-divider"></div>
                         </div>
                         <div class="formatted-content">
@@ -1950,7 +1950,7 @@
                 <div id="ai-concepts-tab" class="ai-tab-content">
                     <div class="ai-explanation-section concepts-section">
                         <div class="section-header">
-                            <h4><span class="section-icon">🧠</span> Key Concepts</h4>
+                            <h4><span class="section-icon"></span> Key Concepts</h4>
                             <div class="section-divider"></div>
                         </div>
                         <div class="formatted-content">
@@ -1962,7 +1962,7 @@
                 <div id="ai-tips-tab" class="ai-tab-content">
                     <div class="ai-explanation-section tips-section">
                         <div class="section-header">
-                            <h4><span class="section-icon">💡</span> Learning Tips</h4>
+                            <h4><span class="section-icon"></span> Learning Tips</h4>
                             <div class="section-divider"></div>
                         </div>
                         <div class="formatted-content">
@@ -1974,7 +1974,7 @@
                 <div id="ai-analysis-tab" class="ai-tab-content">
                     <div class="ai-explanation-section analysis-section">
                         <div class="section-header">
-                            <h4><span class="section-icon">✅</span> Why the Correct Answer is Right</h4>
+                            <h4><span class="section-icon"></span> Why the Correct Answer is Right</h4>
                             <div class="section-divider"></div>
                     </div>
                         <div class="formatted-content correct-analysis">
@@ -1983,7 +1983,7 @@
                     </div>
                     <div class="ai-explanation-section analysis-section">
                         <div class="section-header">
-                            <h4><span class="section-icon">❌</span> Why Other Options are Wrong</h4>
+                            <h4><span class="section-icon"></span> Why Other Options are Wrong</h4>
                             <div class="section-divider"></div>
                         </div>
                         <div class="formatted-content incorrect-analysis">
@@ -2018,10 +2018,10 @@
         }
         
         function showAIError(message) {
-            document.getElementById('aiStatus').textContent = '❌ Error occurred';
+            document.getElementById('aiStatus').textContent = ' Error occurred';
             document.getElementById('aiExplanationContent').innerHTML = `
                 <div class="ai-loading">
-                    <p style="color: #dc3545;">❌ ${message}</p>
+                    <p style="color: #dc3545;"> ${message}</p>
                     <button class="btn" onclick="closePragyaAIModal()">Close</button>
                 </div>
             `;

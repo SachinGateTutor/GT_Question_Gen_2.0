@@ -121,21 +121,21 @@ Justification: [brief explanation]
         if level_match:
             level = int(level_match.group(1))
             if 1 <= level <= 6:
-                print(f"🔍 Bloom Level Detected: {level} ({bloom_definitions[level]['name']})")
+                print(f" Bloom Level Detected: {level} ({bloom_definitions[level]['name']})")
                 return level
         
         # Fallback: try to find level number anywhere in response
         level_match = re.search(r'\b([1-6])\b', content)
         if level_match:
             level = int(level_match.group(1))
-            print(f"🔍 Bloom Level Detected (fallback): {level} ({bloom_definitions[level]['name']})")
+            print(f" Bloom Level Detected (fallback): {level} ({bloom_definitions[level]['name']})")
             return level
         
-        print(f"❌ Could not detect Bloom level from response: {content}")
+        print(f" Could not detect Bloom level from response: {content}")
         return None
         
     except Exception as e:
-        print(f"❌ Error detecting Bloom level: {e}")
+        print(f" Error detecting Bloom level: {e}")
         return None
 
 def update_question_bloom_level(question_id, bloom_level_id):
@@ -151,7 +151,7 @@ def update_question_bloom_level(question_id, bloom_level_id):
         
         conn = get_db_connection()
         if not conn:
-            print("❌ Database connection failed")
+            print(" Database connection failed")
             return False
         
         cursor = conn.cursor()
@@ -165,9 +165,9 @@ def update_question_bloom_level(question_id, bloom_level_id):
         cursor.close()
         conn.close()
         
-        print(f"✅ Updated question {question_id} with Bloom level {bloom_level_id}")
+        print(f" Updated question {question_id} with Bloom level {bloom_level_id}")
         return True
         
     except Exception as e:
-        print(f"❌ Error updating Bloom level: {e}")
+        print(f" Error updating Bloom level: {e}")
         return False 

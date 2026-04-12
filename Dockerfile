@@ -1,39 +1,34 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Python 3.13 (aligned with EC2 / local dev)
+FROM python:3.13-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# graphviz: `dot` for diagram generation; curl: HEALTHCHECK
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     graphviz \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Create necessary directories
 RUN mkdir -p app/static/images logs
 
-# Set environment variables
 ENV FLASK_APP=app/main.py
 ENV FLASK_ENV=production
-ENV PYTHONPATH=/app
+ENV MPLBACKEND=Agg
+# Imports use `from services...` with working directory `app/`
+ENV PYTHONPATH=/app/app
 
-# Expose port
+WORKDIR /app/app
+
 EXPOSE 5000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://127.0.0.1:5000/api/health || exit 1
 
-# Run the application
-CMD ["python", "app/main.py"] 
+CMD ["waitress-serve", "--host=0.0.0.0", "--port=5000", "main:app"]

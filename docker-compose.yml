@@ -30,6 +30,7 @@ services:
       - FLASK_HOST=0.0.0.0
       - FLASK_PORT=5000
       - FLASK_ENV=production
+      - MPLBACKEND=Agg
     volumes:
       - ./app/static/images:/app/app/static/images
       - ./logs:/app/logs

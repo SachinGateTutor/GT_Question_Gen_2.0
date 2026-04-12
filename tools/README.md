@@ -24,4 +24,4 @@ wget https://github.com/plantuml/plantuml/releases/download/v1.2023.10/plantuml-
 ## Requirements
 
 - Java Runtime Environment (JRE) 8 or higher
-- Python 3.7+ with required packages (see requirements.txt) 
+- Python 3.13+ with required packages (see requirements.txt)

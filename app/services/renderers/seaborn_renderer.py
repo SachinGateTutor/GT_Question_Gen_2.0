@@ -142,7 +142,7 @@ def render(code: str, output_path: str):
                 return [1, 0], [1, 0], [0, 1]
             exec_globals['precision_recall_curve'] = dummy_precision_recall_curve
         
-        print(f"🔍 Executing seaborn code:\n{code}")
+        print(f" Executing seaborn code:\n{code}")
         
         # AI-powered self-healing execution with retry mechanism
         max_retries = 2
@@ -153,15 +153,15 @@ def render(code: str, output_path: str):
                 # Save image directly to output path
                 plt.savefig(output_path, bbox_inches='tight', dpi=300)
                 plt.close()  # Close the figure to free memory
-                print(f"✅ Seaborn diagram saved as: {os.path.basename(output_path)}")
+                print(f" Seaborn diagram saved as: {os.path.basename(output_path)}")
                 return os.path.basename(output_path)
                 
             except Exception as e:
                 error_message = str(e)
-                print(f"❌ Seaborn diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+                print(f" Seaborn diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
                 
                 if attempt < max_retries:
-                    print(f"🔧 Attempting AI-powered code correction...")
+                    print(f" Attempting AI-powered code correction...")
                     
                     # Try AI-powered error correction
                     try:
@@ -183,7 +183,7 @@ def render(code: str, output_path: str):
                         )
                         
                         if correction_success and corrected_code != code:
-                            print(f"✅ AI provided corrected seaborn code, attempting execution...")
+                            print(f" AI provided corrected seaborn code, attempting execution...")
                             
                             # Apply seaborn-specific fixes to corrected code
                             corrected_code = apply_seaborn_fixes(corrected_code, output_path)
@@ -192,21 +192,21 @@ def render(code: str, output_path: str):
                             code = corrected_code
                             continue
                         else:
-                            print(f"❌ AI correction failed or provided same code")
+                            print(f" AI correction failed or provided same code")
                             
                     except Exception as ai_error:
-                        print(f"❌ AI correction failed: {ai_error}")
+                        print(f" AI correction failed: {ai_error}")
                     
                     # Fallback: basic error pattern fixes
-                    print(f"🔄 Trying basic seaborn error fixes...")
+                    print(f" Trying basic seaborn error fixes...")
                     
                 else:
-                    print(f"❌ All retry attempts failed for seaborn diagram generation")
+                    print(f" All retry attempts failed for seaborn diagram generation")
                     plt.close()  # Clean up any open figures
                     return None
         
     except Exception as e:
-        print(f'❌ Seaborn diagram generation error: {e}')
+        print(f' Seaborn diagram generation error: {e}')
         traceback.print_exc()
         return None 
 

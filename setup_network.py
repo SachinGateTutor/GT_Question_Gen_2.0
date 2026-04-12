@@ -119,7 +119,7 @@ const config = {{
         return False
 
 def main():
-    print("🌐 GT Question Generator 2.0 - Hybrid Network Setup")
+    print(" GT Question Generator 2.0 - Hybrid Network Setup")
     print("=" * 60)
     print("Architecture: Python Flask + .NET Backend")
     print("=" * 60)
@@ -130,45 +130,45 @@ def main():
         ip_address = get_ip_from_command()
     
     if ip_address:
-        print(f"✅ Found your IP address: {ip_address}")
-        print(f"📱 Other devices can access the app at: http://{ip_address}:5000")
+        print(f" Found your IP address: {ip_address}")
+        print(f" Other devices can access the app at: http://{ip_address}:5000")
         
         # Check service health
-        print("\n🔍 Checking service availability...")
+        print("\n Checking service availability...")
         python_healthy = check_service_health(ip_address, 5000, "Python Flask")
         dotnet_healthy = check_service_health(ip_address, 5125, ".NET Backend")
         
-        print(f"🐍 Python Flask (port 5000): {'✅ Running' if python_healthy else '❌ Not accessible'}")
-        print(f"🔷 .NET Backend (port 5125): {'✅ Running' if dotnet_healthy else '❌ Not accessible'}")
+        print(f" Python Flask (port 5000): {' Running' if python_healthy else ' Not accessible'}")
+        print(f" .NET Backend (port 5125): {' Running' if dotnet_healthy else ' Not accessible'}")
         
         if not python_healthy:
-            print("⚠️  Python Flask service not running. Start with: python app/main.py")
+            print("  Python Flask service not running. Start with: python app/main.py")
         if not dotnet_healthy:
-            print("⚠️  .NET Backend service not running. Start your .NET backend service.")
+            print("  .NET Backend service not running. Start your .NET backend service.")
         
         # Update config file
         if update_config_file(ip_address):
-            print("✅ Updated config.js with hybrid architecture configuration")
+            print(" Updated config.js with hybrid architecture configuration")
         else:
-            print("❌ Failed to update config.js")
+            print(" Failed to update config.js")
     else:
-        print("❌ Could not automatically detect your IP address")
-        print("📋 Please run 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux) to find your IP")
-        print("🔧 Then manually update the IP addresses in config.js")
+        print(" Could not automatically detect your IP address")
+        print(" Please run 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux) to find your IP")
+        print(" Then manually update the IP addresses in config.js")
     
-    print("\n📋 Next Steps for Hybrid Architecture:")
+    print("\n Next Steps for Hybrid Architecture:")
     print("1. Start .NET Backend service (port 5125)")
     print("2. Start Python Flask service: python app/main.py (port 5000)")
     print("3. Open index.html in your browser")
     print("4. From other devices, open: http://YOUR_IP:5000")
     print("5. Make sure firewall allows connections on ports 5000 and 5125")
     
-    print("\n🔧 Manual Configuration:")
+    print("\n Manual Configuration:")
     print("If automatic detection failed, edit config.js and update:")
     print("- NET_BACKEND_URL: 'http://YOUR_IP:5125'")
     print("- NET_GENERATE_ENDPOINT: 'http://YOUR_IP:5000/api/generate-question'")
     
-    print("\n🏗️ Architecture Overview:")
+    print("\n Architecture Overview:")
     print("Frontend (HTML/JS) → Python Flask (AI Processing) → .NET Backend (Data Storage)")
     print("                    ↓")
     print("              Diagram Generation & Static Files")

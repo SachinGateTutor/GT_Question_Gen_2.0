@@ -1,0 +1,19 @@
+[Unit]
+Description=GT Question Generator (Waitress)
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/GT_Question_Gen_2.0/app
+EnvironmentFile=/opt/GT_Question_Gen_2.0/.env
+# Headless-safe matplotlib; stable log encoding (also set MPLBACKEND in .env)
+Environment=MPLBACKEND=Agg
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/opt/GT_Question_Gen_2.0/venv/bin/waitress-serve --host=0.0.0.0 --port=5000 main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

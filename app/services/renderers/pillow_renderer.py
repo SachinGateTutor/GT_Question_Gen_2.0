@@ -25,7 +25,7 @@ def render(code: str, output_path: str):
             'ImageDraw': ImageDraw
         }
         
-        print(f"🔍 Executing pillow code:\n{code}")
+        print(f" Executing pillow code:\n{code}")
         exec(code, exec_globals)
         
         # The code should save directly to output_path
@@ -37,10 +37,10 @@ def render(code: str, output_path: str):
             draw.text((50, 50), "Pillow Diagram", fill='black')
             img.save(output_path)
         
-        print(f"✅ Pillow diagram saved as: {os.path.basename(output_path)}")
+        print(f" Pillow diagram saved as: {os.path.basename(output_path)}")
         return os.path.basename(output_path)
         
     except Exception as e:
-        print(f'❌ Pillow diagram generation error: {e}')
+        print(f' Pillow diagram generation error: {e}')
         traceback.print_exc()
         return None 

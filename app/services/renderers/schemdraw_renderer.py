@@ -185,12 +185,12 @@ def render(code: str, output_path: str):
                 'matplotlib': matplotlib
             }
             
-            print(f"🔍 Executing schemdraw code (attempt {attempt + 1}):\n{code}")
+            print(f" Executing schemdraw code (attempt {attempt + 1}):\n{code}")
             
             # Validate code before execution
             validation_errors = validate_schemdraw_code(code)
             if validation_errors:
-                print(f"⚠️ Code validation warnings: {', '.join(validation_errors)}")
+                print(f" Code validation warnings: {', '.join(validation_errors)}")
             
             exec(code, exec_globals)
             
@@ -200,7 +200,7 @@ def render(code: str, output_path: str):
                 with open(output_path, 'wb') as f:
                     f.write(buffer.getvalue())
                 
-                print(f"✅ Schemdraw diagram saved as: {os.path.basename(output_path)}")
+                print(f" Schemdraw diagram saved as: {os.path.basename(output_path)}")
                 return os.path.basename(output_path)
             else:
                 raise Exception("No diagram content generated in buffer")
@@ -208,10 +208,10 @@ def render(code: str, output_path: str):
         except Exception as e:
             last_error = e
             error_message = str(e)
-            print(f"❌ Schemdraw diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
+            print(f" Schemdraw diagram generation error (attempt {attempt + 1}/{max_retries + 1}): {error_message}")
             
             if attempt < max_retries:
-                print(f"🔧 Attempting enhanced code correction...")
+                print(f" Attempting enhanced code correction...")
                 
                 # Try AI-powered error correction first
                 if attempt == 0:
@@ -229,17 +229,17 @@ def render(code: str, output_path: str):
                         )
                         
                         if correction_success and corrected_code != code:
-                            print(f"✅ AI provided corrected schemdraw code")
+                            print(f" AI provided corrected schemdraw code")
                             code = apply_schemdraw_fixes(corrected_code, output_path)
                             continue
                         else:
-                            print(f"❌ AI correction failed or provided same code")
+                            print(f" AI correction failed or provided same code")
                             
                     except Exception as ai_error:
-                        print(f"❌ AI correction failed: {ai_error}")
+                        print(f" AI correction failed: {ai_error}")
                 
                 # Progressive fallback fixes
-                print(f"🔄 Applying progressive schemdraw fixes (level {attempt + 1})...")
+                print(f" Applying progressive schemdraw fixes (level {attempt + 1})...")
                 try:
                     if attempt == 1:
                         # More aggressive element fixing
@@ -253,11 +253,11 @@ def render(code: str, output_path: str):
                     continue
                     
                 except Exception as fix_error:
-                    print(f"❌ Fix attempt failed: {fix_error}")
+                    print(f" Fix attempt failed: {fix_error}")
             
-    print(f"❌ All retry attempts failed for schemdraw diagram generation")
-    print(f"❌ Final error: {last_error}")
-    print(f"❌ Diagram generation failed - no misleading fallback will be generated")
+    print(f" All retry attempts failed for schemdraw diagram generation")
+    print(f" Final error: {last_error}")
+    print(f" Diagram generation failed - no misleading fallback will be generated")
     return None 
 
 def extract_context_from_code(code, key, default):
