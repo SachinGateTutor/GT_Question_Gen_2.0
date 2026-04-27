@@ -456,6 +456,9 @@ def generate():
         
             # Call OpenAI to get question and diagram code with library selection
             result = generate_mcq_and_diagram(data_for_openai)
+            if not result or result.get('error'):
+                generation_error = result.get('error') if isinstance(result, dict) else 'Unknown generation failure'
+                raise ValueError(generation_error)
         
             image_url = None
             option_images = []
@@ -2414,8 +2417,13 @@ def generate_single_question_endpoint():
         storage_result = net_backend_service.store_question(storage_data, auth_token=token, user_id=user_id)
         
         if not storage_result['success']:
-            safe_print(f"Warning: Failed to store question in .NET backend: {storage_result.get('error', 'Unknown error')}")
-            # Continue anyway as the question was generated successfully
+            storage_error = storage_result.get('error', 'Unknown storage error')
+            safe_print(f"Warning: Failed to store question in .NET backend: {storage_error}")
+            return jsonify({
+                "success": False,
+                "error_message": f"Question generated but storage failed: {storage_error}",
+                "data": response_data
+            }), 200
         else:
             # Extract jkuh and questionId from storage result and add to response data
             if storage_result.get('jkuh'):

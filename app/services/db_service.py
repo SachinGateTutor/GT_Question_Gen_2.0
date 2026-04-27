@@ -181,6 +181,7 @@ def insert_mcq_question(question_id, data):
     options = data.get('options') or []
     
     # Clean the correct answer to extract just the letter (A, B, C, D)
+    # Fail fast if mapping is ambiguous to avoid storing wrong answer metadata.
     correct_answer = data.get('correct_answer', '')
     if correct_answer:
         # First try to extract just the letter from answers like "A. Option A" or "A"
@@ -199,13 +200,16 @@ def insert_mcq_question(question_id, data):
                 if letter_match:
                     correct_answer = letter_match.group(1)
                 else:
-                    correct_answer = 'A'  # Default fallback
+                    print(" Error: Could not map correct_answer to A/B/C/D")
+                    return False
     else:
-        correct_answer = 'A'  # Default if no correct answer provided
+        print(" Error: Missing correct_answer")
+        return False
     
     # Ensure correct_answer is always A, B, C, or D
     if correct_answer not in ['A', 'B', 'C', 'D']:
-        correct_answer = 'A'
+        print(f" Error: Invalid normalized correct_answer '{correct_answer}'")
+        return False
     
     print(f" Debug: Final correct_answer: {correct_answer}")
     
