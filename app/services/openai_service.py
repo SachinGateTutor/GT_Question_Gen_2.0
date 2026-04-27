@@ -5,6 +5,7 @@ import re
 import json
 import time
 import uuid
+import random
 from dotenv import load_dotenv
 
 from safe_io import safe_print
@@ -145,14 +146,19 @@ def select_optimal_model(task_type, complexity_factors):
         complexity_score += 2
     
     # Decision Logic
-    if complexity_score >= 8:
+    # gpt-4o-mini is used for all question_generation tasks regardless of score
+    # to ensure factual accuracy. gpt-3.5-turbo is only kept for low-cost
+    # auxiliary tasks (library_selection, bloom_detection, retry_syntax).
+    if task_type == 'question_generation' or task_type == 'cdq_generation' or task_type == 'topic_analysis':
+        selected_model = "gpt-4o-mini"
+        reason = f"Factual accuracy required (score: {complexity_score}) - using gpt-4o-mini"
+    elif complexity_score >= 8:
         selected_model = "gpt-4o-mini"
         reason = f"High complexity task (score: {complexity_score}) - requires advanced reasoning"
     elif complexity_score >= 6:
         selected_model = "gpt-4o-mini"
         reason = f"Medium-high complexity (score: {complexity_score}) - benefits from advanced model"
     elif complexity_score >= 4:
-        # Use GPT-3.5-turbo but with higher temperature for creativity
         selected_model = "gpt-3.5-turbo"
         reason = f"Medium complexity (score: {complexity_score}) - balanced approach"
     else:
@@ -324,7 +330,7 @@ def generate_mcq_and_diagram(data):
                 response = client.chat.completions.create(
                     model=selected_model,
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7,
+                    temperature=0.3,
                     max_tokens=2000
                 )
                 
@@ -333,6 +339,31 @@ def generate_mcq_and_diagram(data):
                 safe_print("=== RAW OPENAI RESPONSE ===")
                 safe_print(response_text)
                 safe_print("===========================")
+
+                # Detect model self-correction: model realised its own options are wrong
+                # mid-response. Treat this as a bad generation and let the retry loop handle it.
+                _self_correction_signals = [
+                    "options provided do not include",
+                    "correct answer is not",
+                    "not in the options",
+                    "revise the options",
+                    "options should be",
+                    "correct the options",
+                    "none of the options",
+                    "no correct option",
+                    "options are incorrect",
+                    "answer is not listed",
+                    "answer is not among",
+                ]
+                _response_lower = response_text.lower()
+                _self_correction_found = next(
+                    (s for s in _self_correction_signals if s in _response_lower), None
+                )
+                if _self_correction_found:
+                    raise ValueError(
+                        f"Model self-corrected mid-response (detected: '{_self_correction_found}'). "
+                        f"Retrying generation (attempt {retry_count + 1}/{max_retries + 1})."
+                    )
                 
                 # Parse the response
                 parsed_result = parse_openai_response(response_text)
@@ -467,6 +498,11 @@ Generate ONLY the corrected diagram code without any explanation:
                                 # Set the problematic option code to None
                                 parsed_result['option_diagram_codes'][option] = None
                 
+                # Remove A-heavy bias: shuffle options and remap correct letter + option diagram keys
+                parsed_result = apply_mcq_option_shuffle(parsed_result)
+                if parsed_result.get('error'):
+                    return parsed_result
+                
                 # Auto-detect Bloom level if requested
                 bloom_level_id = data.get('bloom_level_id')
                 if bloom_level_id == 'auto' or bloom_level_id == 'auto_detect':
@@ -491,25 +527,12 @@ Generate ONLY the corrected diagram code without any explanation:
                     safe_print(" OpenAI API quota exceeded - switching to fallback mode")
                     return {
                         'error': 'OpenAI API quota exceeded',
-                        'question_text': f'Sample question for {subject} - {topic}',
-                        'options': [
-                            f'Option A for {topic}',
-                            f'Option B for {topic}', 
-                            f'Option C for {topic}',
-                            f'Option D for {topic}'
-                        ],
-                        'correct_answer': 'A',
-                        'explanation': 'This is a fallback question generated due to API quota limits.',
                         'fallback_mode': True
                     }
                 elif "Error code: 401" in error_str:
                     safe_print(" OpenAI API authentication failed")
                     return {
                         'error': 'OpenAI API authentication failed',
-                        'question_text': 'Authentication Error',
-                        'options': ['Please check API key', 'Invalid credentials', 'Access denied', 'Contact administrator'],
-                        'correct_answer': 'A',
-                        'explanation': 'OpenAI API authentication failed. Please check the API key.',
                         'auth_error': True
                     }
                 
@@ -526,11 +549,7 @@ Generate ONLY the corrected diagram code without any explanation:
                 else:
                     safe_print(" Debug: Max retries reached, returning error")
                     return {
-                        'error': f'Failed to generate question after {max_retries} retries: {str(e)}',
-                        'question_text': 'Error generating question',
-                        'options': ['Error', 'Error', 'Error', 'Error'],
-                        'correct_answer': 'A',
-                        'explanation': 'An error occurred during question generation.'
+                        'error': f'Failed to generate question after {max_retries} retries: {str(e)}'
                     }
         
     except Exception as e:
@@ -538,11 +557,7 @@ Generate ONLY the corrected diagram code without any explanation:
         import traceback
         traceback.print_exc()
         return {
-            'error': f'Critical error: {str(e)}',
-            'question_text': 'Error generating question',
-            'options': ['Error', 'Error', 'Error', 'Error'],
-            'correct_answer': 'A',
-            'explanation': 'A critical error occurred during question generation.'
+            'error': f'Critical error: {str(e)}'
         }
 
 def wrap_math_latex(text):
@@ -1757,6 +1772,187 @@ def is_diagram_generation_code(code_snippet):
     
     return is_diagram
 
+
+def resolve_correct_option_index(options: list, correct_answer: str):
+    """
+    Map AI 'Answer:' text to index 0-3. Returns None if unambiguous mapping is not possible.
+    Logic aligned with net_backend_service._convert_answer_to_option_letter.
+    """
+    if not correct_answer or not options or len(options) < 4:
+        return None
+    clean = correct_answer.strip().upper()
+    if clean in ("A", "B", "C", "D"):
+        return ord(clean[0]) - ord("A")
+    if len(clean) >= 1 and clean[0] in "ABCD":
+        return ord(clean[0]) - ord("A")
+    for i, option in enumerate(options[:4]):
+        if option and option.strip().upper() == clean:
+            return i
+    for i, option in enumerate(options[:4]):
+        if option and clean in option.strip().upper():
+            return i
+    for i, option in enumerate(options[:4]):
+        if option and option.strip().upper() in clean:
+            return i
+    return None
+
+
+def _rewrite_explanation_letters(explanation: str, old_to_new: dict) -> str:
+    """
+    Replace option-letter references in explanation text using old->new letter map.
+    Only rewrites letters that appear in a clear option-reference context so that
+    bare letters inside equations, code, or words are not touched.
+    old_to_new: e.g. {'A': 'C', 'B': 'A', 'C': 'D', 'D': 'B'}
+
+    Uses capture groups (group 1 = context prefix, group 2 = the letter) so that
+    Python's fixed-width lookbehind restriction is avoided.
+    """
+    if not explanation or not old_to_new:
+        return explanation
+
+    # Each pattern captures (prefix_context, letter).  We replace only group 2.
+    # Patterns cover: "option A", "answer A", "answer is A", "choice A",
+    #                 "therefore A", "hence A", "A is correct", "A is the correct"
+    context_patterns = [
+        r'(?i)(\b(?:option|answer|choice)\s+)([A-D])\b',
+        r'(?i)(\banswer\s+is\s+)([A-D])\b',
+        r'(?i)(\b(?:therefore|hence)\s+)([A-D])\b',
+        r'(?i)\b([A-D])(\s+is\s+(?:the\s+)?correct\b)',
+    ]
+
+    # Use placeholder tokens so we never double-replace a letter that was already mapped.
+    placeholders = {letter: f'\x00{i}\x00' for i, letter in enumerate('ABCD')}
+    reverse_placeholders = {v: letter for letter, v in placeholders.items()}
+
+    result = explanation
+    for pattern in context_patterns:
+        def _replace(m, _p=pattern):
+            # Determine which group holds the letter
+            # For the last pattern, letter is group 1 and suffix is group 2
+            if _p == r'(?i)\b([A-D])(\s+is\s+(?:the\s+)?correct\b)':
+                letter = m.group(1).upper()
+                new_letter = old_to_new.get(letter, letter)
+                return placeholders[new_letter] + m.group(2)
+            else:
+                prefix = m.group(1)
+                letter = m.group(2).upper()
+                new_letter = old_to_new.get(letter, letter)
+                return prefix + placeholders[new_letter]
+        result = re.sub(pattern, _replace, result)
+
+    # Restore placeholders to actual new letters
+    for placeholder, new_letter in reverse_placeholders.items():
+        result = result.replace(placeholder, new_letter)
+
+    return result
+
+
+def apply_mcq_option_shuffle(parsed_result: dict) -> dict:
+    """
+    Randomize option order to remove model bias toward correct answer in position A.
+    Remaps correct_answer to A/B/C/D, rekeys option_diagram_codes, and rewrites
+    option-letter references in the explanation to match new positions.
+    Skips when result already has an error or options are not exactly four.
+    """
+    if parsed_result.get("error"):
+        return parsed_result
+    options = parsed_result.get("options") or []
+    if len(options) != 4:
+        safe_print(" Debug: Option shuffle skipped: need exactly 4 options")
+        return parsed_result
+    ca = parsed_result.get("correct_answer", "")
+    idx = resolve_correct_option_index(options, ca)
+    if idx is None:
+        safe_print(" Debug: Option shuffle failed: could not resolve correct option index")
+        return {
+            **parsed_result,
+            "error": "Could not resolve correct answer for option shuffle",
+        }
+    perm = [0, 1, 2, 3]
+    random.shuffle(perm)
+    new_options = [options[perm[j]] for j in range(4)]
+    new_idx = next(j for j in range(4) if perm[j] == idx)
+    new_letter = chr(ord("A") + new_idx)
+    odc = parsed_result.get("option_diagram_codes") or {}
+    new_odc = {}
+    # Build old->new letter map from the permutation (inverse: new position j holds old index perm[j])
+    old_to_new = {}
+    for j in range(4):
+        old_i = perm[j]
+        old_key = chr(ord("A") + old_i)
+        new_key = chr(ord("A") + j)
+        new_odc[new_key] = odc.get(old_key)
+        old_to_new[old_key] = new_key
+    safe_print(
+        f" Debug: Option shuffle: old_correct_index={idx} -> new_index={new_idx} "
+        f"letter={new_letter} perm={perm} letter_map={old_to_new}"
+    )
+    # Rewrite explanation so it references new option letters instead of pre-shuffle ones
+    explanation = parsed_result.get("explanation", "")
+    rewritten_explanation = _rewrite_explanation_letters(explanation, old_to_new)
+    if rewritten_explanation != explanation:
+        safe_print(" Debug: Explanation letter references rewritten after shuffle")
+    return {
+        **parsed_result,
+        "options": new_options,
+        "correct_answer": new_letter,
+        "option_diagram_codes": new_odc,
+        "explanation": rewritten_explanation,
+    }
+
+
+def check_answer_explanation_consistency(correct_answer_letter: str, explanation: str) -> str | None:
+    """
+    Scan explanation for strong letter-reference signals and return an error string
+    if a different letter is clearly dominant compared to the parsed Answer: letter.
+    Returns None when consistent (or when evidence is too weak to decide).
+
+    Deliberately conservative: only fires when another letter has 2+ clear references
+    AND the parsed letter has zero references, to avoid false positives on explanations
+    that legitimately describe why wrong options are incorrect.
+    """
+    if not correct_answer_letter or not explanation:
+        return None
+    parsed_letter = correct_answer_letter.strip().upper()
+    if parsed_letter not in "ABCD":
+        return None
+
+    # Patterns that are strong signals of the correct-answer letter in an explanation
+    signal_patterns = [
+        r'\boption\s+([A-D])\b',
+        r'\banswer\s+(?:is\s+)?([A-D])\b',
+        r'\bchoice\s+([A-D])\b',
+        r'\b([A-D])\s+is\s+(?:the\s+)?correct\b',
+        r'\btherefore\s+([A-D])\b',
+        r'\bhence\s+([A-D])\b',
+    ]
+
+    from collections import Counter
+    letter_counts: Counter = Counter()
+    for pattern in signal_patterns:
+        for m in re.finditer(pattern, explanation, re.IGNORECASE):
+            letter_counts[m.group(1).upper()] += 1
+
+    if not letter_counts:
+        return None  # No letter signals found — cannot judge
+
+    dominant_letter = letter_counts.most_common(1)[0][0]
+    dominant_count = letter_counts[dominant_letter]
+    parsed_count = letter_counts.get(parsed_letter, 0)
+
+    # Only flag when: dominant OTHER letter has 2+ hits AND parsed letter has 0 hits
+    if dominant_letter != parsed_letter and dominant_count >= 2 and parsed_count == 0:
+        safe_print(
+            f" Debug: Answer-explanation mismatch: Answer={parsed_letter} "
+            f"but explanation references {dominant_letter} x{dominant_count}"
+        )
+        return (
+            f"answer-explanation mismatch: Answer says {parsed_letter} "
+            f"but explanation references {dominant_letter} ({dominant_count} times)"
+        )
+    return None
+
+
 def parse_openai_response(response_text):
     """Parse the OpenAI response to extract question components"""
     safe_print(" Debug: Parsing OpenAI response...")
@@ -2060,14 +2256,44 @@ def parse_openai_response(response_text):
             safe_print(" Debug: No options parsed, using default option labels")
             options = ['Option A', 'Option B', 'Option C', 'Option D']
         
-        # If no correct answer found, default to A
+        # If no correct answer found, return parsing error instead of defaulting
         if not correct_answer:
-            safe_print(" Debug: No correct answer found, defaulting to A")
-            correct_answer = 'A'
+            safe_print(" Debug: No correct answer found in AI response")
+            return {
+                'error': 'Failed to parse correct answer from AI response',
+                'question_text': question_text,
+                'options': options,
+                'correct_answer': '',
+                'explanation': explanation,
+                'diagram_code': diagram_code,
+                'library_used': library_used if library_used else 'schemdraw',
+                'option_diagram_codes': option_diagram_codes,
+                'code_snippet': code_snippet
+            }
         
         # If no library specified, default to schemdraw
         if not library_used:
             library_used = 'schemdraw'
+
+        # Resolve Answer: letter before consistency check (handles "A. text" form)
+        resolved_letter = correct_answer.strip().upper()
+        if len(resolved_letter) >= 1 and resolved_letter[0] in "ABCD":
+            resolved_letter = resolved_letter[0]
+
+        # Reject responses where explanation clearly contradicts the Answer: letter
+        consistency_error = check_answer_explanation_consistency(resolved_letter, explanation)
+        if consistency_error:
+            return {
+                'error': consistency_error,
+                'question_text': question_text,
+                'options': options,
+                'correct_answer': correct_answer,
+                'explanation': explanation,
+                'diagram_code': diagram_code,
+                'library_used': library_used,
+                'option_diagram_codes': option_diagram_codes,
+                'code_snippet': code_snippet
+            }
         
         safe_print(f" Debug: Parsed question_text: {question_text}")
         safe_print(f" Debug: Parsed options: {options}")
@@ -2090,10 +2316,11 @@ def parse_openai_response(response_text):
     except Exception as e:
         safe_print(f" Debug: Error parsing response: {str(e)}")
         return {
-            'question_text': 'Error parsing question',
-            'options': ['Option A', 'Option B', 'Option C', 'Option D'],
-            'correct_answer': 'A',
-            'explanation': 'Error parsing explanation',
+            'error': f'Error parsing response: {str(e)}',
+            'question_text': '',
+            'options': [],
+            'correct_answer': '',
+            'explanation': '',
             'diagram_code': None,
             'library_used': 'schemdraw',
             'option_diagram_codes': {},

@@ -211,6 +211,12 @@ class NetBackendService:
                 question_data.get('correct_answer', ''),
                 question_data.get('options', [])
             )
+            if not correct_option:
+                return {
+                    'success': False,
+                    'error': "Could not determine correct answer option (A/B/C/D) from AI response.",
+                    'error_type': 'answer_mapping_failed'
+                }
             
             # Check if question has images
             diagram_image_url = question_data.get('diagram_image_url')
@@ -369,11 +375,11 @@ class NetBackendService:
             logger.error(f"Error storing explanation: {str(e)}")
             return False
     
-    def _convert_answer_to_option_letter(self, correct_answer: str, options: list) -> str:
+    def _convert_answer_to_option_letter(self, correct_answer: str, options: list) -> Optional[str]:
         """Convert the correct answer text to option letter (A, B, C, D)"""
         if not correct_answer or not options:
             logger.warning(f"Missing correct_answer or options. correct_answer: {correct_answer}, options: {options}")
-            return 'A'  # Default fallback
+            return None
         
         # Clean the answer text (remove LaTeX, extra spaces, etc.)
         clean_answer = correct_answer.strip().upper()
@@ -410,9 +416,9 @@ class NetBackendService:
                 logger.info(f"Found reverse partial match for answer text at index {i}: {letter}")
                 return letter
         
-        # If still no match, log error and return first option as fallback
-        logger.error(f" CRITICAL: Could not match correct answer '{correct_answer}' to any option. Options: {options}. Defaulting to 'A' - THIS WILL STORE WRONG ANSWER!")
-        return 'A'
+        # If still no match, fail fast to avoid storing incorrect answer metadata
+        logger.error(f"CRITICAL: Could not match correct answer '{correct_answer}' to any option. Options: {options}.")
+        return None
     
     def get_generation_status(self, generation_id: str) -> Dict[str, Any]:
         """Get generation status from .NET backend"""
