@@ -1113,6 +1113,93 @@ CRITICAL RULES:
     
     return prompt
 
+def get_topic_specific_diagram_guidance(topic: str, subject: str) -> str:
+    """Return topic-aware diagram requirements so diagrams are educationally meaningful."""
+    t = topic.lower()
+    s = subject.lower()
+
+    # Computer Networks / Subnetting / IP Addressing
+    if any(k in t or k in s for k in ['subnet', 'network', 'ip address', 'routing', 'topology', 'protocol', 'lan', 'wan', 'tcp', 'udp', 'osi', 'dns', 'dhcp']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Computer Networks):
+- Every subnet/host node MUST show its IP address or CIDR range (e.g., "192.168.1.0/24")
+- Include at least one Router or Gateway node clearly labelled as "Router" or with its IP
+- Edge labels must describe the link property: bandwidth (e.g., "100 Mbps"), link type ("Ethernet", "WAN", "Fiber"), or protocol
+- Do NOT label edges with style names like 'dashed' or 'solid' — those are visual hints only
+- Use shapes purposefully: diamond for router/gateway, box for subnet/host, ellipse for cloud/internet
+- If showing routing tables or paths, annotate the edges with next-hop IPs or metric costs"""
+
+    # Sorting / Searching Algorithms
+    if any(k in t for k in ['sort', 'search', 'binary search', 'bubble', 'merge', 'quick', 'heap sort', 'insertion', 'selection']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Sorting / Searching Algorithms):
+- Nodes must contain ACTUAL numeric values or array elements, not placeholders like "Node A"
+- Show the algorithm state at a specific step (e.g., array before/after a swap, pivot element highlighted)
+- Edges must indicate the operation happening (e.g., "swap", "compare", "recurse left")
+- Highlight the element being processed with a distinct colour (e.g., fillcolor='yellow')
+- Include step annotations (e.g., "Step 3: Pivot = 5, Left partition: [2,3], Right: [7,9]")"""
+
+    # Trees (BST, AVL, Heap, Trie, etc.)
+    if any(k in t for k in ['tree', 'bst', 'avl', 'heap', 'trie', 'b-tree', 'binary tree', 'red-black']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Tree Data Structures):
+- Nodes must contain ACTUAL key values (e.g., 15, 30, 45) — not "Node A" or "Root"
+- Show the complete structural property: BST ordering, heap property (parent ≤ or ≥ children), AVL balance factors
+- Label edges with the relationship: "left child", "right child", or the path value
+- Use different fill colours for different levels or node types (root, internal, leaf)
+- Include a small legend or title explaining what property the diagram demonstrates"""
+
+    # Graph Algorithms (Dijkstra, BFS, DFS, MST)
+    if any(k in t for k in ['graph', 'dijkstra', 'bellman', 'floyd', 'bfs', 'dfs', 'traversal', 'mst', 'kruskal', 'prim', 'topological']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Graph Algorithms):
+- Nodes must be labelled with vertex names/IDs (A, B, C or 1, 2, 3)
+- Edges MUST show weights or costs as their label (e.g., "4", "12", "0.5") where relevant
+- Highlight the path or visited nodes being discussed with distinct colours
+- For traversal questions, show the discovery order (e.g., "visited: 1" inside the node)
+- For MST questions, distinguish tree edges (bold/coloured) from non-tree edges (grey/dashed)"""
+
+    # Digital Logic / Circuits
+    if any(k in t or k in s for k in ['logic', 'gate', 'circuit', 'boolean', 'flip-flop', 'register', 'mux', 'encoder', 'decoder', 'adder', 'electrical', 'electronics']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Digital Logic / Circuits):
+- Show the actual gate type or component clearly labelled (AND, OR, NOT, XOR, MUX, etc.)
+- Input/output lines must carry their signal values (0 or 1) or variable names (A, B, Y)
+- For truth-table-related questions, include the input combination being evaluated
+- Edges (wires) should be labelled with signal names or values, not with style names
+- Use shapes that correspond to the component: hexagon for gates, box for registers"""
+
+    # Stacks, Queues, Linked Lists
+    if any(k in t for k in ['stack', 'queue', 'linked list', 'deque', 'circular']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Linear Data Structures):
+- Nodes must show ACTUAL data values (e.g., 10, 20, 30) — not generic "Element A"
+- Show structural pointers explicitly: TOP/FRONT/REAR markers with arrows
+- For linked lists, show the 'next' pointer as an edge labelled "next"
+- Indicate NULL / None termination at the end of the list
+- For queue operations, show enqueue/dequeue positions with labels"""
+
+    # Operating Systems
+    if any(k in t or k in s for k in ['process', 'thread', 'scheduling', 'deadlock', 'memory', 'page', 'os', 'operating system', 'semaphore', 'mutex', 'ipc']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Operating Systems):
+- State diagrams must label each state clearly (Ready, Running, Waiting, Terminated)
+- Transition edges must carry the event name (e.g., "I/O request", "scheduler picks", "I/O done")
+- For memory diagrams, show actual address ranges and segment names (Code, Stack, Heap)
+- For deadlock scenarios, label resource nodes with their resource name and process nodes with PID
+- Do NOT use generic edge labels like 'dashed' — always describe what the transition means"""
+
+    # Database / SQL / Relational
+    if any(k in t or k in s for k in ['database', 'sql', 'relational', 'er diagram', 'normalization', 'index', 'query', 'table', 'join']):
+        return """TOPIC-SPECIFIC DIAGRAM RULES (Databases):
+- ER diagram entities must be labelled with their table/entity name and key attributes
+- Relationship edges must carry the cardinality notation (1:1, 1:N, M:N) as the label
+- For query execution plans, label each node with the operation (Seq Scan, Hash Join, Sort)
+- For index structures (B-Tree), show actual key values in nodes
+- Do NOT use style names as labels — always use relationship names or cardinality"""
+
+    # Default guidance for all other topics
+    return """TOPIC-SPECIFIC DIAGRAM RULES (General):
+- Every node label must be meaningful and directly related to the question topic — no placeholders like "Node A" or "Element 1"
+- Every edge label must describe the RELATIONSHIP or MEANING of the connection (e.g., "calls", "inherits", "produces", "100ms latency")
+- Do NOT use the edge style name ('solid', 'dashed', 'dotted') as the edge label — those are visual decorators only
+- Include a title or annotation in the diagram that anchors it to the specific concept being tested
+- Use colour purposefully: highlight the key element the question asks about"""
+
+
 def generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt):
     """Generate a prompt for diagram-based questions with enhanced visual diversity"""
     
@@ -1373,14 +1460,21 @@ CRITICAL CODE STRUCTURE FOR GRAPHVIZ:
 - CRITICAL: DO NOT include Python class definitions, methods, or print statements
 - CRITICAL: Generate ONLY dot.node() and dot.edge() calls
 - Add at least 4 nodes with different shapes: 'box', 'circle', 'ellipse', 'diamond', 'triangle', 'hexagon', 'octagon'
-- Add at least 4 edges with different styles: 'solid', 'dashed', 'dotted', 'bold'
+- Add at least 4 edges with different visual styles using the 'style' attribute: 'solid', 'dashed', 'dotted', 'bold'
 - Use different colors for nodes and edges
-- Add labels to nodes and edges
+- CRITICAL LABEL RULE: Edge 'label' must describe the RELATIONSHIP or MEANING (e.g., "sends data", "inherits", "10 Mbps"), NOT the line style.
+  WRONG: dot.edge('A', 'B', label='dashed')   # BAD - label copies the style name
+  WRONG: dot.edge('A', 'B', label='solid')    # BAD - label copies the style name
+  RIGHT: dot.edge('A', 'B', label='10 Mbps', style='dashed')   # GOOD
+  RIGHT: dot.edge('A', 'B', label='inherits', style='solid')   # GOOD
+- Node labels must contain meaningful content (e.g., IP address, actual value, concept name) NOT generic placeholders
 - Use: dot.render('diagram', format='png', cleanup=True)
 - Example structure:
-  dot.node('A', 'Start', shape='ellipse', fillcolor='lightgreen', style='filled')
-  dot.node('B', 'Process', shape='box', fillcolor='lightblue', style='filled')
-  dot.edge('A', 'B', label='to process', color='red', style='dashed')
+  dot.node('R', '192.168.1.1\\n(Router)', shape='diamond', fillcolor='lightyellow', style='filled')
+  dot.node('A', '192.168.1.0/24\\nSubnet A', shape='box', fillcolor='lightblue', style='filled')
+  dot.node('B', '10.0.0.0/24\\nSubnet B', shape='box', fillcolor='lightgreen', style='filled')
+  dot.edge('R', 'A', label='LAN / 100 Mbps', color='blue', style='solid')
+  dot.edge('R', 'B', label='WAN / 1 Mbps', color='red', style='dashed')
 """,
         'networkx': """
 CRITICAL CODE STRUCTURE FOR NETWORKX:
@@ -1440,7 +1534,8 @@ CRITICAL CODE STRUCTURE FOR TURTLE:
     }
     
     code_requirements = code_structure_requirements.get(library_name, code_structure_requirements['graphviz'])
-    
+    topic_diagram_guidance = get_topic_specific_diagram_guidance(topic, subject)
+
     # Conditional diagram instructions based on requirements
     if requires_option_diagrams:
         diagram_instruction = f"""
@@ -1455,6 +1550,8 @@ Generate a {question_type} question for the topic '{topic}' in the subject '{sub
 
 {diagram_instruction}
 {option_diagram_instructions}
+
+{topic_diagram_guidance}
 
 CRITICAL DIVERSITY REQUIREMENTS:
 1. **Use this specific template**: "{selected_template}"
