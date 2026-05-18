@@ -59,7 +59,7 @@ def select_optimal_model(task_type, complexity_factors):
     complexity_score += task_complexity.get(task_type, 2)
     
     # Factor 2: Subject Complexity
-    subject = complexity_factors.get('subject', '').lower()
+    subject = str(complexity_factors.get('subject', '') or '').lower()
     subject_complexity = {
         'machine learning': 4,
         'artificial intelligence': 4,
@@ -83,7 +83,7 @@ def select_optimal_model(task_type, complexity_factors):
             break
     
     # Factor 3: Topic Complexity
-    topic = complexity_factors.get('topic', '').lower()
+    topic = str(complexity_factors.get('topic', '') or '').lower()
     topic_complexity = {
         'neural networks': 4,
         'deep learning': 4,
@@ -132,7 +132,7 @@ def select_optimal_model(task_type, complexity_factors):
         complexity_score += 3
     
     # Factor 6: Custom Prompt Complexity
-    custom_prompt = complexity_factors.get('custom_prompt', '')
+    custom_prompt = str(complexity_factors.get('custom_prompt', '') or '')
     if custom_prompt and len(custom_prompt) > 100:
         complexity_score += 1
     if custom_prompt and any(keyword in custom_prompt.lower() for keyword in ['complex', 'advanced', 'detailed', 'comprehensive']):
@@ -290,6 +290,12 @@ def generate_mcq_and_diagram(data):
         is_programming_question = data.get('is_programming_question', False)
         custom_prompt = data.get('custom_prompt', '')
         
+        # Force all values to be string to prevent type errors (e.g. if they are integer IDs due to DB fallback)
+        stream = str(stream or 'CS')
+        subject = str(subject or 'Computer Science')
+        topic = str(topic or 'Programming')
+        custom_prompt = str(custom_prompt or '')
+
         safe_print(f" Debug: Parsed values - stream: {stream}, subject: {subject}, topic: {topic}")
         safe_print(f" Debug: question_type: {question_type}, requires_diagram: {requires_diagram}, requires_option_diagrams: {requires_option_diagrams}")
         
