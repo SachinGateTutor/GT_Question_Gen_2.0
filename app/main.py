@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import Optional, Tuple
 from flask import Flask, request, jsonify, send_from_directory, abort
 from dotenv import load_dotenv
+import jwt
+from functools import wraps
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -110,6 +113,19 @@ swagger_template = {
             "name": "Status & Health",
             "description": "Health check and status endpoints"
         }
+    ],
+    "securityDefinitions": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT Authorization header using the Bearer scheme. Enter 'Bearer ' followed by your token in the text input below. Example: 'Bearer eyJhbGciOi...'"
+        }
+    },
+    "security": [
+        {
+            "Bearer": []
+        }
     ]
 }
 
@@ -175,6 +191,56 @@ def extract_stream_id_from_token(token: str) -> Optional[int]:
             except (TypeError, ValueError):
                 return None
     return None
+
+
+def verify_jwt_signature(token: str) -> Optional[dict]:
+    """
+    Cryptographically verify the JWT token signature and expiration using PyJWT.
+    Returns the decoded payload if valid, otherwise None.
+    """
+    try:
+        if token.startswith('Bearer '):
+            token = token[7:]
+            
+        # Get the secret key (fallback to SECRET_KEY if JWT_SECRET is not explicitly set)
+        secret = os.getenv('JWT_SECRET') or os.getenv('SECRET_KEY', 'your_secret_key_here_change_this_in_production')
+        
+        # Decode and verify the token signature and expiration
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        print("[SECURITY WARNING] JWT Token has expired.")
+        return None
+    except jwt.InvalidTokenError as e:
+        print(f"[SECURITY WARNING] Invalid JWT Signature/Token: {e}")
+        return None
+    except Exception as e:
+        print(f"Error during cryptographic verification: {e}")
+        return None
+
+def token_required(f):
+    """Decorator to enforce cryptographically verified JWT token authentication."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        
+        if not token:
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized: Authorization token is missing.'
+            }), 401
+            
+        payload = verify_jwt_signature(token)
+        if not payload:
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized: Invalid, expired, or tampered token.'
+            }), 401
+            
+        # Inject user_id into request context
+        request.user_id = payload.get('sub')
+        return f(*args, **kwargs)
+    return decorated
 
 
 def get_request_flag_and_group(data: dict) -> Tuple[bool, Optional[int]]:
@@ -300,6 +366,10 @@ def serve_static(filename):
     if any(filename == ex or filename.startswith(ex + '/') for ex in excluded):
         abort(404)
     
+    # Block hidden files and directories (dotfiles like .env)
+    if filename.startswith('.') or '/.' in filename or '\\.' in filename:
+        abort(404)
+        
     # Check if it's an image file in static/images
     if filename.startswith('static/images/'):
         # Serve from app directory (images are in app/static/images/)
@@ -309,6 +379,7 @@ def serve_static(filename):
         return send_from_directory('..', filename)
 
 @app.route('/api/generate', methods=['POST'])
+@token_required
 def generate():
     """
     Generate MCQ questions with optional diagrams
@@ -440,6 +511,48 @@ def generate():
             if top['TopicID'] == topic_id:
                 topic_name = top['TopicName']
                 break
+
+    # If DB lookup failed/disabled, try getting names from .NET Backend service
+    if not subject_name or not topic_name:
+        auth_header = request.headers.get('Authorization')
+        token = None
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(" ")[1]
+        
+        is_aptitude = data.get('isAptitude', False)
+        group_id = data.get('groupId') or data.get('group_id')
+        
+        from services.net_backend_service import net_backend_service
+        
+        if not subject_name and subject_id:
+            try:
+                subject_res = net_backend_service.get_subject_by_id(
+                    subject_id=subject_id,
+                    auth_token=token,
+                    is_aptitude=is_aptitude,
+                    group_id=group_id
+                )
+                if subject_res.get('success'):
+                    subject_name = subject_res.get('subject_name')
+                    print(f"[OK] Dynamically fetched subject name from .NET backend: {subject_name}")
+            except Exception as e:
+                print(f"[WARN] Failed to get subject name from .NET backend: {e}")
+                
+        if not topic_name and topic_id and subject_id:
+            try:
+                topic_res = net_backend_service.get_topic_by_id(
+                    topic_id=topic_id,
+                    subject_id=subject_id,
+                    auth_token=token,
+                    is_aptitude=is_aptitude,
+                    group_id=group_id
+                )
+                if topic_res.get('success'):
+                    topic_name = topic_res.get('topic_name')
+                    print(f"[OK] Dynamically fetched topic name from .NET backend: {topic_name}")
+            except Exception as e:
+                print(f"[WARN] Failed to get topic name from .NET backend: {e}")
+
     # Fallback to IDs if names not found
     subject_for_prompt = subject_name if subject_name else subject_id
     topic_for_prompt = topic_name if topic_name else topic_id
@@ -672,6 +785,7 @@ def generate():
 
 # CDQ API Endpoint
 @app.route('/api/generate_cdq', methods=['POST'])
+@token_required
 def generate_cdq():
     """
     Generate CDQ (Context Dependent Question) with diagram
@@ -876,6 +990,7 @@ def generate_cdq():
 
 # API endpoints for dropdown data
 @app.route('/api/courses', methods=['GET'])
+@token_required
 def get_courses_api():
     """
     Get all active courses
@@ -908,6 +1023,7 @@ def get_courses_api():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/streams/<int:course_id>', methods=['GET'])
+@token_required
 def get_streams_api(course_id):
     """
     Get streams by course ID
@@ -940,6 +1056,7 @@ def get_streams_api(course_id):
     return jsonify(streams)
 
 @app.route('/api/subjects', methods=['GET'])
+@token_required
 def get_subjects_api():
     """
     Get subjects
@@ -976,6 +1093,7 @@ def get_subjects_api():
     return jsonify(subjects)
 
 @app.route('/api/topics/<int:subject_id>', methods=['GET'])
+@token_required
 def get_topics_api(subject_id):
     """
     Get topics for a specific subject
@@ -1010,6 +1128,7 @@ def get_topics_api(subject_id):
     return jsonify(topics)
 
 @app.route('/api/reference/<table_name>', methods=['GET'])
+@token_required
 def get_reference_api(table_name):
     """
     Get reference data for dropdowns
@@ -1043,6 +1162,7 @@ def get_reference_api(table_name):
 
 # API endpoints for question management
 @app.route('/api/questions', methods=['GET'])
+@token_required
 def get_questions_api():
     """
     Get all questions with optional filters
@@ -1105,6 +1225,7 @@ def get_questions_api():
     return jsonify(questions)
 
 @app.route('/api/questions/<int:question_id>/status', methods=['POST'])
+@token_required
 def update_question_status_api(question_id):
     """
     Update question status
@@ -1155,6 +1276,7 @@ def update_question_status_api(question_id):
     return jsonify({'success': success})
 
 @app.route('/api/explain-question', methods=['POST'])
+@token_required
 def explain_question_api():
     """
     Generate AI explanation for a question
@@ -1239,6 +1361,7 @@ def explain_question_api():
 # --- Admin API Endpoints ---
 # Course
 @app.route('/api/admin/courses', methods=['GET', 'POST'])
+@token_required
 def admin_courses():
     """
     Admin: Manage courses
@@ -1274,6 +1397,7 @@ def admin_courses():
     return abort(405)
 
 @app.route('/api/admin/courses/<int:course_id>', methods=['PUT', 'DELETE'])
+@token_required
 def admin_course_modify(course_id):
     """
     Admin: Update or delete course
@@ -1315,6 +1439,7 @@ def admin_course_modify(course_id):
 
 # Stream
 @app.route('/api/admin/streams', methods=['GET', 'POST'])
+@token_required
 def admin_streams():
     if request.method == 'GET':
         return jsonify(get_all_streams())
@@ -1325,6 +1450,7 @@ def admin_streams():
     return abort(405)
 
 @app.route('/api/admin/streams/<int:stream_id>', methods=['PUT', 'DELETE'])
+@token_required
 def admin_stream_modify(stream_id):
     data = request.get_json()
     if request.method == 'PUT':
@@ -1337,6 +1463,7 @@ def admin_stream_modify(stream_id):
 
 # Subject
 @app.route('/api/admin/subjects', methods=['GET', 'POST'])
+@token_required
 def admin_subjects():
     if request.method == 'GET':
         return jsonify(get_all_subjects())
@@ -1347,6 +1474,7 @@ def admin_subjects():
     return abort(405)
 
 @app.route('/api/admin/subjects/<int:subject_id>', methods=['PUT', 'DELETE'])
+@token_required
 def admin_subject_modify(subject_id):
     data = request.get_json()
     if request.method == 'PUT':
@@ -1359,6 +1487,7 @@ def admin_subject_modify(subject_id):
 
 # Topic
 @app.route('/api/admin/topics', methods=['GET', 'POST'])
+@token_required
 def admin_topics():
     if request.method == 'GET':
         return jsonify(get_all_topics())
@@ -1370,6 +1499,7 @@ def admin_topics():
     return abort(405)
 
 @app.route('/api/admin/topics/<int:topic_id>', methods=['PUT', 'DELETE'])
+@token_required
 def admin_topic_modify(topic_id):
     data = request.get_json()
     if request.method == 'PUT':
@@ -1383,6 +1513,7 @@ def admin_topic_modify(topic_id):
 
 # Random Question Generation Endpoints
 @app.route('/api/analyze-topic', methods=['POST'])
+@token_required
 def analyze_topic():
     """
     Analyze topic and return AI recommendations
@@ -1578,6 +1709,7 @@ def analyze_topic():
         }), 500
 
 @app.route('/api/generate-random', methods=['POST'])
+@token_required
 def generate_random_questions():
     """
     Generate random questions with real-time progress
@@ -1696,6 +1828,7 @@ def generate_random_questions():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/generation-progress/<generation_id>')
+@token_required
 def get_generation_progress(generation_id):
     """
     Get generation progress
@@ -1746,6 +1879,7 @@ def get_generation_progress(generation_id):
         return jsonify({'success': False, 'error': 'Generation not found'}), 404
 
 @app.route('/api/stop-generation/<generation_id>', methods=['POST'])
+@token_required
 def stop_generation(generation_id):
     """
     Stop question generation
@@ -2165,6 +2299,7 @@ def health_check():
         }), 500
 
 @app.route('/api/generate-question', methods=['POST'])
+@token_required
 def generate_single_question_endpoint():
     """
     Generate single question for .NET backend
@@ -2449,6 +2584,7 @@ def generate_single_question_endpoint():
         }), 500
 
 @app.route('/api/generation-status/<generation_id>', methods=['GET'])
+@token_required
 def get_generation_status(generation_id):
     """
     Get generation status from .NET backend
