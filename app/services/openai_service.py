@@ -2930,15 +2930,22 @@ def ai_analyze_topic(topic_info, question_type):
         }
         selected_model, model_reason = select_optimal_model('topic_analysis', complexity_factors)
         
-        response = client.chat.completions.create(
-            model=selected_model,
-            messages=[{"role": "user", "content": analysis_prompt}],
-            temperature=0.3,
-            max_tokens=500
-        )
-        
-        result = json.loads(response.choices[0].message.content)
-        
+        create_kwargs = {
+            "model": selected_model,
+            "messages": [{"role": "user", "content": analysis_prompt}],
+            "temperature": 0.3,
+            "max_tokens": 500,
+        }
+        try:
+            create_kwargs["response_format"] = {"type": "json_object"}
+            response = client.chat.completions.create(**create_kwargs)
+        except Exception:
+            create_kwargs.pop("response_format", None)
+            response = client.chat.completions.create(**create_kwargs)
+
+        raw_content = (response.choices[0].message.content or "").strip()
+        result = _parse_ai_json_object(raw_content)
+
         # Validate the response
         required_keys = ['total_questions', 'diagram_questions', 'option_diagram_questions', 'text_only_questions', 'code_questions']
         if not all(key in result for key in required_keys):
@@ -2949,6 +2956,27 @@ def ai_analyze_topic(topic_info, question_type):
     except Exception as e:
         safe_print(f"AI topic analysis failed: {str(e)}")
         raise Exception("AI analysis service unavailable")
+
+
+def _parse_ai_json_object(raw_content):
+    """Parse a JSON object from an AI response that may include markdown fences or extra text."""
+    if not raw_content:
+        raise ValueError("Empty AI response")
+
+    text = raw_content.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```$", "", text)
+        text = text.strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        preview = text[:200].replace("\n", " ")
+        raise ValueError(f"AI response was not valid JSON: {preview}")
 
 def safe_exec_diagram_code(code, exec_globals):
     """
