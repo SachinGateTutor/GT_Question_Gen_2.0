@@ -261,9 +261,9 @@ def generate_mcq_and_diagram(data):
                     if stream:
                         safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
                     else:
-                        stream = 'CS'  # fallback
+                        stream = f'Stream {stream_id}'
                 except Exception as e:
-                    stream = 'CS'  # fallback
+                    stream = f'Stream {stream_id}'
             else:
                 stream = 'CS'  # fallback if no stream_id
         
@@ -2814,9 +2814,9 @@ def generate_cdq_complete(data):
                     if stream:
                         safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
                     else:
-                        stream = 'CS'  # fallback
+                        stream = f'Stream {stream_id}'
                 except Exception as e:
-                    stream = 'CS'  # fallback
+                    stream = f'Stream {stream_id}'
             else:
                 stream = 'CS'  # fallback if no stream_id
         

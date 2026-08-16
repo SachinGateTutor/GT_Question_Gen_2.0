@@ -14,6 +14,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def coerce_stream_id(value: Any) -> Optional[int]:
+    """Treat missing or non-positive stream IDs (including JWT 0) as unset."""
+    if value is None or value == '':
+        return None
+    try:
+        stream_id = int(value)
+    except (TypeError, ValueError):
+        return None
+    return stream_id if stream_id > 0 else None
+
+
 def _log_safe(value: object, max_len: int = 800) -> str:
     """Narrow-console-safe log text (e.g. Windows cp1252) when API bodies contain Unicode."""
     s = "" if value is None else str(value)
@@ -83,7 +94,7 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def store_question(self, question_data: Dict[str, Any], auth_token: str = None, user_id: str = None) -> Dict[str, Any]:
+    def store_question(self, question_data: Dict[str, Any], auth_token: str = None, user_id: str = None, user_type_id: int = None) -> Dict[str, Any]:
         """Store generated question in .NET backend database using two-step process"""
         try:
             logger.info(f"Starting two-step question storage process...")
@@ -92,6 +103,19 @@ class NetBackendService:
             headers = {}
             if auth_token:
                 headers['Authorization'] = f'Bearer {auth_token}'
+
+            # Convert correct_answer before Question Master create so misu can be sent
+            correct_option = self._convert_answer_to_option_letter(
+                question_data.get('correct_answer', ''),
+                question_data.get('options', [])
+            )
+            if not correct_option:
+                return {
+                    'success': False,
+                    'error': "Could not determine correct answer option (A/B/C/D) from AI response.",
+                    'error_type': 'answer_mapping_failed'
+                }
+            misu = {'A': 1, 'B': 2, 'C': 3, 'D': 4}.get(str(correct_option).strip().upper())
             
             # Step 1: Create Question Master record
             raw_group_id = question_data.get('group_id')
@@ -102,6 +126,21 @@ class NetBackendService:
             except (TypeError, ValueError):
                 logger.warning(f"Invalid group_id '{raw_group_id}', using fallback groupID 264")
                 effective_group_id = 264
+
+            request_stream_id = coerce_stream_id(question_data.get('stream_id'))
+            if request_stream_id is None:
+                request_stream_id = coerce_stream_id(
+                    question_data.get('streamID') or question_data.get('streamId')
+                )
+
+            if user_type_id is None:
+                user_type_id = self._extract_user_type_id_from_token(auth_token)
+            try:
+                user_type_id = int(user_type_id) if user_type_id is not None else None
+            except (TypeError, ValueError):
+                user_type_id = None
+            # user_type_id 0 => counter 1; any other/missing value => counter 0
+            counter = 1 if user_type_id == 0 else 0
 
             question_master_payload = {
                 'subjectID': question_data.get('subject_id'),
@@ -118,11 +157,14 @@ class NetBackendService:
                 'isAIGenerated': True,
                 'diagramCode': question_data.get('diagram_code') or None,
                 'createdDate': datetime.now().isoformat() + 'Z',
-                'approvedBy': user_id or '',  # User ID from JWT token
                 'questionsGeneratedBy': user_id or '',  # User ID from JWT token
                 'SourceSystem': 'PragyaAI',
-                'sourceQuestionID': 0  # 0 for new questions
+                'sourceQuestionID': 0,  # 0 for new questions
+                'misu': misu,
+                'counter': counter,
             }
+            if request_stream_id is not None:
+                question_master_payload['streamID'] = request_stream_id
             
             # Handle generationID as optional/nullable - only include if provided
             generation_id = question_data.get('generation_id')
@@ -186,11 +228,33 @@ class NetBackendService:
                 jkuh = (response_json.get('jkuh') or 
                        response_json.get('Jkuh') or
                        response_json.get('JKUH'))
-                stream_id = (response_json.get('streamId') or 
-                           response_json.get('StreamId') or
-                           response_json.get('stream_id'))
-                
-                logger.info(f"Question Master record created successfully - questionId: {question_id}, jkuh: {jkuh}, streamId: {stream_id}")
+                response_stream_id = coerce_stream_id(
+                    response_json.get('streamId') or
+                    response_json.get('StreamId') or
+                    response_json.get('stream_id')
+                )
+
+                # Always route later calls with the REQUEST stream, not the .NET read-back.
+                # Until the backend is fixed, response streamId/jkuh can come from the default shard (173).
+                routing_stream_id = request_stream_id
+                if (
+                    request_stream_id is not None
+                    and response_stream_id is not None
+                    and response_stream_id != request_stream_id
+                ):
+                    logger.warning(
+                        f"Question Master response streamId={response_stream_id} does not match "
+                        f"request streamID={request_stream_id}. Using request streamID for MCQ/explanation. "
+                        f"questionId={question_id}, jkuh={jkuh}"
+                    )
+                elif routing_stream_id is None and response_stream_id is not None:
+                    routing_stream_id = response_stream_id
+
+                logger.info(
+                    f"Question Master record created successfully - questionId: {question_id}, "
+                    f"jkuh: {jkuh}, requestStreamId: {request_stream_id}, "
+                    f"responseStreamId: {response_stream_id}, routingStreamId: {routing_stream_id}"
+                )
                 
                 if not jkuh:
                     logger.error(f"Missing jkuh in response: {response_json}")
@@ -206,18 +270,6 @@ class NetBackendService:
                 }
             
             # Step 2: Insert MCQ content using jkuh (not question_id)
-            # Convert correct_answer from text to letter (A, B, C, D)
-            correct_option = self._convert_answer_to_option_letter(
-                question_data.get('correct_answer', ''),
-                question_data.get('options', [])
-            )
-            if not correct_option:
-                return {
-                    'success': False,
-                    'error': "Could not determine correct answer option (A/B/C/D) from AI response.",
-                    'error_type': 'answer_mapping_failed'
-                }
-            
             # Check if question has images
             diagram_image_url = question_data.get('diagram_image_url')
             has_question_image = bool(diagram_image_url)
@@ -254,6 +306,8 @@ class NetBackendService:
                 'htmlOptionC': None,
                 'htmlOptionD': None
             }
+            if routing_stream_id is not None:
+                mcq_payload['streamID'] = routing_stream_id
             
             logger.info(f"Inserting MCQ content with payload: {mcq_payload}")
             
@@ -282,7 +336,14 @@ class NetBackendService:
                 try:
                     # Use question_id if available, otherwise use jkuh
                     explanation_id = question_id if question_id else jkuh
-                    explanation_result = self._store_explanation(explanation_id, question_data.get('explanation'), auth_token=auth_token, user_id=user_id, use_jkuh=(question_id is None))
+                    explanation_result = self._store_explanation(
+                        explanation_id,
+                        question_data.get('explanation'),
+                        auth_token=auth_token,
+                        user_id=user_id,
+                        use_jkuh=(question_id is None),
+                        stream_id=routing_stream_id
+                    )
                     if explanation_result:
                         explanation_stored = True
                         logger.info(f"Explanation stored successfully for question {explanation_id}")
@@ -296,11 +357,12 @@ class NetBackendService:
                 'success': True,
                 'question_id': question_id,  # questionId from response
                 'jkuh': jkuh,  # jkuh - the important ID for MCQ table
-                'stream_id': stream_id,  # streamId from response
+                'stream_id': routing_stream_id,  # request streamID used for shard routing
                 'response': {
                     'question_master_id': question_id,
                     'jkuh': jkuh,
-                    'stream_id': stream_id,
+                    'stream_id': routing_stream_id,
+                    'response_stream_id': response_stream_id,
                     'mcq_inserted': True,
                     'explanation_stored': explanation_stored
                 },
@@ -314,7 +376,7 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None, user_id: str = None, use_jkuh: bool = False) -> bool:
+    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None, user_id: str = None, use_jkuh: bool = False, stream_id: Optional[int] = None) -> bool:
         """Store explanation for a question in .NET backend using the correct API endpoint
         
         Args:
@@ -323,6 +385,7 @@ class NetBackendService:
             auth_token: JWT token for authentication
             user_id: The user ID from the token
             use_jkuh: If True, use 'jkuh' field name instead of 'questionID'
+            stream_id: Stream shard to write to (do not rely on JWT stream_id)
         """
         try:
             # Prepare headers with token if provided
@@ -332,6 +395,7 @@ class NetBackendService:
             
             # Use the correct API endpoint for explanations
             endpoint = "/api/QuestionExplanation/add-or-update"
+            routing_stream_id = coerce_stream_id(stream_id)
             
             # Use appropriate field name based on whether we have questionId or jkuh
             if use_jkuh:
@@ -356,6 +420,8 @@ class NetBackendService:
                     'userID': int(user_id) if user_id else 0  # Use actual user_id from token
                 }
                 logger.info(f"Storing explanation for question (questionID={question_id}) via {endpoint}")
+            if routing_stream_id is not None:
+                explanation_payload['streamID'] = routing_stream_id
             
             response = self.session.post(
                 f"{self.base_url}{endpoint}",
@@ -375,6 +441,29 @@ class NetBackendService:
             logger.error(f"Error storing explanation: {str(e)}")
             return False
     
+    def _extract_user_type_id_from_token(self, token: str) -> Optional[int]:
+        """Read user_type_id from a JWT payload without verifying the signature."""
+        if not token:
+            return None
+        try:
+            import base64
+            if token.startswith('Bearer '):
+                token = token[7:]
+            parts = token.split('.')
+            if len(parts) != 3:
+                return None
+            payload = parts[1]
+            padding = 4 - len(payload) % 4
+            if padding != 4:
+                payload += '=' * padding
+            decoded = json.loads(base64.urlsafe_b64decode(payload))
+            for key in ('user_type_id', 'userTypeId', 'UserTypeID', 'UserTypeId', 'usertypeid'):
+                if key in decoded and decoded[key] is not None:
+                    return int(decoded[key])
+        except (TypeError, ValueError, json.JSONDecodeError, Exception):
+            logger.warning("Could not extract user_type_id from auth token")
+        return None
+
     def _convert_answer_to_option_letter(self, correct_answer: str, options: list) -> Optional[str]:
         """Convert the correct answer text to option letter (A, B, C, D)"""
         if not correct_answer or not options:
@@ -484,11 +573,10 @@ class NetBackendService:
                 headers['Authorization'] = f'Bearer {auth_token}'
             
             params = {}
-            if stream_id is not None:
-                try:
-                    params['streamid'] = int(stream_id)
-                except (TypeError, ValueError):
-                    logger.warning(f"Invalid stream_id provided for subject lookup: {stream_id}")
+            routing_stream_id = coerce_stream_id(stream_id)
+            if routing_stream_id is not None:
+                params['streamid'] = routing_stream_id
+                params['streamId'] = routing_stream_id
             
             response = self.session.get(
                 f"{self.base_url}/api/SubjectUnified/{subject_id}",
@@ -701,7 +789,7 @@ class NetBackendService:
                 'topic_name': None
             }
     
-    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None, is_aptitude: bool = False, group_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None, is_aptitude: bool = False, group_id: Optional[int] = None, stream_id: Optional[int] = None) -> Dict[str, Any]:
         """Get topic information by ID from .NET backend unified endpoint"""
         try:
             if is_aptitude:
@@ -716,10 +804,17 @@ class NetBackendService:
             headers = {}
             if auth_token:
                 headers['Authorization'] = f'Bearer {auth_token}'
+
+            params = {}
+            routing_stream_id = coerce_stream_id(stream_id)
+            if routing_stream_id is not None:
+                params['streamid'] = routing_stream_id
+                params['streamId'] = routing_stream_id
             
             response = self.session.get(
                 f"{self.base_url}/api/TopicUnified/topic/{topic_id}/subject/{subject_id}",
                 headers=headers,
+                params=params if params else None,
                 timeout=10
             )
             
