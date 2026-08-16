@@ -261,9 +261,9 @@ def generate_mcq_and_diagram(data):
                     if stream:
                         safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
                     else:
-                        stream = 'CS'  # fallback
+                        stream = f'Stream {stream_id}'
                 except Exception as e:
-                    stream = 'CS'  # fallback
+                    stream = f'Stream {stream_id}'
             else:
                 stream = 'CS'  # fallback if no stream_id
         
@@ -2814,9 +2814,9 @@ def generate_cdq_complete(data):
                     if stream:
                         safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
                     else:
-                        stream = 'CS'  # fallback
+                        stream = f'Stream {stream_id}'
                 except Exception as e:
-                    stream = 'CS'  # fallback
+                    stream = f'Stream {stream_id}'
             else:
                 stream = 'CS'  # fallback if no stream_id
         
@@ -2880,39 +2880,121 @@ def generate_cdq_complete(data):
         safe_print(f" Error in CDQ generation: {e}")
         return None
 
+def _topic_allows_code_questions(topic_info):
+    """Code questions only when the topic is actually implementable (code or query writing)."""
+    text = " ".join([
+        str(topic_info.get('subject_name') or ''),
+        str(topic_info.get('topic_name') or ''),
+        str(topic_info.get('stream_name') or ''),
+    ]).lower()
+    theory_markers = (
+        'tuple calculus', 'relational algebra', 'domain calculus', 'normalization theory',
+        'thermodynamic', 'fertilizer', 'mass transfer', 'heat transfer', 'fluid statics',
+    )
+    if any(marker in text for marker in theory_markers):
+        return False
+    implementable_markers = (
+        'programming', 'coding', 'software', 'data structure', 'algorithm',
+        'python', 'java', 'javascript', 'c++', 'c#', 'sql', 'query',
+        'compiler', 'operating system', 'machine learning', 'artificial intelligence',
+        'web development', 'networking lab',
+    )
+    return any(marker in text for marker in implementable_markers)
+
+
+def _normalize_topic_analysis(result, topic_info):
+    """Clamp AI mix so totals are valid and not stuck on a default 20-question split."""
+    def _as_int(value, default=0):
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return default
+
+    diagram = _as_int(result.get('diagram_questions'))
+    option_diagram = _as_int(result.get('option_diagram_questions'))
+    text_only = _as_int(result.get('text_only_questions'))
+    code = _as_int(result.get('code_questions'))
+
+    if not _topic_allows_code_questions(topic_info):
+        code = 0
+
+    total = diagram + option_diagram + text_only + code
+    if total <= 0:
+        total = _as_int(result.get('total_questions'), 12)
+        text_only = total
+
+    # Keep GATE-style sets in 8–30; do not pad back to 20
+    total = max(8, min(30, total))
+    visual = diagram + option_diagram
+    max_visual = max(2, int(total * 0.6))
+    if visual > max_visual and visual > 0:
+        scale = max_visual / float(visual)
+        diagram = int(round(diagram * scale))
+        option_diagram = max_visual - diagram
+        visual = diagram + option_diagram
+    remainder = total - visual - code
+    if remainder < 0:
+        overflow = -remainder
+        if option_diagram >= overflow:
+            option_diagram -= overflow
+        else:
+            overflow -= option_diagram
+            option_diagram = 0
+            diagram = max(0, diagram - overflow)
+        remainder = total - diagram - option_diagram - code
+    text_only = max(0, remainder)
+    total = diagram + option_diagram + text_only + code
+
+    result['diagram_questions'] = diagram
+    result['option_diagram_questions'] = option_diagram
+    result['text_only_questions'] = text_only
+    result['code_questions'] = code
+    result['total_questions'] = total
+    if not result.get('reasoning'):
+        result['reasoning'] = 'Distribution based on topic breadth and whether visual or code items are useful.'
+    return result
+
+
 def ai_analyze_topic(topic_info, question_type):
     """Use OpenAI to analyze topic and recommend question distribution"""
-    
+    allows_code = _topic_allows_code_questions(topic_info)
+    variation_token = uuid.uuid4().hex[:8]
+
     analysis_prompt = f"""
-    As an educational content expert, analyze this topic and recommend the optimal question distribution:
+    You are an exam-paper designer for GATE / university tests.
+    Recommend a question MIX for THIS topic only. Do not reuse a generic 20-question template.
 
-    Topic: {topic_info['topic_name']}
-    Subject: {topic_info['subject_name']}
-    Stream: {topic_info['stream_name']}
-    Course: {topic_info['course_name']}
-    Bloom Level: {topic_info['bloom_level_name']}
+    Topic: {topic_info.get('topic_name')}
+    Subject: {topic_info.get('subject_name')}
+    Stream: {topic_info.get('stream_name')}
+    Course: {topic_info.get('course_name')}
+    Bloom Level: {topic_info.get('bloom_level_name')}
     Question Type: {question_type}
+    Variation token (change the mix; do not echo this): {variation_token}
 
-    IMPORTANT SUBJECT-SPECIFIC GUIDELINES:
-    - For Mathematics, Physics, Chemistry: NO code questions (use 0 for code_questions)
-    - For Programming, Computer Science, Software Engineering: Include code questions
-    - For subjects like Artificial Intelligence, Machine Learning: May include code questions if relevant
-    - For subjects like Data Structures, Algorithms: Include code questions for implementation examples
-    
-    Please provide recommendations for:
-    1. Total number of questions needed to comprehensively cover this topic
-    2. How many questions should have diagrams (visual explanations)
-    3. How many questions should have diagrams in options (visual choices)
-    4. How many should be text-only questions
-    5. How many should include code snippets (ONLY if applicable to the subject)
-    
-    Consider the complexity and breadth of the topic. For technical subjects, include more diagram-based questions.
-    
+    RULES:
+    1. total_questions MUST be an integer from 8 to 30 inclusive.
+       - Narrow / single-concept topics (e.g. Tuple calculus, Fertilizer): 8–14
+       - Medium topics: 12–20
+       - Broad / multi-subtopic topics: 18–30
+       - Do NOT default to 20. Pick a total that matches THIS topic's breadth.
+    2. The four counts MUST sum exactly to total_questions:
+       diagram_questions + option_diagram_questions + text_only_questions + code_questions = total_questions
+    3. diagram_questions + option_diagram_questions must be at most 60% of total.
+       Use more diagrams only when the topic is visual (process flow, circuits, structures, plots).
+       Theory-heavy topics should be mostly text_only_questions.
+    4. code_questions:
+       - Use 0 unless students would write or read real source code or SQL for this exact topic.
+       - Chemical / mechanical / civil process topics: always 0.
+       - Theoretical CS (tuple calculus, relational algebra, automata theory): always 0.
+       - This topic allows code: {str(allows_code).lower()}
+    5. reasoning must mention why THIS topic got this total (breadth), not a generic "balanced approach".
+
     Respond in this exact JSON format:
     {{
         "total_questions": <number>,
         "diagram_questions": <number>,
-        "option_diagram_questions": <number>, 
+        "option_diagram_questions": <number>,
         "text_only_questions": <number>,
         "code_questions": <number>,
         "reasoning": "<brief explanation of the distribution>"
@@ -2933,7 +3015,7 @@ def ai_analyze_topic(topic_info, question_type):
         create_kwargs = {
             "model": selected_model,
             "messages": [{"role": "user", "content": analysis_prompt}],
-            "temperature": 0.3,
+            "temperature": 0.75,
             "max_tokens": 500,
         }
         try:
@@ -2950,8 +3032,8 @@ def ai_analyze_topic(topic_info, question_type):
         required_keys = ['total_questions', 'diagram_questions', 'option_diagram_questions', 'text_only_questions', 'code_questions']
         if not all(key in result for key in required_keys):
             raise ValueError("Invalid AI response format")
-            
-        return result
+
+        return _normalize_topic_analysis(result, topic_info)
         
     except Exception as e:
         safe_print(f"AI topic analysis failed: {str(e)}")

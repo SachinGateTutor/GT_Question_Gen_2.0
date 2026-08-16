@@ -45,6 +45,7 @@ from services.db_service import (
     add_subject, update_subject, delete_subject, get_all_subjects,
     add_topic, update_topic, delete_topic, get_all_topics, get_topic_details
 )
+from services.net_backend_service import coerce_stream_id
 from services.ai_explanation_service import ai_explanation_service
 from flask_cors import CORS
 from flasgger import Swagger
@@ -174,6 +175,25 @@ def extract_user_id_from_token(token: str) -> str:
     return None
 
 
+def extract_user_type_id_from_token(token: str) -> Optional[int]:
+    """
+    Extract user type ID from JWT token.
+    Returns user type ID as int if available, otherwise None.
+    """
+    payload = decode_jwt_token(token)
+    if not payload:
+        return None
+
+    user_type_keys = ['user_type_id', 'userTypeId', 'UserTypeID', 'UserTypeId', 'usertypeid']
+    for key in user_type_keys:
+        if key in payload and payload[key] is not None:
+            try:
+                return int(payload[key])
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
 def extract_stream_id_from_token(token: str) -> Optional[int]:
     """
     Extract stream ID from JWT token.
@@ -187,7 +207,8 @@ def extract_stream_id_from_token(token: str) -> Optional[int]:
     for key in stream_keys:
         if key in payload:
             try:
-                return int(payload[key])
+                stream_id = int(payload[key])
+                return stream_id if stream_id > 0 else None
             except (TypeError, ValueError):
                 return None
     return None
@@ -529,6 +550,7 @@ def generate():
                 subject_res = net_backend_service.get_subject_by_id(
                     subject_id=subject_id,
                     auth_token=token,
+                    stream_id=coerce_stream_id(data.get('stream_id')),
                     is_aptitude=is_aptitude,
                     group_id=group_id
                 )
@@ -545,7 +567,8 @@ def generate():
                     subject_id=subject_id,
                     auth_token=token,
                     is_aptitude=is_aptitude,
-                    group_id=group_id
+                    group_id=group_id,
+                    stream_id=coerce_stream_id(data.get('stream_id'))
                 )
                 if topic_res.get('success'):
                     topic_name = topic_res.get('topic_name')
@@ -1581,7 +1604,7 @@ def analyze_topic():
                 print(f"Topic analysis requested by user: {user_id}")
         
         course_id = data.get('course_id')
-        stream_id = data.get('stream_id') 
+        stream_id = coerce_stream_id(data.get('stream_id')) 
         subject_id = data.get('subject_id')
         topic_id = data.get('topic_id')
         question_type = data.get('question_type')
@@ -1604,7 +1627,8 @@ def analyze_topic():
                 subject_id,
                 auth_token=token,
                 is_aptitude=is_aptitude,
-                group_id=group_id
+                group_id=group_id,
+                stream_id=coerce_stream_id(stream_id)
             )
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
@@ -1965,7 +1989,8 @@ def generate_questions_background(generation_id, request_data, question_plan):
                     storage_result = net_backend_service.store_question(
                         question_data,
                         auth_token=auth_token,
-                        user_id=user_id
+                        user_id=user_id,
+                        user_type_id=extract_user_type_id_from_token(auth_token) if auth_token else None
                     )
                     
                     if storage_result.get('success'):
@@ -2020,13 +2045,15 @@ def generate_single_question(request_data, question_type, auth_token=None):
     # This ensures the AI generates questions for the correct subject/topic, not defaulting to "Programming"
     subject_id = request_data.get('subject_id')
     topic_id = request_data.get('topic_id')
-    stream_id = request_data.get('stream_id')
+    stream_id = coerce_stream_id(request_data.get('stream_id'))
     is_aptitude, group_id = get_request_flag_and_group(request_data)
     
     if not stream_id and auth_token:
         stream_id = extract_stream_id_from_token(auth_token)
         if stream_id:
             enhanced_request['stream_id'] = stream_id
+    elif stream_id:
+        enhanced_request['stream_id'] = stream_id
     
     subject_name = None
     topic_name = None
@@ -2085,7 +2112,8 @@ def generate_single_question(request_data, question_type, auth_token=None):
                 subject_id,
                 auth_token=auth_token,
                 is_aptitude=is_aptitude,
-                group_id=group_id
+                group_id=group_id,
+                stream_id=stream_id
             )
             print(f" Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
             if topic_result.get('success') and topic_result.get('topic_name'):
@@ -2156,6 +2184,7 @@ def generate_single_question(request_data, question_type, auth_token=None):
         generated_data.update({
             'subject_id': request_data.get('subject_id'),
             'topic_id': request_data.get('topic_id'),
+            'stream_id': stream_id or request_data.get('stream_id'),
             'question_type_id': 1,  # MCQ
             'bloom_level_id': request_data.get('bloom_level_id', 1),
             'difficulty_level_id': request_data.get('difficulty_level_id', 1),
@@ -2398,7 +2427,7 @@ def generate_single_question_endpoint():
         generation_id = data.get('generation_id')
         subject_id = data.get('subject_id')
         topic_id = data.get('topic_id')
-        stream_id_from_payload = data.get('stream_id')
+        stream_id_from_payload = coerce_stream_id(data.get('stream_id'))
         stream_id_from_token = extract_stream_id_from_token(token) if token else None
         effective_stream_id = stream_id_from_payload or stream_id_from_token
         section_id = data.get('section_id', 0)  # Add section_id with default 0
@@ -2452,7 +2481,8 @@ def generate_single_question_endpoint():
             subject_id,
             auth_token=token,
             is_aptitude=is_aptitude,
-            group_id=group_id
+            group_id=group_id,
+            stream_id=effective_stream_id
         )
         if topic_result.get('success') and topic_result.get('topic_name'):
             topic_name = topic_result['topic_name']
@@ -2538,7 +2568,8 @@ def generate_single_question_endpoint():
             "marks": marks,
             "generation_prompt": generation_prompt,
             "is_aptitude": is_aptitude,
-            "group_id": group_id
+            "group_id": group_id,
+            "stream_id": effective_stream_id
         }
         
         # Store question in .NET backend database
@@ -2548,8 +2579,14 @@ def generate_single_question_endpoint():
         storage_data = response_data.copy()
         storage_data['generation_id'] = generation_id
         
-        # Pass token and user_id to store_question
-        storage_result = net_backend_service.store_question(storage_data, auth_token=token, user_id=user_id)
+        # Pass token, user_id, and user_type_id to store_question
+        user_type_id = extract_user_type_id_from_token(token) if token else None
+        storage_result = net_backend_service.store_question(
+            storage_data,
+            auth_token=token,
+            user_id=user_id,
+            user_type_id=user_type_id
+        )
         
         if not storage_result['success']:
             storage_error = storage_result.get('error', 'Unknown storage error')
