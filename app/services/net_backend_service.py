@@ -122,10 +122,10 @@ class NetBackendService:
             if raw_group_id is None:
                 raw_group_id = question_data.get('groupId')
             try:
-                effective_group_id = int(raw_group_id) if raw_group_id is not None else 264
+                effective_group_id = int(raw_group_id) if raw_group_id is not None else 0
             except (TypeError, ValueError):
-                logger.warning(f"Invalid group_id '{raw_group_id}', using fallback groupID 264")
-                effective_group_id = 264
+                logger.warning(f"Invalid group_id '{raw_group_id}', using fallback groupID 0")
+                effective_group_id = 0
 
             request_stream_id = coerce_stream_id(question_data.get('stream_id'))
             if request_stream_id is None:
