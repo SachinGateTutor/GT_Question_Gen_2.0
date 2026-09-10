@@ -286,6 +286,12 @@ class NetBackendService:
                 logger.info(f"Question has option images: {option_images}")
             logger.info(f"Question has images: {has_images}")
             
+            explanation_text = question_data.get('explanation')
+            if isinstance(explanation_text, str):
+                explanation_text = explanation_text.strip() or None
+            else:
+                explanation_text = None
+            
             mcq_payload = {
                 'jkuh': jkuh,  # Use jkuh field name as required by MCQ API
                 'questionText': question_data.get('question_text', ''),
@@ -304,7 +310,8 @@ class NetBackendService:
                 'htmlOptionA': None,
                 'htmlOptionB': None,
                 'htmlOptionC': None,
-                'htmlOptionD': None
+                'htmlOptionD': None,
+                'htmlExplanation': explanation_text
             }
             if routing_stream_id is not None:
                 mcq_payload['streamID'] = routing_stream_id
@@ -325,32 +332,9 @@ class NetBackendService:
                     'success': False,
                     'error': f"MCQ insertion failed: {mcq_response.status_code} - {mcq_response.text}"
                 }
-            
-            # Step 3: Store explanation if available
-            # Add a small delay to ensure the question is fully committed in the database
-            import time
-            time.sleep(0.5)  # 500ms delay to allow database transaction to commit
-            
-            explanation_stored = False
-            if question_data.get('explanation'):
-                try:
-                    # Use question_id if available, otherwise use jkuh
-                    explanation_id = question_id if question_id else jkuh
-                    explanation_result = self._store_explanation(
-                        explanation_id,
-                        question_data.get('explanation'),
-                        auth_token=auth_token,
-                        user_id=user_id,
-                        use_jkuh=(question_id is None),
-                        stream_id=routing_stream_id
-                    )
-                    if explanation_result:
-                        explanation_stored = True
-                        logger.info(f"Explanation stored successfully for question {explanation_id}")
-                    else:
-                        logger.warning(f"Failed to store explanation for question {explanation_id}")
-                except Exception as e:
-                    logger.warning(f"Error storing explanation: {e}")
+
+            # Explanation is stored on the MCQ row via htmlExplanation; skip QuestionExplanation API.
+            explanation_stored = bool(explanation_text)
             
             logger.info(f"Question stored successfully in .NET backend via two-step process")
             return {
@@ -375,71 +359,6 @@ class NetBackendService:
                 'success': False,
                 'error': str(e)
             }
-    
-    def _store_explanation(self, question_id: int, explanation_text: str, auth_token: str = None, user_id: str = None, use_jkuh: bool = False, stream_id: Optional[int] = None) -> bool:
-        """Store explanation for a question in .NET backend using the correct API endpoint
-        
-        Args:
-            question_id: The question ID (can be questionId or jkuh depending on use_jkuh flag)
-            explanation_text: The explanation text to store
-            auth_token: JWT token for authentication
-            user_id: The user ID from the token
-            use_jkuh: If True, use 'jkuh' field name instead of 'questionID'
-            stream_id: Stream shard to write to (do not rely on JWT stream_id)
-        """
-        try:
-            # Prepare headers with token if provided
-            headers = {}
-            if auth_token:
-                headers['Authorization'] = f'Bearer {auth_token}'
-            
-            # Use the correct API endpoint for explanations
-            endpoint = "/api/QuestionExplanation/add-or-update"
-            routing_stream_id = coerce_stream_id(stream_id)
-            
-            # Use appropriate field name based on whether we have questionId or jkuh
-            if use_jkuh:
-                explanation_payload = {
-                    'jkuh': question_id,  # Use jkuh if questionId is not available
-                    'explanationText': explanation_text,
-                    'htmlExplanation': None,
-                    'imgExplanation': None,
-                    'legacySourceType': 'AI_Generated',
-                    'explanationType': 'Standard',
-                    'userID': int(user_id) if user_id else 0  # Use actual user_id from token
-                }
-                logger.info(f"Storing explanation for question (jkuh={question_id}) via {endpoint}")
-            else:
-                explanation_payload = {
-                    'questionID': question_id,  # Use questionID if available
-                    'explanationText': explanation_text,
-                    'htmlExplanation': None,
-                    'imgExplanation': None,
-                    'legacySourceType': 'AI_Generated',
-                    'explanationType': 'Standard',
-                    'userID': int(user_id) if user_id else 0  # Use actual user_id from token
-                }
-                logger.info(f"Storing explanation for question (questionID={question_id}) via {endpoint}")
-            if routing_stream_id is not None:
-                explanation_payload['streamID'] = routing_stream_id
-            
-            response = self.session.post(
-                f"{self.base_url}{endpoint}",
-                json=explanation_payload,
-                headers=headers,
-                timeout=15
-            )
-            
-            if response.status_code in [200, 201]:
-                logger.info(f"Explanation stored successfully for question {question_id}")
-                return True
-            else:
-                logger.error(f"Explanation storage failed: {response.status_code} - {_log_safe(response.text)}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error storing explanation: {str(e)}")
-            return False
     
     def _extract_user_type_id_from_token(self, token: str) -> Optional[int]:
         """Read user_type_id from a JWT payload without verifying the signature."""

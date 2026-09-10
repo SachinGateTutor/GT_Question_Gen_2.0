@@ -1949,6 +1949,8 @@ def generate_questions_background(generation_id, request_data, question_plan):
         # Import net_backend_service
         from services.net_backend_service import net_backend_service
         
+        from services.difficulty_prompts import build_question_level_plan
+
         # Generate each type of question
         question_types = [
             ('diagram', question_plan['diagram_questions']),
@@ -1956,77 +1958,78 @@ def generate_questions_background(generation_id, request_data, question_plan):
             ('text_only', question_plan['text_only_questions']),
             ('code', question_plan['code_questions'])
         ]
-        
+
+        generation_queue = []
         for q_type, count in question_types:
-            for i in range(count):
-                # Check if generation was stopped
-                if session['status'] == 'stopped':
-                    break
-                    
-                # Generate individual question
-                question_data = generate_single_question(request_data, q_type, auth_token=auth_token)
-                
-                # Check if generation failed due to missing data (None returned)
-                if question_data is None:
-                    print(f" Question generation skipped due to missing subject/topic data")
-                    # Update progress but mark as failed
-                    progress['current'] += 1
-                    progress[f'{q_type}_current'] += 1
-                    session['generated_questions'].append({
-                        'id': None,
-                        'jkuh': None,
-                        'type': q_type,
-                        'error': 'Failed to retrieve subject/topic names from backend'
-                    })
-                    continue
-                
-                if question_data:
-                    # Add generation_id to question_data if not present
-                    if 'generation_id' not in question_data:
-                        question_data['generation_id'] = generation_id
-                    
-                    # Store in .NET backend
-                    storage_result = net_backend_service.store_question(
-                        question_data,
-                        auth_token=auth_token,
-                        user_id=user_id,
-                        user_type_id=extract_user_type_id_from_token(auth_token) if auth_token else None
-                    )
-                    
-                    if storage_result.get('success'):
-                        question_id = storage_result.get('question_id')
-                        jkuh = storage_result.get('jkuh')
-                        print(f" Question stored successfully with ID: {question_id}, jkuh: {jkuh}")
-                        
-                        # Update question_data with storage results
-                        question_data['question_id'] = question_id
-                        question_data['jkuh'] = jkuh
-                    
-                    # Update progress
-                    progress['current'] += 1
-                    progress[f'{q_type}_current'] += 1
-                    
-                    session['generated_questions'].append({
-                        'id': question_id,
-                        'jkuh': jkuh,
-                        'type': q_type,
-                        'question': question_data
-                    })
-                else:
-                    print(f" Failed to store question: {storage_result.get('error', 'Unknown error')}")
-                    # Still update progress but mark as failed
-                    progress['current'] += 1
-                    progress[f'{q_type}_current'] += 1
-                    session['generated_questions'].append({
-                        'id': None,
-                        'jkuh': None,
-                        'type': q_type,
-                        'question': question_data,
-                        'error': storage_result.get('error', 'Storage failed')
-                    })
-                
+            generation_queue.extend([q_type] * int(count or 0))
+        level_plan = build_question_level_plan(len(generation_queue))
+        
+        for i, q_type in enumerate(generation_queue):
             if session['status'] == 'stopped':
                 break
+
+            difficulty_level_id, bloom_level_id = level_plan[i] if i < len(level_plan) else (2, 3)
+
+            question_data = generate_single_question(
+                request_data,
+                q_type,
+                auth_token=auth_token,
+                difficulty_level_id=difficulty_level_id,
+                bloom_level_id=bloom_level_id
+            )
+
+            if question_data is None:
+                print(f" Question generation skipped due to missing subject/topic data")
+                progress['current'] += 1
+                progress[f'{q_type}_current'] += 1
+                session['generated_questions'].append({
+                    'id': None,
+                    'jkuh': None,
+                    'type': q_type,
+                    'error': 'Failed to retrieve subject/topic names from backend'
+                })
+                continue
+
+            if question_data:
+                if 'generation_id' not in question_data:
+                    question_data['generation_id'] = generation_id
+
+                storage_result = net_backend_service.store_question(
+                    question_data,
+                    auth_token=auth_token,
+                    user_id=user_id,
+                    user_type_id=extract_user_type_id_from_token(auth_token) if auth_token else None
+                )
+
+                question_id = None
+                jkuh = None
+                if storage_result.get('success'):
+                    question_id = storage_result.get('question_id')
+                    jkuh = storage_result.get('jkuh')
+                    print(f" Question stored successfully with ID: {question_id}, jkuh: {jkuh}")
+                    question_data['question_id'] = question_id
+                    question_data['jkuh'] = jkuh
+
+                progress['current'] += 1
+                progress[f'{q_type}_current'] += 1
+
+                session['generated_questions'].append({
+                    'id': question_id,
+                    'jkuh': jkuh,
+                    'type': q_type,
+                    'question': question_data
+                })
+            else:
+                print(f" Failed to store question: {storage_result.get('error', 'Unknown error')}")
+                progress['current'] += 1
+                progress[f'{q_type}_current'] += 1
+                session['generated_questions'].append({
+                    'id': None,
+                    'jkuh': None,
+                    'type': q_type,
+                    'question': question_data,
+                    'error': storage_result.get('error', 'Storage failed')
+                })
         
         # Mark as completed
         if session['status'] != 'stopped':
@@ -2037,9 +2040,17 @@ def generate_questions_background(generation_id, request_data, question_plan):
         session['status'] = 'error'
         session['error'] = str(e)
 
-def generate_single_question(request_data, question_type, auth_token=None):
+def generate_single_question(request_data, question_type, auth_token=None, difficulty_level_id=None, bloom_level_id=None):
     """Generate a single question based on type"""
+    from services.difficulty_prompts import difficulty_name_from_id, bloom_name_from_id
+
     enhanced_request = request_data.copy()
+    if difficulty_level_id is not None:
+        enhanced_request['difficulty_level_id'] = difficulty_level_id
+        enhanced_request['difficulty_level'] = difficulty_name_from_id(difficulty_level_id)
+    if bloom_level_id is not None:
+        enhanced_request['bloom_level_id'] = bloom_level_id
+        enhanced_request['bloom_level'] = bloom_name_from_id(bloom_level_id)
     
     # Fetch subject and topic names from .NET backend before generating question
     # This ensures the AI generates questions for the correct subject/topic, not defaulting to "Programming"
@@ -2159,7 +2170,7 @@ def generate_single_question(request_data, question_type, auth_token=None):
         return None
     
     # Log what we're passing to the AI
-    print(f" FINAL: Passing to AI - subject: '{enhanced_request.get('subject')}', topic: '{enhanced_request.get('topic')}', stream: '{enhanced_request.get('stream')}'")
+    print(f" FINAL: Passing to AI - subject: '{enhanced_request.get('subject')}', topic: '{enhanced_request.get('topic')}', stream: '{enhanced_request.get('stream')}', difficulty: '{enhanced_request.get('difficulty_level')}', bloom: '{enhanced_request.get('bloom_level')}'")
     
     # Modify request based on question type
     if question_type == 'diagram':
@@ -2186,8 +2197,8 @@ def generate_single_question(request_data, question_type, auth_token=None):
             'topic_id': request_data.get('topic_id'),
             'stream_id': stream_id or request_data.get('stream_id'),
             'question_type_id': 1,  # MCQ
-            'bloom_level_id': request_data.get('bloom_level_id', 1),
-            'difficulty_level_id': request_data.get('difficulty_level_id', 1),
+            'bloom_level_id': bloom_level_id if bloom_level_id is not None else request_data.get('bloom_level_id', 1),
+            'difficulty_level_id': difficulty_level_id if difficulty_level_id is not None else request_data.get('difficulty_level_id', 1),
             'marks': 1,
             'is_aptitude': is_aptitude,
             'group_id': group_id

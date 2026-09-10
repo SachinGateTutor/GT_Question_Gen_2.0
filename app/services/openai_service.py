@@ -309,12 +309,34 @@ def generate_mcq_and_diagram(data):
         while retry_count <= max_retries:
             try:
                 # Generate the question
+                difficulty_level = data.get('difficulty_level')
+                if not difficulty_level and data.get('difficulty_level_id') not in (None, ''):
+                    from .difficulty_prompts import difficulty_name_from_id
+                    difficulty_level = difficulty_name_from_id(data.get('difficulty_level_id'))
+                bloom_level = data.get('bloom_level')
+                if not bloom_level or bloom_level in ('auto', 'auto_detect'):
+                    from .difficulty_prompts import bloom_name_from_id
+                    if data.get('bloom_level_id') not in (None, '', 'auto', 'auto_detect'):
+                        bloom_level = bloom_name_from_id(data.get('bloom_level_id'))
+                    else:
+                        bloom_level = None
+
                 if is_programming_question:
-                    prompt = generate_programming_question_prompt(topic, question_type, custom_prompt)
+                    prompt = generate_programming_question_prompt(
+                        topic, question_type, custom_prompt,
+                        difficulty_level=difficulty_level, bloom_level=bloom_level
+                    )
                 elif requires_diagram or requires_option_diagrams:
-                    prompt = generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt)
+                    prompt = generate_diagram_question_prompt(
+                        topic, subject, stream, question_type, requires_option_diagrams,
+                        library_name, custom_prompt,
+                        difficulty_level=difficulty_level, bloom_level=bloom_level
+                    )
                 else:
-                    prompt = generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt)
+                    prompt = generate_regular_question_prompt(
+                        topic, subject, stream, question_type, custom_prompt,
+                        difficulty_level=difficulty_level, bloom_level=bloom_level
+                    )
                 
                 # Use hybrid model selection for question generation
                 complexity_factors = {
@@ -894,7 +916,21 @@ def get_library_rules(library_name):
     
     return rules.get(library_name, rules['schemdraw'])
 
-def generate_programming_question_prompt(topic, question_type, custom_prompt):
+def _prompt_level_block(difficulty_level=None, bloom_level=None):
+    """Difficulty + Bloom instructions for a single generated question."""
+    parts = []
+    if difficulty_level:
+        from .difficulty_prompts import format_difficulty_prompt_block
+        parts.append(format_difficulty_prompt_block(difficulty_level))
+    if bloom_level:
+        parts.append(get_bloom_level_guidance(bloom_level).strip())
+        parts.append(f"The question MUST target Bloom level {bloom_level}.")
+    if not parts:
+        return ""
+    return "\n\n" + "\n\n".join(parts) + "\n"
+
+
+def generate_programming_question_prompt(topic, question_type, custom_prompt, difficulty_level=None, bloom_level=None):
     """Generate a prompt for programming questions with code snippets"""
     
     import random
@@ -1082,7 +1118,7 @@ int main() {
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' focusing on programming concepts.
 
-The question MUST include a code snippet in {language} and ask about its output, behavior, or analysis.
+The question MUST include a code snippet in {language} and ask about its output, behavior, or analysis.{_prompt_level_block(difficulty_level, bloom_level)}
 
 IMPORTANT REQUIREMENTS FOR PROGRAMMING QUESTIONS:
 1. Use this specific question format: "{selected_question_type}"
@@ -1206,7 +1242,7 @@ def get_topic_specific_diagram_guidance(topic: str, subject: str) -> str:
 - Use colour purposefully: highlight the key element the question asks about"""
 
 
-def generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt):
+def generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt, difficulty_level=None, bloom_level=None):
     """Generate a prompt for diagram-based questions with enhanced visual diversity"""
     
     import random
@@ -1553,7 +1589,7 @@ Library: {library_name}"""
     
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
-
+{_prompt_level_block(difficulty_level, bloom_level)}
 {diagram_instruction}
 {option_diagram_instructions}
 
@@ -1637,7 +1673,7 @@ CRITICAL: The diagram must be relevant to the question topic. For example:
     
     return prompt
 
-def generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt):
+def generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt, difficulty_level=None, bloom_level=None):
     """Generate a prompt for regular questions without diagrams"""
     
     import random
@@ -1697,11 +1733,11 @@ def generate_regular_question_prompt(topic, subject, stream, question_type, cust
     
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
-
+{_prompt_level_block(difficulty_level, bloom_level)}
 IMPORTANT REQUIREMENTS FOR QUESTION DIVERSITY:
 1. Use this specific question format: "{selected_question_type}"
 2. {variation_instruction}
-3. Make the question challenging but fair
+3. Make the question match the assigned difficulty and Bloom level
 4. Include realistic distractors in options
 5. Cover different aspects of the topic (conceptual, practical, analytical)
 6. Use real-world examples when appropriate
