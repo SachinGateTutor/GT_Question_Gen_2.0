@@ -39,6 +39,8 @@ class RandomGenerationService:
                 'start_time': datetime.now()
             }
             
+            from .difficulty_prompts import build_question_level_plan
+
             # Generate questions based on plan
             question_types = []
             
@@ -57,6 +59,8 @@ class RandomGenerationService:
             # Add code questions
             for _ in range(question_plan['code_questions']):
                 question_types.append('code')
+
+            level_plan = build_question_level_plan(len(question_types))
             
             # Generate each question
             for i, question_type in enumerate(question_types):
@@ -64,8 +68,13 @@ class RandomGenerationService:
                     break
                 
                 try:
-                    # Generate single question
-                    question_data = self.generate_single_question(request_data, question_type)
+                    difficulty_level_id, bloom_level_id = level_plan[i] if i < len(level_plan) else (2, 3)
+                    question_data = self.generate_single_question(
+                        request_data,
+                        question_type,
+                        difficulty_level_id=difficulty_level_id,
+                        bloom_level_id=bloom_level_id
+                    )
                     
                     # Store in .NET backend
                     if question_data:
@@ -105,11 +114,19 @@ class RandomGenerationService:
             self.active_generations[generation_id]['status'] = 'error'
             self.active_generations[generation_id]['error'] = str(e)
     
-    def generate_single_question(self, request_data, question_type):
+    def generate_single_question(self, request_data, question_type, difficulty_level_id=None, bloom_level_id=None):
         """Generate a single question based on type with proper diagram handling"""
         try:
+            from .difficulty_prompts import difficulty_name_from_id, bloom_name_from_id
+
             # Prepare request data
             enhanced_request = request_data.copy()
+            if difficulty_level_id is not None:
+                enhanced_request['difficulty_level_id'] = difficulty_level_id
+                enhanced_request['difficulty_level'] = difficulty_name_from_id(difficulty_level_id)
+            if bloom_level_id is not None:
+                enhanced_request['bloom_level_id'] = bloom_level_id
+                enhanced_request['bloom_level'] = bloom_name_from_id(bloom_level_id)
             
             # Get topic name from database using topic_id
             topic_id = enhanced_request.get('topic_id')
@@ -215,6 +232,10 @@ class RandomGenerationService:
             
             # Merge with original request data for database storage
             final_data = {**request_data, **generated_data}
+            if difficulty_level_id is not None:
+                final_data['difficulty_level_id'] = difficulty_level_id
+            if bloom_level_id is not None:
+                final_data['bloom_level_id'] = bloom_level_id
             
             # Convert string IDs to integers for database storage
             if 'subject_id' in final_data and isinstance(final_data['subject_id'], str):

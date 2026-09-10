@@ -2,6 +2,74 @@
 Difficulty-specific prompt generation for question creation
 This module provides prompts tailored to different difficulty levels
 """
+import random
+
+DIFFICULTY_BY_ID = {1: 'Easy', 2: 'Medium', 3: 'Hard'}
+BLOOM_BY_ID = {
+    1: 'Remember',
+    2: 'Understand',
+    3: 'Apply',
+    4: 'Analyze',
+    5: 'Evaluate',
+    6: 'Create',
+}
+
+# GATE-style mix: ~30% Easy, 40% Medium, 30% Hard
+DIFFICULTY_WEIGHTS = {1: 0.30, 2: 0.40, 3: 0.30}
+# More weight on Understand / Apply / Analyze
+BLOOM_WEIGHTS = {1: 0.10, 2: 0.20, 3: 0.25, 4: 0.25, 5: 0.12, 6: 0.08}
+
+
+def allocate_weighted_counts(total, weights):
+    """Split `total` items by weights using largest-remainder rounding."""
+    if total <= 0:
+        return []
+    keys = list(weights.keys())
+    raw = {k: total * float(weights[k]) for k in keys}
+    counts = {k: int(raw[k]) for k in keys}
+    remainder = total - sum(counts.values())
+    order = sorted(keys, key=lambda k: (raw[k] - counts[k], weights[k]), reverse=True)
+    for i in range(remainder):
+        counts[order[i % len(order)]] += 1
+    result = []
+    for k in keys:
+        result.extend([k] * counts[k])
+    return result
+
+
+def build_question_level_plan(total):
+    """Return [(difficulty_level_id, bloom_level_id), ...] of length `total`."""
+    difficulties = allocate_weighted_counts(total, DIFFICULTY_WEIGHTS)
+    blooms = allocate_weighted_counts(total, BLOOM_WEIGHTS)
+    random.shuffle(difficulties)
+    random.shuffle(blooms)
+    return list(zip(difficulties, blooms))
+
+
+def difficulty_name_from_id(difficulty_level_id, default='Medium'):
+    try:
+        return DIFFICULTY_BY_ID.get(int(difficulty_level_id), default)
+    except (TypeError, ValueError):
+        return default
+
+
+def bloom_name_from_id(bloom_level_id, default='Apply'):
+    try:
+        return BLOOM_BY_ID.get(int(bloom_level_id), default)
+    except (TypeError, ValueError):
+        return default
+
+
+def format_difficulty_prompt_block(difficulty_level):
+    """Plain-text difficulty criteria for generation prompts."""
+    criteria = get_difficulty_criteria(difficulty_level)
+    chars = '\n'.join(f'- {item}' for item in criteria.get('characteristics', []))
+    return (
+        f"TARGET DIFFICULTY: {difficulty_level}\n"
+        f"{criteria.get('description', '')}\n"
+        f"{chars}\n"
+        "The question MUST match this difficulty. Do not make it easier or harder."
+    )
 
 def get_difficulty_criteria(difficulty_level):
     """Get specific criteria for a difficulty level"""
