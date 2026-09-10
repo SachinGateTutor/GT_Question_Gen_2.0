@@ -2923,8 +2923,8 @@ def _normalize_topic_analysis(result, topic_info):
         total = _as_int(result.get('total_questions'), 12)
         text_only = total
 
-    # Keep GATE-style sets in 8–30; do not pad back to 20
-    total = max(8, min(30, total))
+    # Keep GATE-style sets in 8–100; do not pad back to 20
+    total = max(8, min(100, total))
     visual = diagram + option_diagram
     max_visual = max(2, int(total * 0.6))
     if visual > max_visual and visual > 0:
@@ -2973,10 +2973,10 @@ def ai_analyze_topic(topic_info, question_type):
     Variation token (change the mix; do not echo this): {variation_token}
 
     RULES:
-    1. total_questions MUST be an integer from 8 to 30 inclusive.
+    1. total_questions MUST be an integer from 8 to 100 inclusive.
        - Narrow / single-concept topics (e.g. Tuple calculus, Fertilizer): 8–14
-       - Medium topics: 12–20
-       - Broad / multi-subtopic topics: 18–30
+       - Medium topics: 12–40
+       - Broad / multi-subtopic topics: 40–100
        - Do NOT default to 20. Pick a total that matches THIS topic's breadth.
     2. The four counts MUST sum exactly to total_questions:
        diagram_questions + option_diagram_questions + text_only_questions + code_questions = total_questions
