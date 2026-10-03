@@ -33,6 +33,24 @@ def _log_safe(value: object, max_len: int = 800) -> str:
     return s.encode("ascii", errors="backslashreplace").decode("ascii")
 
 
+def extract_topic_summary(topic_result: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Return a non-empty topicSummary from a get_topic_by_id result, else None."""
+    if not topic_result or not topic_result.get('success'):
+        return None
+    topic_data = topic_result.get('data') or {}
+    if not isinstance(topic_data, dict):
+        return None
+    summary = (
+        topic_data.get('topicSummary')
+        or topic_data.get('TopicSummary')
+        or topic_data.get('topic_summary')
+    )
+    if summary is None:
+        return None
+    summary_text = str(summary).strip()
+    return summary_text or None
+
+
 class NetBackendService:
     """Service to communicate with .NET backend API"""
     

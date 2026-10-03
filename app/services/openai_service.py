@@ -321,21 +321,26 @@ def generate_mcq_and_diagram(data):
                     else:
                         bloom_level = None
 
+                topic_summary = data.get('topic_summary')
+
                 if is_programming_question:
                     prompt = generate_programming_question_prompt(
                         topic, question_type, custom_prompt,
-                        difficulty_level=difficulty_level, bloom_level=bloom_level
+                        difficulty_level=difficulty_level, bloom_level=bloom_level,
+                        topic_summary=topic_summary
                     )
                 elif requires_diagram or requires_option_diagrams:
                     prompt = generate_diagram_question_prompt(
                         topic, subject, stream, question_type, requires_option_diagrams,
                         library_name, custom_prompt,
-                        difficulty_level=difficulty_level, bloom_level=bloom_level
+                        difficulty_level=difficulty_level, bloom_level=bloom_level,
+                        topic_summary=topic_summary
                     )
                 else:
                     prompt = generate_regular_question_prompt(
                         topic, subject, stream, question_type, custom_prompt,
-                        difficulty_level=difficulty_level, bloom_level=bloom_level
+                        difficulty_level=difficulty_level, bloom_level=bloom_level,
+                        topic_summary=topic_summary
                     )
                 
                 # Use hybrid model selection for question generation
@@ -930,7 +935,21 @@ def _prompt_level_block(difficulty_level=None, bloom_level=None):
     return "\n\n" + "\n\n".join(parts) + "\n"
 
 
-def generate_programming_question_prompt(topic, question_type, custom_prompt, difficulty_level=None, bloom_level=None):
+def _topic_scope_block(topic_summary=None):
+    """Optional topicSummary scope constraint for question generation prompts."""
+    if not topic_summary:
+        return ""
+    summary = str(topic_summary).strip()
+    if not summary:
+        return ""
+    return (
+        f"\nTOPIC SCOPE (use this as the source of truth for what this topic covers):\n"
+        f"{summary}\n\n"
+        f"Stay inside this scope. Do not introduce concepts that the summary does not cover.\n"
+    )
+
+
+def generate_programming_question_prompt(topic, question_type, custom_prompt, difficulty_level=None, bloom_level=None, topic_summary=None):
     """Generate a prompt for programming questions with code snippets"""
     
     import random
@@ -1117,7 +1136,7 @@ int main() {
     
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' focusing on programming concepts.
-
+{_topic_scope_block(topic_summary)}
 The question MUST include a code snippet in {language} and ask about its output, behavior, or analysis.{_prompt_level_block(difficulty_level, bloom_level)}
 
 IMPORTANT REQUIREMENTS FOR PROGRAMMING QUESTIONS:
@@ -1242,7 +1261,7 @@ def get_topic_specific_diagram_guidance(topic: str, subject: str) -> str:
 - Use colour purposefully: highlight the key element the question asks about"""
 
 
-def generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt, difficulty_level=None, bloom_level=None):
+def generate_diagram_question_prompt(topic, subject, stream, question_type, requires_option_diagrams, library_name, custom_prompt, difficulty_level=None, bloom_level=None, topic_summary=None):
     """Generate a prompt for diagram-based questions with enhanced visual diversity"""
     
     import random
@@ -1589,7 +1608,7 @@ Library: {library_name}"""
     
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
-{_prompt_level_block(difficulty_level, bloom_level)}
+{_topic_scope_block(topic_summary)}{_prompt_level_block(difficulty_level, bloom_level)}
 {diagram_instruction}
 {option_diagram_instructions}
 
@@ -1673,7 +1692,7 @@ CRITICAL: The diagram must be relevant to the question topic. For example:
     
     return prompt
 
-def generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt, difficulty_level=None, bloom_level=None):
+def generate_regular_question_prompt(topic, subject, stream, question_type, custom_prompt, difficulty_level=None, bloom_level=None, topic_summary=None):
     """Generate a prompt for regular questions without diagrams"""
     
     import random
@@ -1733,7 +1752,7 @@ def generate_regular_question_prompt(topic, subject, stream, question_type, cust
     
     prompt = f"""
 Generate a {question_type} question for the topic '{topic}' in the subject '{subject}' ({stream} stream).
-{_prompt_level_block(difficulty_level, bloom_level)}
+{_topic_scope_block(topic_summary)}{_prompt_level_block(difficulty_level, bloom_level)}
 IMPORTANT REQUIREMENTS FOR QUESTION DIVERSITY:
 1. Use this specific question format: "{selected_question_type}"
 2. {variation_instruction}

@@ -45,7 +45,7 @@ from services.db_service import (
     add_subject, update_subject, delete_subject, get_all_subjects,
     add_topic, update_topic, delete_topic, get_all_topics, get_topic_details
 )
-from services.net_backend_service import coerce_stream_id
+from services.net_backend_service import coerce_stream_id, extract_topic_summary
 from services.ai_explanation_service import ai_explanation_service
 from flask_cors import CORS
 from flasgger import Swagger
@@ -520,6 +520,7 @@ def generate():
     topic_id = data.get('topic_id')
     subject_name = None
     topic_name = None
+    topic_summary = None
     if subject_id:
         subjects = get_subjects()
         for subj in subjects:
@@ -572,6 +573,7 @@ def generate():
                 )
                 if topic_res.get('success'):
                     topic_name = topic_res.get('topic_name')
+                    topic_summary = extract_topic_summary(topic_res)
                     print(f"[OK] Dynamically fetched topic name from .NET backend: {topic_name}")
             except Exception as e:
                 print(f"[WARN] Failed to get topic name from .NET backend: {e}")
@@ -589,6 +591,8 @@ def generate():
             data_for_openai = data.copy()
             data_for_openai['subject'] = subject_for_prompt
             data_for_openai['topic'] = topic_for_prompt
+            if topic_summary:
+                data_for_openai['topic_summary'] = topic_summary
         
             # Call OpenAI to get question and diagram code with library selection
             result = generate_mcq_and_diagram(data_for_openai)
@@ -2131,6 +2135,9 @@ def generate_single_question(request_data, question_type, auth_token=None, diffi
                 topic_name = topic_result['topic_name']
                 print(f" Retrieved topic name: {topic_name} for topic_id: {topic_id}")
                 enhanced_request['topic'] = topic_name
+                topic_summary = extract_topic_summary(topic_result)
+                if topic_summary:
+                    enhanced_request['topic_summary'] = topic_summary
             else:
                 error_msg = topic_result.get('error', 'Unknown error')
                 print(f" ERROR: Could not retrieve topic name for topic_id: {topic_id}. Error: {error_msg}")
@@ -2507,6 +2514,8 @@ def generate_single_question_endpoint():
                 "error_message": f"Failed to retrieve topic name for topic_id {topic_id}. Cannot proceed with question generation.",
                 "data": None
             }), 400
+
+        topic_summary = extract_topic_summary(topic_result)
         
         # Map to our AI service format
         ai_request_data = {
@@ -2527,6 +2536,8 @@ def generate_single_question_endpoint():
             'is_aptitude': is_aptitude,
             'group_id': group_id
         }
+        if topic_summary:
+            ai_request_data['topic_summary'] = topic_summary
         
         # Generate question using existing AI logic
         from services.openai_service import generate_mcq_and_diagram
