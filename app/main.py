@@ -1696,16 +1696,15 @@ def analyze_topic():
             else:
                 print(f" Warning: Could not retrieve subject name for subject_id: {subject_id}, using fallback")
         
-        # Try to get stream name from local DB if still using fallback
+        # Try to get stream name from .NET backend if still using fallback
         if stream_id and stream_name.startswith('Stream '):
             try:
-                from services.db_service import get_stream_name_by_id
-                db_stream_name = get_stream_name_by_id(stream_id)
-                if db_stream_name:
-                    stream_name = db_stream_name
-                    print(f" Retrieved stream name from local DB: {stream_name}")
+                stream_result = net_backend_service.get_stream_by_id(stream_id, auth_token=token)
+                if stream_result.get('success') and stream_result.get('stream_name'):
+                    stream_name = stream_result['stream_name']
+                    print(f" Retrieved stream name from .NET backend: {stream_name}")
             except Exception as e:
-                print(f" Warning: Could not retrieve stream name from local DB: {e}")
+                print(f" Warning: Could not retrieve stream name from .NET backend: {e}")
         
         # Create topic info with real names
         topic_info = {
@@ -2159,9 +2158,9 @@ def generate_single_question(request_data, question_type, auth_token=None, diffi
     # Do this BEFORE logging final values
     if stream_id:
         try:
-            from services.db_service import get_stream_name_by_id
-            stream_name = get_stream_name_by_id(stream_id)
-            if stream_name:
+            stream_result = net_backend_service.get_stream_by_id(stream_id, auth_token=auth_token)
+            if stream_result.get('success') and stream_result.get('stream_name'):
+                stream_name = stream_result['stream_name']
                 enhanced_request['stream'] = stream_name
                 print(f" Retrieved stream name: {stream_name} for stream_id: {stream_id}")
         except Exception as e:
@@ -2516,6 +2515,13 @@ def generate_single_question_endpoint():
             }), 400
 
         topic_summary = extract_topic_summary(topic_result)
+
+        stream_name = None
+        if effective_stream_id:
+            stream_result = net_backend_service.get_stream_by_id(effective_stream_id, auth_token=token)
+            if stream_result.get('success') and stream_result.get('stream_name'):
+                stream_name = stream_result['stream_name']
+                safe_print(f" Retrieved stream name: {stream_name} for stream_id: {effective_stream_id}")
         
         # Map to our AI service format
         ai_request_data = {
@@ -2534,8 +2540,11 @@ def generate_single_question_endpoint():
             'is_programming_question': False,
             'num_questions': 1,
             'is_aptitude': is_aptitude,
-            'group_id': group_id
+            'group_id': group_id,
+            'auth_token': token
         }
+        if stream_name:
+            ai_request_data['stream'] = stream_name
         if topic_summary:
             ai_request_data['topic_summary'] = topic_summary
         

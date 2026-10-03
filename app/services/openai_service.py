@@ -251,15 +251,19 @@ def generate_mcq_and_diagram(data):
         stream = data.get('stream')
         subject = data.get('subject')
         
-        # If stream is not provided, try to get it from stream_id
+        # If stream is not provided, try to get it from stream_id via .NET API
         if not stream:
             stream_id = data.get('stream_id')
             if stream_id:
                 try:
-                    from .db_service import get_stream_name_by_id
-                    stream = get_stream_name_by_id(stream_id)
-                    if stream:
-                        safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
+                    from .net_backend_service import net_backend_service
+                    stream_result = net_backend_service.get_stream_by_id(
+                        stream_id,
+                        auth_token=data.get('auth_token') or data.get('token')
+                    )
+                    if stream_result.get('success') and stream_result.get('stream_name'):
+                        stream = stream_result['stream_name']
+                        safe_print(f" Debug: Retrieved stream from .NET backend: {stream} for stream_id: {stream_id}")
                     else:
                         stream = f'Stream {stream_id}'
                 except Exception as e:
@@ -2859,15 +2863,19 @@ def generate_cdq_complete(data):
         stream = data.get('stream')
         subject = data.get('subject')
         
-        # If stream is not provided, try to get it from stream_id
+        # If stream is not provided, try to get it from stream_id via .NET API
         if not stream:
             stream_id = data.get('stream_id')
             if stream_id:
                 try:
-                    from .db_service import get_stream_name_by_id
-                    stream = get_stream_name_by_id(stream_id)
-                    if stream:
-                        safe_print(f" Debug: Retrieved stream from DB: {stream} for stream_id: {stream_id}")
+                    from .net_backend_service import net_backend_service
+                    stream_result = net_backend_service.get_stream_by_id(
+                        stream_id,
+                        auth_token=data.get('auth_token') or data.get('token')
+                    )
+                    if stream_result.get('success') and stream_result.get('stream_name'):
+                        stream = stream_result['stream_name']
+                        safe_print(f" Debug: Retrieved stream from .NET backend: {stream} for stream_id: {stream_id}")
                     else:
                         stream = f'Stream {stream_id}'
                 except Exception as e:
