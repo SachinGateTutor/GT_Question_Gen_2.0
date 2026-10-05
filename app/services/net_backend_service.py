@@ -33,6 +33,24 @@ def _log_safe(value: object, max_len: int = 800) -> str:
     return s.encode("ascii", errors="backslashreplace").decode("ascii")
 
 
+def extract_topic_summary(topic_result: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Return a non-empty topicSummary from a get_topic_by_id result, else None."""
+    if not topic_result or not topic_result.get('success'):
+        return None
+    topic_data = topic_result.get('data') or {}
+    if not isinstance(topic_data, dict):
+        return None
+    summary = (
+        topic_data.get('topicSummary')
+        or topic_data.get('TopicSummary')
+        or topic_data.get('topic_summary')
+    )
+    if summary is None:
+        return None
+    summary_text = str(summary).strip()
+    return summary_text or None
+
+
 class NetBackendService:
     """Service to communicate with .NET backend API"""
     
@@ -800,6 +818,81 @@ class NetBackendService:
                 'success': False,
                 'error': str(e),
                 'topic_name': None
+            }
+
+    def get_stream_by_id(self, stream_id: int, auth_token: str = None) -> Dict[str, Any]:
+        """Get stream information by ID from .NET backend Stream endpoint"""
+        try:
+            routing_stream_id = coerce_stream_id(stream_id)
+            if routing_stream_id is None:
+                return {
+                    'success': False,
+                    'error': 'Invalid stream_id',
+                    'stream_name': None
+                }
+
+            headers = {}
+            if auth_token:
+                headers['Authorization'] = f'Bearer {auth_token}'
+
+            response = self.session.get(
+                f"{self.base_url}/api/Stream/{routing_stream_id}",
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                logger.warning(
+                    f"Failed to get stream {routing_stream_id}: {response.status_code} - {_log_safe(response.text)}"
+                )
+                return {
+                    'success': False,
+                    'error': f"HTTP {response.status_code}",
+                    'stream_name': None
+                }
+
+            response_data = response.json()
+            stream_data = response_data[0] if isinstance(response_data, list) and response_data else response_data
+            if not isinstance(stream_data, dict):
+                return {
+                    'success': False,
+                    'error': 'Invalid stream response format',
+                    'stream_name': None
+                }
+
+            stream_name = (
+                stream_data.get('streamName')
+                or stream_data.get('StreamName')
+                or stream_data.get('stream_name')
+            )
+            stream_id_from_response = (
+                stream_data.get('streamID')
+                or stream_data.get('streamId')
+                or stream_data.get('StreamID')
+                or stream_data.get('stream_id')
+            )
+
+            if not stream_name:
+                return {
+                    'success': False,
+                    'error': 'Missing streamName in response',
+                    'stream_name': None
+                }
+
+            logger.info(f"Retrieved stream name: {_log_safe(stream_name)} for stream_id: {routing_stream_id}")
+            return {
+                'success': True,
+                'stream_id': stream_id_from_response or routing_stream_id,
+                'stream_name': stream_name,
+                'data': stream_data
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting stream {stream_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'stream_name': None
             }
 
 # Global instance

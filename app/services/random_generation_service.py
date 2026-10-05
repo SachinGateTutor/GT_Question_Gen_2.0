@@ -156,15 +156,18 @@ class RandomGenerationService:
                 except Exception as e:
                     print(f" Warning: Error retrieving subject name: {e}")
             
-            # Get stream name from database using stream_id
+            # Get stream name from .NET backend using stream_id
             stream_id = enhanced_request.get('stream_id')
             if stream_id:
                 try:
-                    from .db_service import get_stream_name_by_id
-                    stream_name = get_stream_name_by_id(stream_id)
-                    if stream_name:
-                        enhanced_request['stream'] = stream_name
-                        print(f" Debug: Retrieved stream name: {stream_name} for stream_id: {stream_id}")
+                    from .net_backend_service import net_backend_service
+                    stream_result = net_backend_service.get_stream_by_id(
+                        stream_id,
+                        auth_token=enhanced_request.get('auth_token') or enhanced_request.get('token')
+                    )
+                    if stream_result.get('success') and stream_result.get('stream_name'):
+                        enhanced_request['stream'] = stream_result['stream_name']
+                        print(f" Debug: Retrieved stream name: {stream_result['stream_name']} for stream_id: {stream_id}")
                     else:
                         print(f" Warning: Could not find stream name for stream_id: {stream_id}")
                 except Exception as e:
