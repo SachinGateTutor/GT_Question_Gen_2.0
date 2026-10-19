@@ -553,7 +553,8 @@ def generate():
                     auth_token=token,
                     stream_id=coerce_stream_id(data.get('stream_id')),
                     is_aptitude=is_aptitude,
-                    group_id=group_id
+                    group_id=group_id,
+                    section_id=data.get('section_id', data.get('sectionId'))
                 )
                 if subject_res.get('success'):
                     subject_name = subject_res.get('subject_name')
@@ -569,7 +570,8 @@ def generate():
                     auth_token=token,
                     is_aptitude=is_aptitude,
                     group_id=group_id,
-                    stream_id=coerce_stream_id(data.get('stream_id'))
+                    stream_id=coerce_stream_id(data.get('stream_id')),
+                    section_id=data.get('section_id', data.get('sectionId'))
                 )
                 if topic_res.get('success'):
                     topic_name = topic_res.get('topic_name')
@@ -1632,7 +1634,8 @@ def analyze_topic():
                 auth_token=token,
                 is_aptitude=is_aptitude,
                 group_id=group_id,
-                stream_id=coerce_stream_id(stream_id)
+                stream_id=coerce_stream_id(stream_id),
+                section_id=data.get('section_id', data.get('sectionId'))
             )
             if topic_result.get('success') and topic_result.get('topic_name'):
                 topic_name = topic_result['topic_name']
@@ -1671,7 +1674,8 @@ def analyze_topic():
                 auth_token=token,
                 stream_id=stream_id,
                 is_aptitude=is_aptitude,
-                group_id=group_id
+                group_id=group_id,
+                section_id=data.get('section_id', data.get('sectionId'))
             )
             if subject_result.get('success') and subject_result.get('subject_name'):
                 subject_name = subject_result['subject_name']
@@ -2060,6 +2064,7 @@ def generate_single_question(request_data, question_type, auth_token=None, diffi
     subject_id = request_data.get('subject_id')
     topic_id = request_data.get('topic_id')
     stream_id = coerce_stream_id(request_data.get('stream_id'))
+    section_id = request_data.get('section_id', request_data.get('sectionId'))
     is_aptitude, group_id = get_request_flag_and_group(request_data)
     
     if not stream_id and auth_token:
@@ -2084,7 +2089,8 @@ def generate_single_question(request_data, question_type, auth_token=None, diffi
                 auth_token=auth_token,
                 stream_id=stream_id,
                 is_aptitude=is_aptitude,
-                group_id=group_id
+                group_id=group_id,
+                section_id=section_id
             )
             print(f" Debug: Subject fetch result for subject_id {subject_id}: {subject_result}")
             if subject_result.get('success') and subject_result.get('subject_name'):
@@ -2127,7 +2133,8 @@ def generate_single_question(request_data, question_type, auth_token=None, diffi
                 auth_token=auth_token,
                 is_aptitude=is_aptitude,
                 group_id=group_id,
-                stream_id=stream_id
+                stream_id=stream_id,
+                section_id=section_id
             )
             print(f" Debug: Topic fetch result for topic_id {topic_id}: {topic_result}")
             if topic_result.get('success') and topic_result.get('topic_name'):
@@ -2477,7 +2484,8 @@ def generate_single_question_endpoint():
             auth_token=token,
             stream_id=effective_stream_id,
             is_aptitude=is_aptitude,
-            group_id=group_id
+            group_id=group_id,
+            section_id=section_id
         )
         if subject_result.get('success') and subject_result.get('subject_name'):
             subject_name = subject_result['subject_name']
@@ -2499,7 +2507,8 @@ def generate_single_question_endpoint():
             auth_token=token,
             is_aptitude=is_aptitude,
             group_id=group_id,
-            stream_id=effective_stream_id
+            stream_id=effective_stream_id,
+            section_id=section_id
         )
         if topic_result.get('success') and topic_result.get('topic_name'):
             topic_name = topic_result['topic_name']

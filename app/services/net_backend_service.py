@@ -16,13 +16,44 @@ logger = logging.getLogger(__name__)
 
 def coerce_stream_id(value: Any) -> Optional[int]:
     """Treat missing or non-positive stream IDs (including JWT 0) as unset."""
+    return _coerce_positive_id(value)
+
+
+def coerce_section_id(value: Any) -> Optional[int]:
+    """Treat missing or non-positive section IDs as unset."""
+    return _coerce_positive_id(value)
+
+
+def _coerce_positive_id(value: Any) -> Optional[int]:
     if value is None or value == '':
         return None
     try:
-        stream_id = int(value)
+        parsed = int(value)
     except (TypeError, ValueError):
         return None
-    return stream_id if stream_id > 0 else None
+    return parsed if parsed > 0 else None
+
+
+def _item_id(item: Any, keys) -> Optional[int]:
+    if not isinstance(item, dict):
+        return None
+    for key in keys:
+        if key in item:
+            parsed = _coerce_positive_id(item.get(key))
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def _records_from_response(payload: Any, wrapper_keys) -> Optional[list]:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in wrapper_keys:
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+    return None
 
 
 def _log_safe(value: object, max_len: int = 800) -> str:
@@ -493,7 +524,7 @@ class NetBackendService:
                 'error': str(e)
             }
     
-    def get_subject_by_id(self, subject_id: int, auth_token: str = None, stream_id: Optional[int] = None, is_aptitude: bool = False, group_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_subject_by_id(self, subject_id: int, auth_token: str = None, stream_id: Optional[int] = None, is_aptitude: bool = False, group_id: Optional[int] = None, section_id: Optional[int] = None) -> Dict[str, Any]:
         """Get subject information by ID from .NET backend unified endpoint"""
         try:
             if is_aptitude:
@@ -504,6 +535,10 @@ class NetBackendService:
                         'subject_name': None
                     }
                 return self.get_aptitude_subject_by_id(subject_id, group_id, auth_token=auth_token)
+
+            resolved_section_id = coerce_section_id(section_id)
+            if resolved_section_id is not None:
+                return self.get_section_subject_by_id(subject_id, resolved_section_id, auth_token=auth_token)
 
             headers = {}
             if auth_token:
@@ -581,6 +616,82 @@ class NetBackendService:
                 
         except Exception as e:
             logger.error(f"Error getting subject {subject_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'subject_name': None
+            }
+
+    def get_section_subject_by_id(self, subject_id: int, section_id: int, auth_token: str = None) -> Dict[str, Any]:
+        """Find one subject in the section subject list."""
+        try:
+            headers = {}
+            if auth_token:
+                headers['Authorization'] = f'Bearer {auth_token}'
+
+            response = self.session.get(
+                f"{self.base_url}/api/SubjectUnified/section/{int(section_id)}",
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                logger.warning(
+                    f"Failed section subjects lookup for section {section_id}: "
+                    f"{response.status_code} - {_log_safe(response.text)}"
+                )
+                return {
+                    'success': False,
+                    'error': f"HTTP {response.status_code}",
+                    'subject_name': None
+                }
+
+            subjects = _records_from_response(response.json(), ('subjects', 'data', 'items'))
+            if subjects is None:
+                return {
+                    'success': False,
+                    'error': 'Invalid section subjects response format',
+                    'subject_name': None
+                }
+
+            expected_id = _coerce_positive_id(subject_id)
+            subject_data = None
+            for item in subjects:
+                if _item_id(item, ('subjectId', 'SubjectID', 'subject_id')) == expected_id:
+                    subject_data = item
+                    break
+
+            if not subject_data:
+                return {
+                    'success': False,
+                    'error': f'Subject not found in section {section_id}',
+                    'subject_name': None
+                }
+
+            subject_name = (
+                subject_data.get('subjectName')
+                or subject_data.get('SubjectName')
+                or subject_data.get('subject_name')
+            )
+            if not subject_name:
+                return {
+                    'success': False,
+                    'error': 'Missing subjectName in section subject response',
+                    'subject_name': None
+                }
+
+            logger.info(
+                f"Retrieved subject name: {_log_safe(subject_name)} "
+                f"for subject_id: {subject_id} in section {section_id}"
+            )
+            return {
+                'success': True,
+                'subject_id': expected_id or subject_id,
+                'subject_name': subject_name,
+                'data': subject_data
+            }
+        except Exception as e:
+            logger.error(f"Error getting section subject {subject_id}: {str(e)}")
             return {
                 'success': False,
                 'error': str(e),
@@ -726,7 +837,83 @@ class NetBackendService:
                 'topic_name': None
             }
     
-    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None, is_aptitude: bool = False, group_id: Optional[int] = None, stream_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_section_topic_by_id(self, topic_id: int, subject_id: int, section_id: int, auth_token: str = None) -> Dict[str, Any]:
+        """Find one topic in the subject+section topic list."""
+        try:
+            headers = {}
+            if auth_token:
+                headers['Authorization'] = f'Bearer {auth_token}'
+
+            response = self.session.get(
+                f"{self.base_url}/api/TopicUnified/subject/{int(subject_id)}/section/{int(section_id)}",
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                logger.warning(
+                    f"Failed section topics lookup for subject {subject_id}, section {section_id}: "
+                    f"{response.status_code} - {_log_safe(response.text)}"
+                )
+                return {
+                    'success': False,
+                    'error': f"HTTP {response.status_code}",
+                    'topic_name': None
+                }
+
+            topics = _records_from_response(response.json(), ('topics', 'data', 'items'))
+            if topics is None:
+                return {
+                    'success': False,
+                    'error': 'Invalid section topics response format',
+                    'topic_name': None
+                }
+
+            expected_id = _coerce_positive_id(topic_id)
+            topic_data = None
+            for item in topics:
+                if _item_id(item, ('topicId', 'TopicID', 'topic_id')) == expected_id:
+                    topic_data = item
+                    break
+
+            if not topic_data:
+                return {
+                    'success': False,
+                    'error': f'Topic not found for subject {subject_id} in section {section_id}',
+                    'topic_name': None
+                }
+
+            topic_name = (
+                topic_data.get('topicName')
+                or topic_data.get('TopicName')
+                or topic_data.get('topic_name')
+            )
+            if not topic_name:
+                return {
+                    'success': False,
+                    'error': 'Missing topicName in section topic response',
+                    'topic_name': None
+                }
+
+            logger.info(
+                f"Retrieved topic name: {_log_safe(topic_name)} "
+                f"for topic_id: {topic_id}, subject_id: {subject_id}, section {section_id}"
+            )
+            return {
+                'success': True,
+                'topic_id': expected_id or topic_id,
+                'topic_name': topic_name,
+                'data': topic_data
+            }
+        except Exception as e:
+            logger.error(f"Error getting section topic {topic_id}: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'topic_name': None
+            }
+
+    def get_topic_by_id(self, topic_id: int, subject_id: int, auth_token: str = None, is_aptitude: bool = False, group_id: Optional[int] = None, stream_id: Optional[int] = None, section_id: Optional[int] = None) -> Dict[str, Any]:
         """Get topic information by ID from .NET backend unified endpoint"""
         try:
             if is_aptitude:
@@ -737,6 +924,15 @@ class NetBackendService:
                         'topic_name': None
                     }
                 return self.get_aptitude_topic_by_id(topic_id, subject_id, group_id, auth_token=auth_token)
+
+            resolved_section_id = coerce_section_id(section_id)
+            if resolved_section_id is not None:
+                return self.get_section_topic_by_id(
+                    topic_id,
+                    subject_id,
+                    resolved_section_id,
+                    auth_token=auth_token
+                )
 
             headers = {}
             if auth_token:
