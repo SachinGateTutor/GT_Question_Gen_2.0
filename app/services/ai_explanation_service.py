@@ -30,11 +30,11 @@ class AIExplanationService:
             
             # Generate AI response
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are PragyaAI, an expert tutor specializing in computer science and engineering education. Provide clear, step-by-step explanations that help students understand concepts deeply."
+                        "content": "You are PragyaAI, an expert tutor specializing in computer science and engineering education. Provide clear, step-by-step explanations that help students understand concepts deeply. Respond with a single JSON object and no markdown."
                     },
                     {
                         "role": "user",
@@ -42,7 +42,8 @@ class AIExplanationService:
                     }
                 ],
                 max_tokens=1500,
-                temperature=0.7
+                temperature=0.7,
+                response_format={"type": "json_object"}
             )
             
             # Parse and format the response
@@ -90,7 +91,7 @@ class AIExplanationService:
 
         **Correct Answer:** {correct_answer}
 
-        Please provide your explanation in the following JSON format:
+        Return only a JSON object in the following format, with no markdown fences:
         {{
             "step_by_step_solution": "Detailed step-by-step solution process",
             "why_correct": "Why the correct answer is right",
@@ -114,31 +115,62 @@ class AIExplanationService:
     def _format_ai_explanation(self, raw_response: str, question_data: Dict[str, Any]) -> Dict[str, Any]:
         """Format the AI response into structured sections"""
         
+        parsed = self._extract_json_object(raw_response)
+        if parsed is not None:
+            explanation_data = self._normalize_explanation(parsed)
+        else:
+            explanation_data = self._parse_text_response(raw_response or "")
+        
+        return {
+            "success": True,
+            "explanation": explanation_data,
+            "question_id": question_data.get('question_id'),
+            "generated_at": str(datetime.now()),
+            "ai_model": "PragyaAI (GPT-4o-mini)"
+        }
+
+    def _extract_json_object(self, raw_response: Optional[str]) -> Optional[Dict[str, Any]]:
+        """Parse a JSON object, including one wrapped in a markdown fence."""
+        text = (raw_response or "").strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip().startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+
+        start = text.find("{")
+        end = text.rfind("}")
+        if start == -1 or end <= start:
+            return None
+
         try:
-            # Try to parse JSON response
-            if raw_response.strip().startswith('{'):
-                explanation_data = json.loads(raw_response)
-            else:
-                # If not JSON, create structured format from text
-                explanation_data = self._parse_text_response(raw_response)
-            
-            return {
-                "success": True,
-                "explanation": explanation_data,
-                "question_id": question_data.get('question_id'),
-                "generated_at": str(datetime.now()),
-                "ai_model": "PragyaAI (GPT-4)"
-            }
-            
+            data = json.loads(text[start:end + 1])
         except json.JSONDecodeError:
-            # Fallback to text parsing
-            return {
-                "success": True,
-                "explanation": self._parse_text_response(raw_response),
-                "question_id": question_data.get('question_id'),
-                "generated_at": str(datetime.now()),
-                "ai_model": "PragyaAI (GPT-4)"
-            }
+            return None
+
+        if not isinstance(data, dict):
+            return None
+        return data
+
+    def _normalize_explanation(self, data: Dict[str, Any]) -> Dict[str, str]:
+        """Keep the seven explanation fields as plain strings."""
+        normalized = {}
+        for key in (
+            "step_by_step_solution",
+            "why_correct",
+            "why_incorrect",
+            "key_concepts",
+            "learning_tips",
+            "similar_problems",
+            "difficulty_analysis",
+        ):
+            value = data.get(key, "")
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value)
+            normalized[key] = str(value or "").strip()
+        return normalized
     
     def _parse_text_response(self, text: str) -> Dict[str, str]:
         """Parse text response into structured format"""
@@ -215,7 +247,7 @@ class AIExplanationService:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=10,
                 temperature=0.3
@@ -243,7 +275,7 @@ class AIExplanationService:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=500,
                 temperature=0.5
@@ -266,7 +298,7 @@ class AIExplanationService:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
                 temperature=0.7

@@ -37,8 +37,8 @@ def select_optimal_model(task_type, complexity_factors):
         str: Reason for selection
     """
     
-    # Default to GPT-3.5-turbo for cost efficiency
-    selected_model = "gpt-3.5-turbo"
+    # gpt-3.5-turbo was shut down; gpt-4o-mini is the model this key can still call.
+    selected_model = "gpt-4o-mini"
     reason = "Cost-effective default choice"
     
     # Complexity scoring system
@@ -146,9 +146,7 @@ def select_optimal_model(task_type, complexity_factors):
         complexity_score += 2
     
     # Decision Logic
-    # gpt-4o-mini is used for all question_generation tasks regardless of score
-    # to ensure factual accuracy. gpt-3.5-turbo is only kept for low-cost
-    # auxiliary tasks (library_selection, bloom_detection, retry_syntax).
+    # gpt-4o-mini is used for every task. gpt-4 and gpt-3.5-turbo are shut down.
     if task_type == 'question_generation' or task_type == 'cdq_generation' or task_type == 'topic_analysis':
         selected_model = "gpt-4o-mini"
         reason = f"Factual accuracy required (score: {complexity_score}) - using gpt-4o-mini"
@@ -159,10 +157,10 @@ def select_optimal_model(task_type, complexity_factors):
         selected_model = "gpt-4o-mini"
         reason = f"Medium-high complexity (score: {complexity_score}) - benefits from advanced model"
     elif complexity_score >= 4:
-        selected_model = "gpt-3.5-turbo"
+        selected_model = "gpt-4o-mini"
         reason = f"Medium complexity (score: {complexity_score}) - balanced approach"
     else:
-        selected_model = "gpt-3.5-turbo"
+        selected_model = "gpt-4o-mini"
         reason = f"Low complexity (score: {complexity_score}) - cost-effective choice"
     
     safe_print(f" Model Selection: {selected_model} - {reason}")
