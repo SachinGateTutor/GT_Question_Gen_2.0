@@ -52,17 +52,25 @@ class IntegratedImageHandler(FileSystemEventHandler):
             # Ensure destination directory exists
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Check if destination file exists
-            if dest_path.exists():
-                # Replace the existing file
+            # Skip when the renderer already moved this file into static/images.
+            if not source_path.exists():
+                return
+            try:
+                if source_path.resolve() == dest_path.resolve():
+                    return
+            except OSError:
+                return
+
+            incoming_path = dest_path.with_name(filename + ".incoming")
+            shutil.move(str(source_path), str(incoming_path))
+            replaced = dest_path.exists()
+            if replaced:
                 dest_path.unlink()
                 self.replaced_count += 1
                 logging.info(f" Replaced existing: {filename}")
             else:
                 logging.info(f" New file: {filename}")
-            
-            # Move the file
-            shutil.move(str(source_path), str(dest_path))
+            incoming_path.replace(dest_path)
             self.moved_count += 1
             logging.info(f" Moved: {filename} -> static/images/")
             

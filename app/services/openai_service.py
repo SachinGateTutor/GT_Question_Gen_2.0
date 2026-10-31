@@ -24,6 +24,30 @@ def get_openai_client():
         safe_print(f"Debug: OpenAI API key loaded (length {len(api_key)})")
     return openai.OpenAI(api_key=api_key)
 
+def _difficulty_band(complexity_factors):
+    """Map a difficulty id or name to easy, medium, or hard."""
+    raw = complexity_factors.get('difficulty_level_id')
+    if raw in (None, ''):
+        raw = complexity_factors.get('difficulty_level', 2)
+    if isinstance(raw, str):
+        name = raw.strip().lower()
+        if name in ('1', 'easy'):
+            return 'easy'
+        if name in ('3', 'hard'):
+            return 'hard'
+        if name in ('2', 'medium'):
+            return 'medium'
+        if name.isdigit():
+            raw = int(name)
+        else:
+            return 'medium'
+    try:
+        level_id = int(raw)
+    except (TypeError, ValueError):
+        return 'medium'
+    return {1: 'easy', 2: 'medium', 3: 'hard'}.get(level_id, 'medium')
+
+
 def select_optimal_model(task_type, complexity_factors):
     """
     Hybrid model selection based on task complexity and requirements
@@ -37,8 +61,8 @@ def select_optimal_model(task_type, complexity_factors):
         str: Reason for selection
     """
     
-    # gpt-3.5-turbo was shut down; gpt-4o-mini is the model this key can still call.
-    selected_model = "gpt-4o-mini"
+    # Default until task type and difficulty choose a model.
+    selected_model = "gpt-6-luna"
     reason = "Cost-effective default choice"
     
     # Complexity scoring system
@@ -126,10 +150,10 @@ def select_optimal_model(task_type, complexity_factors):
         bloom_level = 3  # Default to Apply level
     
     # Higher Bloom levels (4-6) are more complex
-    if bloom_level >= 4:
-        complexity_score += 2
-    elif bloom_level >= 5:
+    if bloom_level >= 5:
         complexity_score += 3
+    elif bloom_level >= 4:
+        complexity_score += 2
     
     # Factor 6: Custom Prompt Complexity
     custom_prompt = str(complexity_factors.get('custom_prompt', '') or '')
@@ -145,23 +169,40 @@ def select_optimal_model(task_type, complexity_factors):
     if num_questions > 5:
         complexity_score += 2
     
-    # Decision Logic
-    # gpt-4o-mini is used for every task. gpt-4 and gpt-3.5-turbo are shut down.
-    if task_type == 'question_generation' or task_type == 'cdq_generation' or task_type == 'topic_analysis':
-        selected_model = "gpt-4o-mini"
-        reason = f"Factual accuracy required (score: {complexity_score}) - using gpt-4o-mini"
-    elif complexity_score >= 8:
-        selected_model = "gpt-4o-mini"
-        reason = f"High complexity task (score: {complexity_score}) - requires advanced reasoning"
-    elif complexity_score >= 6:
-        selected_model = "gpt-4o-mini"
-        reason = f"Medium-high complexity (score: {complexity_score}) - benefits from advanced model"
-    elif complexity_score >= 4:
-        selected_model = "gpt-4o-mini"
-        reason = f"Medium complexity (score: {complexity_score}) - balanced approach"
+    # Short classification and repair jobs stay on the high-volume model.
+    # Student-facing generation follows difficulty, and diagram/code/CDQ work steps up.
+    cheap_tasks = {
+        'library_selection',
+        'bloom_detection',
+        'retry_syntax',
+        'code_correction',
+        'topic_analysis',
+    }
+    difficulty = _difficulty_band(complexity_factors)
+    heavier = (
+        task_type == 'cdq_generation'
+        or complexity_factors.get('requires_diagram')
+        or complexity_factors.get('requires_option_diagrams')
+        or complexity_factors.get('is_programming_question')
+    )
+    if task_type in cheap_tasks:
+        selected_model = "gpt-6-luna"
+        reason = f"Short task (score: {complexity_score}) - using gpt-6-luna"
+    elif heavier and difficulty == 'easy':
+        selected_model = "gpt-6.1-terra"
+        reason = f"Diagram, code, or passage at Easy (score: {complexity_score}) - using gpt-6.1-terra"
+    elif heavier:
+        selected_model = "gpt-6-sol"
+        reason = f"Diagram, code, or passage at {difficulty} (score: {complexity_score}) - using gpt-6-sol"
+    elif difficulty == 'hard':
+        selected_model = "gpt-6-sol"
+        reason = f"Hard question (score: {complexity_score}) - using gpt-6-sol"
+    elif difficulty == 'easy':
+        selected_model = "gpt-6-luna"
+        reason = f"Easy question (score: {complexity_score}) - using gpt-6-luna"
     else:
-        selected_model = "gpt-4o-mini"
-        reason = f"Low complexity (score: {complexity_score}) - cost-effective choice"
+        selected_model = "gpt-6.1-terra"
+        reason = f"Medium question (score: {complexity_score}) - using gpt-6.1-terra"
     
     safe_print(f" Model Selection: {selected_model} - {reason}")
     safe_print(f" Complexity Score: {complexity_score} (Task: {task_type}, Subject: {subject}, Topic: {topic})")
@@ -211,7 +252,8 @@ Reason: <brief reason why this library is best for this subject/topic>
     try:
         response = client.chat.completions.create(
             model=selected_model,
-            messages=[{"role": "user", "content": library_prompt}]
+            messages=[{"role": "user", "content": library_prompt}],
+            reasoning_effort="none"
         )
         content = response.choices[0].message.content
         
@@ -353,6 +395,8 @@ def generate_mcq_and_diagram(data):
                     'requires_option_diagrams': requires_option_diagrams,
                     'is_programming_question': is_programming_question,
                     'bloom_level_id': data.get('bloom_level_id', 3),
+                    'difficulty_level_id': data.get('difficulty_level_id'),
+                    'difficulty_level': difficulty_level,
                     'custom_prompt': custom_prompt,
                     'num_questions': data.get('num_questions', 1)
                 }
@@ -366,7 +410,8 @@ def generate_mcq_and_diagram(data):
                     model=selected_model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.3,
-                    max_tokens=2000
+                    max_completion_tokens=2000,
+                    reasoning_effort="none"
                 )
                 
                 safe_print(" Debug: Got response from OpenAI")
@@ -500,7 +545,8 @@ Generate ONLY the corrected diagram code without any explanation:
                                 model=retry_model,
                                 messages=[{"role": "user", "content": retry_prompt}],
                                 temperature=0.3,
-                                max_tokens=1000
+                                max_completion_tokens=1000,
+                                reasoning_effort="none"
                             )
                             
                             retry_code = retry_response.choices[0].message.content.strip()
@@ -2602,7 +2648,8 @@ Generate only the passage text without any additional formatting or explanations
         response = client.chat.completions.create(
             model=selected_model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=800
+            max_completion_tokens=800,
+            reasoning_effort="none"
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2675,7 +2722,8 @@ Generate exactly {num_questions} questions.
         response = client.chat.completions.create(
             model=selected_model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=1200
+            max_completion_tokens=1200,
+            reasoning_effort="none"
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -2771,7 +2819,8 @@ Respond with ONLY the number (1-6) corresponding to the Bloom level:
         response = client.chat.completions.create(
             model=selected_model,
             messages=[{"role": "user", "content": analysis_prompt}],
-            max_tokens=10
+            max_completion_tokens=10,
+            reasoning_effort="none"
         )
         content = response.choices[0].message.content.strip()
         
@@ -3077,7 +3126,8 @@ def ai_analyze_topic(topic_info, question_type):
             "model": selected_model,
             "messages": [{"role": "user", "content": analysis_prompt}],
             "temperature": 0.75,
-            "max_tokens": 500,
+            "max_completion_tokens": 500,
+            "reasoning_effort": "none",
         }
         try:
             create_kwargs["response_format"] = {"type": "json_object"}
@@ -3188,7 +3238,8 @@ def ai_correct_diagram_code(original_code, error_message, library_name, subject,
             model=selected_model,
             messages=[{"role": "user", "content": correction_prompt}],
             temperature=0.2,  # Low temperature for precise corrections
-            max_tokens=1500
+            max_completion_tokens=1500,
+            reasoning_effort="none"
         )
         
         corrected_code = response.choices[0].message.content.strip()
@@ -3233,6 +3284,7 @@ def generate_replacement_question(subject, topic, difficulty_level, bloom_level,
             'topic': topic,
             'requires_diagram': requires_diagram,
             'bloom_level_id': bloom_level,
+            'difficulty_level': difficulty_level,
             'replacement_generation': True
         }
         selected_model, model_reason = select_optimal_model('question_generation', complexity_factors)
@@ -3291,7 +3343,8 @@ Explanation: [Detailed explanation]
             model=selected_model,
             messages=[{"role": "user", "content": replacement_prompt}],
             temperature=0.7,
-            max_tokens=2000
+            max_completion_tokens=2000,
+            reasoning_effort="none"
         )
         
         response_text = response.choices[0].message.content.strip()

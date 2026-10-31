@@ -7,7 +7,7 @@ Handles AI-powered question explanations using OpenAI
 import openai
 import json
 from typing import Dict, Any, Optional
-from .openai_service import get_openai_client
+from .openai_service import get_openai_client, _difficulty_band
 from datetime import datetime
 
 class AIExplanationService:
@@ -28,9 +28,10 @@ class AIExplanationService:
             # Build the prompt based on question data
             prompt = self._build_explanation_prompt(question_data)
             
-            # Generate AI response
+            model_name, model_label = self._explanation_model(question_data)
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model_name,
+                reasoning_effort="none",
                 messages=[
                     {
                         "role": "system",
@@ -41,14 +42,14 @@ class AIExplanationService:
                         "content": prompt
                     }
                 ],
-                max_tokens=1500,
+                max_completion_tokens=1500,
                 temperature=0.7,
                 response_format={"type": "json_object"}
             )
             
             # Parse and format the response
             raw_response = response.choices[0].message.content
-            return self._format_ai_explanation(raw_response, question_data)
+            return self._format_ai_explanation(raw_response, question_data, model_label)
             
         except Exception as e:
             print(f"Error generating AI explanation: {e}")
@@ -112,7 +113,17 @@ class AIExplanationService:
         
         return prompt
     
-    def _format_ai_explanation(self, raw_response: str, question_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _explanation_model(self, question_data: Dict[str, Any]):
+        """Easy and Medium explanations use Terra. Hard explanations use Sol."""
+        band = _difficulty_band({
+            'difficulty_level_id': question_data.get('difficulty_level_id'),
+            'difficulty_level': question_data.get('difficulty_level', 'Medium'),
+        })
+        if band == 'hard':
+            return "gpt-6-sol", "PragyaAI (GPT-6 Sol)"
+        return "gpt-6.1-terra", "PragyaAI (GPT-6.1 Terra)"
+
+    def _format_ai_explanation(self, raw_response: str, question_data: Dict[str, Any], model_label: str = "PragyaAI (GPT-6.1 Terra)") -> Dict[str, Any]:
         """Format the AI response into structured sections"""
         
         parsed = self._extract_json_object(raw_response)
@@ -126,7 +137,7 @@ class AIExplanationService:
             "explanation": explanation_data,
             "question_id": question_data.get('question_id'),
             "generated_at": str(datetime.now()),
-            "ai_model": "PragyaAI (GPT-4o-mini)"
+            "ai_model": model_label
         }
 
     def _extract_json_object(self, raw_response: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -247,9 +258,10 @@ class AIExplanationService:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-6-luna",
+                reasoning_effort="none",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=10,
+                max_completion_tokens=10,
                 temperature=0.3
             )
             
@@ -275,9 +287,10 @@ class AIExplanationService:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-6-luna",
+                reasoning_effort="none",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
+                max_completion_tokens=500,
                 temperature=0.5
             )
             
@@ -298,9 +311,10 @@ class AIExplanationService:
             """
             
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-6-luna",
+                reasoning_effort="none",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300,
+                max_completion_tokens=300,
                 temperature=0.7
             )
             
