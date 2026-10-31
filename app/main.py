@@ -323,20 +323,25 @@ def start_image_monitoring():
                     dest_path = images_dir / filename
                     
                     try:
-                        # Skip if file is already in destination
-                        if source_path.parent == images_dir:
+                        # The renderer may already have moved this file into static/images.
+                        if not source_path.exists() or source_path.parent == images_dir:
                             continue
-                            
-                        # Check if destination file exists
-                        if dest_path.exists():
-                            # Replace the existing file
+                        try:
+                            if source_path.resolve() == dest_path.resolve():
+                                continue
+                        except OSError:
+                            continue
+
+                        incoming_path = dest_path.with_name(filename + ".incoming")
+                        shutil.move(str(source_path), str(incoming_path))
+                        replaced = dest_path.exists()
+                        if replaced:
                             dest_path.unlink()
+                        incoming_path.replace(dest_path)
+                        if replaced:
                             print(f"[REPLACE] Replaced existing: {filename}")
                         else:
                             print(f"[NEW] New file: {filename}")
-                        
-                        # Move the file
-                        shutil.move(str(source_path), str(dest_path))
                         print(f"[OK] Moved: {filename} -> static/images/")
                         
                     except Exception as e:
