@@ -73,8 +73,8 @@ ELEMENT_MAPPINGS = {
     'Rect': 'elm.Rect',
     'RECT': 'elm.Rect',
     
-    'Circle': 'elm.Circle',
-    'CIRCLE': 'elm.Circle',
+    'Circle': 'elm.Dot',
+    'CIRCLE': 'elm.Dot',
     
     'Line': 'elm.Line',
     'LINE': 'elm.Line',
@@ -115,10 +115,9 @@ ELEMENT_MAPPINGS = {
     'TEXT': 'elm.Label',
 }
 
-# Invalid methods/attributes that should be removed
+# Old aliases only. .at(), .to(), .up(), .down(), .left(), and .right() are real Schemdraw calls.
 INVALID_METHODS = [
-    'at', 'to', 'length', 'anchor', 'endstyle', 'right', 'left', 'up', 'down',
-    'tox', 'toy', 'd', 'l', 'xy', 'center', 'end', 'start', 'N', 'E', 'S', 'W',
+    'endstyle', 'd', 'l', 'xy', 'center', 'end', 'start', 'N', 'E', 'S', 'W',
     'lftlabel', 'botlabel', 'toplabel', 'rgtlabel'
 ]
 
@@ -158,8 +157,10 @@ def validate_element_exists(element_name):
 def render(code: str, output_path: str):
     """Render schemdraw diagram with enhanced AI-powered self-healing"""
     
-    # Apply schemdraw-specific fixes
-    code = apply_schemdraw_fixes(code, output_path)
+    # Apply schemdraw-specific fixes. Keep this source for retries so a
+    # failed clean cannot be fed back into the cleaner.
+    original_source = apply_schemdraw_fixes(code, output_path)
+    code = original_source
         
     # AI-powered self-healing execution with retry mechanism
     max_retries = 3  # Increased retries for better success rate
@@ -217,18 +218,18 @@ def render(code: str, output_path: str):
                 if attempt == 0:
                     try:
                         # Extract context from code comments or use defaults
-                        subject = extract_context_from_code(code, "Subject", "Electronics")
-                        topic = extract_context_from_code(code, "Topic", "Circuit Diagram")
+                        subject = extract_context_from_code(original_source, "Subject", "Electronics")
+                        topic = extract_context_from_code(original_source, "Topic", "Circuit Diagram")
                         
                         corrected_code, correction_success = ai_correct_diagram_code(
-                            original_code=code,
+                            original_code=original_source,
                             error_message=error_message,
                             library_name="schemdraw",
                             subject=subject,
                             topic=topic
                         )
                         
-                        if correction_success and corrected_code != code:
+                        if correction_success and corrected_code != original_source:
                             print(f" AI provided corrected schemdraw code")
                             code = apply_schemdraw_fixes(corrected_code, output_path)
                             continue
@@ -238,9 +239,11 @@ def render(code: str, output_path: str):
                     except Exception as ai_error:
                         print(f" AI correction failed: {ai_error}")
                 
-                # Progressive fallback fixes
+                # Progressive fallback fixes start from the original source,
+                # not from text a previous clean already rewrote.
                 print(f" Applying progressive schemdraw fixes (level {attempt + 1})...")
                 try:
+                    code = original_source
                     if attempt == 1:
                         # More aggressive element fixing
                         code = fix_elements_with_fallbacks(code)
@@ -248,7 +251,7 @@ def render(code: str, output_path: str):
                         # Simplify to basic elements only
                         code = simplify_to_basic_elements(code)
                     
-                    # Always apply basic syntax fixes
+                    # Assignment and colon fixes only. Parentheses are left intact.
                     code = fix_common_syntax_errors(code)
                     continue
                     
@@ -310,11 +313,21 @@ def apply_schemdraw_fixes(code, output_path):
     
     return code
 
+def _schemdraw_compiles(code: str) -> bool:
+    try:
+        compile(code, "<schemdraw>", "exec")
+        return True
+    except SyntaxError:
+        return False
+
 def clean_schemdraw_code(code: str, attempt: int = 0) -> str:
     """Clean and fix schemdraw code with progressive enhancement based on attempt number"""
     
-    # Basic cleaning (always applied)
+    # Safe renames only. A script that already compiles is executed as-is.
     code = apply_basic_cleaning(code)
+    code = ensure_proper_structure(code)
+    if _schemdraw_compiles(code):
+        return code
     
     # Progressive enhancement based on attempt
     if attempt >= 1:
@@ -323,11 +336,32 @@ def clean_schemdraw_code(code: str, attempt: int = 0) -> str:
     if attempt >= 2:
         code = apply_extreme_simplification(code)
     
-    # Always apply final syntax fixes
     code = fix_common_syntax_errors(code)
     code = ensure_proper_structure(code)
     
     return code
+
+def _strip_method_call(code: str, method: str) -> str:
+    """Remove .method(...) even when the arguments contain nested parentheses."""
+    needle = f'.{method}('
+    pieces = []
+    start = 0
+    while True:
+        found = code.find(needle, start)
+        if found == -1:
+            pieces.append(code[start:])
+            break
+        pieces.append(code[start:found])
+        index = found + len(needle)
+        depth = 1
+        while index < len(code) and depth:
+            if code[index] == '(':
+                depth += 1
+            elif code[index] == ')':
+                depth -= 1
+            index += 1
+        start = index
+    return ''.join(pieces)
 
 def apply_basic_cleaning(code: str) -> str:
     """Apply basic code cleaning and fixes"""
@@ -345,6 +379,8 @@ def apply_basic_cleaning(code: str) -> str:
     # Standardize element access
     code = re.sub(r'\belements\.', 'elm.', code)
     code = re.sub(r'\be\.', 'elm.', code)
+    code = re.sub(r'\.fillcolor\s*\(', '.fill(', code)
+    code = re.sub(r'\belm\.Circle\b', 'elm.Dot', code)
     
     # Fix Drawing instantiation
     code = re.sub(r'schem\.Drawing\(\)', 'schemdraw.Drawing()', code)
@@ -355,9 +391,9 @@ def apply_basic_cleaning(code: str) -> str:
     # Remove variable assignments with d += (they're invalid in schemdraw)
     code = re.sub(r'\w+\s*=\s*d\s*\+=', 'd +=', code)
     
-    # Remove invalid method calls
+    # Remove invalid method calls, including ones whose arguments contain parentheses
     for method in INVALID_METHODS:
-        code = re.sub(rf'\.{method}\([^)]*\)', '', code)
+        code = _strip_method_call(code, method)
         code = re.sub(rf'\.{method}\b', '', code)
     
     # Fix save calls - remove fmt parameter which isn't supported
@@ -382,8 +418,8 @@ def apply_aggressive_element_mapping(code: str) -> str:
         
         for pattern in patterns:
             if validate_element_exists(new_name):
-                code = code.replace(f'{pattern}()', f'{new_name}()')
-                code = code.replace(f'{pattern}', f'{new_name}')
+                # Match the whole element name so elm.R does not rewrite elm.Rect.
+                code = re.sub(rf'{re.escape(pattern)}\b', new_name, code)
     
     return code
 
@@ -455,7 +491,8 @@ def simplify_to_basic_elements(code: str) -> str:
         # Fix invalid elements that got created
         r'elm\.Resistorect\(\)': 'elm.Rect()',
         r'elm\.Inductorine\(\)': 'elm.Line()',
-        r'elm\.(\w*ect|\w*ine)\(\)': 'elm.Rect()',  # Catch malformed element names
+        r'elm\.Inductorabel\(\)': 'elm.Label()',
+        r'elm\.Capacitorircle\(\)': 'elm.Dot()',
     }
     
     for pattern, replacement in simplifications.items():
@@ -485,29 +522,7 @@ def fix_common_syntax_errors(code: str) -> str:
     for pattern, replacement in colon_patterns:
         code = re.sub(pattern, replacement, code, flags=re.MULTILINE)
     
-    # Fix unbalanced parentheses more carefully
-    lines = code.split('\n')
-    fixed_lines = []
-    
-    for line in lines:
-        if line.strip():
-            open_count = line.count('(')
-            close_count = line.count(')')
-            
-            if open_count > close_count:
-                # Only add closing parens if line looks like a function call
-                if any(pattern in line for pattern in ['d +=', 'elm.', 'logic.']):
-                    line += ')' * (open_count - close_count)
-            elif close_count > open_count:
-                # Remove extra closing parens from the end
-                diff = close_count - open_count
-                for _ in range(diff):
-                    if line.rstrip().endswith(')'):
-                        line = line.rstrip()[:-1] + line[len(line.rstrip()):]
-        
-        fixed_lines.append(line)
-    
-    return '\n'.join(fixed_lines)
+    return code
 
 def ensure_proper_structure(code: str) -> str:
     """Ensure code has proper structure with necessary imports and setup"""
