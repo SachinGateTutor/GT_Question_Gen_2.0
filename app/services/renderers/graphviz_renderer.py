@@ -215,9 +215,9 @@ def apply_graphviz_fixes(code, output_path):
     code = code.replace('from io import BytesIO', '')
     
     # Fix buffer references - use proper filename only
-    filename = os.path.basename(output_path)
-    code = code.replace('buffer', f"'{filename}'")
-    code = code.replace('dot.render(buffer', f'dot.render("{filename}"')
+    filename = os.path.splitext(os.path.basename(output_path))[0]
+    code = re.sub(r'^[ \t]*buffer\s*=\s*(?:io\.)?BytesIO\(\)\s*\n?', '', code, flags=re.M)
+    code = re.sub(r'\bbuffer\b', f'"{filename}"', code)
     
     # Fix hardcoded PNG filenames in dot.render() calls
     code = re.sub(r'dot\.render\([\'"][^\'"]*.png[\'"]', f'dot.render("{filename}"', code)

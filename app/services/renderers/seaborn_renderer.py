@@ -27,8 +27,8 @@ def render(code: str, output_path: str):
         
         # Fix buffer references - use proper filename only, not full path
         filename = os.path.basename(output_path)
-        code = code.replace('buffer', f"'{filename}'")
-        code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
+        code = re.sub(r'^[ \t]*buffer\s*=\s*(?:io\.)?BytesIO\(\)\s*\n?', '', code, flags=re.M)
+        code = re.sub(r'\bbuffer\b', f'"{filename}"', code)
         
         # Fix hardcoded PNG filenames in plt.savefig() calls
         # Replace any hardcoded .png filename in plt.savefig() with our proper filename
@@ -219,8 +219,8 @@ def apply_seaborn_fixes(code, output_path):
     
     # Fix buffer references - use proper filename only, not full path
     filename = os.path.basename(output_path)
-    code = code.replace('buffer', f"'{filename}'")
-    code = code.replace('plt.savefig(buffer', f'plt.savefig("{filename}"')
+    code = re.sub(r'^[ \t]*buffer\s*=\s*(?:io\.)?BytesIO\(\)\s*\n?', '', code, flags=re.M)
+    code = re.sub(r'\bbuffer\b', f'"{filename}"', code)
     
     # Fix hardcoded PNG filenames in plt.savefig() calls
     # Replace any hardcoded .png filename in plt.savefig() with our proper filename

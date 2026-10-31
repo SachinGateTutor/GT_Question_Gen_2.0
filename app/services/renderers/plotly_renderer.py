@@ -112,8 +112,8 @@ def apply_plotly_fixes(code, output_path):
     
     # Fix buffer references - use proper filename only, not full path
     filename = os.path.basename(output_path)
-    code = code.replace('buffer', f"'{filename}'")
-    code = code.replace('pio.write_image(fig, buffer', f'pio.write_image(fig, "{filename}"')
+    code = re.sub(r'^[ \t]*buffer\s*=\s*(?:io\.)?BytesIO\(\)\s*\n?', '', code, flags=re.M)
+    code = re.sub(r'\bbuffer\b', f'"{filename}"', code)
     
     # Fix hardcoded PNG filenames in pio.write_image() calls
     code = re.sub(r'pio\.write_image\(fig, [\'"][^\'"]*.png[\'"]', f'pio.write_image(fig, "{filename}"', code)
